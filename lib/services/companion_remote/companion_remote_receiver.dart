@@ -43,6 +43,10 @@ class CompanionRemoteReceiver {
   VoidCallback? onAudioTracks;
   VoidCallback? onFullscreen;
 
+  /// Called with (serverId, ratingKey) when a peer asks this device to play a
+  /// specific library item. Both are the server's own identifiers.
+  void Function(String serverId, String ratingKey)? onPlayMedia;
+
   void handleCommand(RemoteCommand command, BuildContext? _) {
     appLogger.d('CompanionRemoteReceiver: Handling command: ${command.type}');
 
@@ -129,6 +133,16 @@ class CompanionRemoteReceiver {
           simulateKeyPress(LogicalKeyboardKey.keyF);
         }
 
+      case RemoteCommandType.playMedia:
+        final data = command.data;
+        final serverId = data?['serverId'] as String?;
+        final ratingKey = data?['ratingKey'] as String?;
+        if (serverId == null || serverId.isEmpty || ratingKey == null || ratingKey.isEmpty) {
+          appLogger.w('CompanionRemoteReceiver: playMedia needs both serverId and ratingKey');
+          break;
+        }
+        onPlayMedia?.call(serverId, ratingKey);
+
       case RemoteCommandType.ping:
       case RemoteCommandType.pong:
       case RemoteCommandType.ack:
@@ -151,7 +165,10 @@ bool _isViewerInput(RemoteCommandType type) => switch (type) {
   RemoteCommandType.ack ||
   RemoteCommandType.deviceInfo ||
   RemoteCommandType.disconnect ||
-  RemoteCommandType.syncState => false,
+  RemoteCommandType.syncState ||
+  // A peer naming an item to play says nothing about whether THIS device has
+  // a pointer, so it must not flip the host into keyboard mode.
+  RemoteCommandType.playMedia => false,
   RemoteCommandType.dpadUp ||
   RemoteCommandType.dpadDown ||
   RemoteCommandType.dpadLeft ||
