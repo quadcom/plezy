@@ -214,4 +214,70 @@ void main() {
     stalledNativeExit.complete({'response': 'exit'});
     await tester.pump();
   });
+
+  group('runBeforeExitHooks', () {
+    testWidgets('registered hooks run and are waited for', (tester) async {
+      final completer = Completer<void>();
+      var ran = false;
+      Future<void> hook() async {
+        await completer.future;
+        ran = true;
+      }
+
+      AppExitService.addBeforeExit(hook);
+      addTearDown(() => AppExitService.removeBeforeExit(hook));
+
+      var done = false;
+      final future = AppExitService.runBeforeExitHooks().then((_) => done = true);
+      await tester.pump();
+      expect(done, isFalse);
+      expect(ran, isFalse);
+
+      completer.complete();
+      await tester.pump();
+      await future;
+      expect(done, isTrue);
+      expect(ran, isTrue);
+    });
+
+    testWidgets('a hook that throws does not stop other hooks or propagate', (tester) async {
+      var otherRan = false;
+      Future<void> throwingHook() async => throw StateError('boom');
+      Future<void> otherHook() async => otherRan = true;
+
+      AppExitService.addBeforeExit(throwingHook);
+      AppExitService.addBeforeExit(otherHook);
+      addTearDown(() => AppExitService.removeBeforeExit(throwingHook));
+      addTearDown(() => AppExitService.removeBeforeExit(otherHook));
+
+      await AppExitService.runBeforeExitHooks();
+      expect(otherRan, isTrue);
+    });
+
+    testWidgets('a hook that never completes does not hold the wait past its deadline', (tester) async {
+      Future<void> stalledHook() => Completer<void>().future;
+      AppExitService.addBeforeExit(stalledHook);
+      addTearDown(() => AppExitService.removeBeforeExit(stalledHook));
+
+      var done = false;
+      final future = AppExitService.runBeforeExitHooks().then((_) => done = true);
+      await tester.pump();
+      expect(done, isFalse);
+
+      await tester.pump(const Duration(seconds: 2));
+      await future;
+      expect(done, isTrue);
+    });
+
+    testWidgets('a removed hook does not run', (tester) async {
+      var ran = false;
+      Future<void> hook() async => ran = true;
+
+      AppExitService.addBeforeExit(hook);
+      AppExitService.removeBeforeExit(hook);
+
+      await AppExitService.runBeforeExitHooks();
+      expect(ran, isFalse);
+    });
+  });
 }

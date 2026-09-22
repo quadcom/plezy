@@ -11,6 +11,7 @@ import 'package:plezy/models/companion_remote/remote_session.dart';
 import 'package:plezy/profiles/profile.dart';
 import 'package:plezy/profiles/profile_connection.dart';
 import 'package:plezy/providers/companion_remote_provider.dart';
+import 'package:plezy/services/app_exit_service.dart';
 import 'package:plezy/services/companion_remote/companion_remote_peer_service.dart';
 import 'package:plezy/services/companion_remote/lan_discovery_service.dart';
 import 'package:plezy/services/companion_remote/remote_auth_context.dart';
@@ -62,6 +63,23 @@ void main() {
       expect(harness.provider.hostServerAddresses, ['127.0.0.1:48634']);
 
       await harness.provider.stopHostServer();
+      expect(harness.provider.hostServerAddresses, isEmpty);
+    });
+
+    test('the host is released before an Android exit', () async {
+      final host = _FakeCompanionRemotePeerService();
+      final harness = await _RemoteHarness.create(
+        _FakePeerFactory([host]).call,
+        discoveryServiceFactory: _FakeLanDiscoveryService.new,
+      );
+      addTearDown(harness.close);
+
+      await harness.provider.startHostServer();
+      expect(harness.provider.isHostServerRunning, isTrue);
+
+      await AppExitService.runBeforeExitHooks();
+
+      expect(harness.provider.isHostServerRunning, isFalse);
       expect(harness.provider.hostServerAddresses, isEmpty);
     });
   });

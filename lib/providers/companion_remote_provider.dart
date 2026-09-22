@@ -13,6 +13,7 @@ import '../profiles/active_profile_provider.dart';
 import '../profiles/plex_home_service.dart';
 import '../profiles/profile.dart';
 import '../profiles/profile_connection_registry.dart';
+import '../services/app_exit_service.dart';
 import '../services/companion_remote/companion_remote_peer_service.dart';
 import '../services/companion_remote/lan_discovery_service.dart';
 import '../services/companion_remote/remote_auth_context.dart';
@@ -45,7 +46,14 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
 
   CompanionRemoteProvider._(this._peerServiceFactory, this._discoveryServiceFactory) {
     WidgetsBinding.instance.addObserver(this);
+    AppExitService.addBeforeExit(_releaseHostBeforeExit);
     _initializeDeviceInfo();
+  }
+
+  // The activity is about to finish while the process stays alive, so the
+  // listener must close now or it holds the port with nothing serving it.
+  Future<void> _releaseHostBeforeExit() async {
+    if (isHostServerRunning) await stopHostServer();
   }
 
   final CompanionRemotePeerServiceFactory _peerServiceFactory;
@@ -1179,6 +1187,7 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    AppExitService.removeBeforeExit(_releaseHostBeforeExit);
     _remoteGeneration++;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
