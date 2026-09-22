@@ -913,13 +913,21 @@ class _MainScreenState extends State<MainScreen>
     }
 
     final (serverId, ratingKey) = parsed;
+    await _playRequestedItem(serverId, ratingKey, source: 'System shelf');
+  }
+
+  /// Resolves an item by server and rating key and opens the player on it.
+  /// Shared by the launcher shelf deep link and the companion remote's
+  /// playMedia command, which ask for the same thing by different routes.
+  Future<void> _playRequestedItem(ServerId serverId, String ratingKey, {required String source}) async {
+    if (!mounted) return;
 
     try {
       final multiServer = context.read<MultiServerProvider>();
       final client = multiServer.getClientForServer(serverId);
 
       if (client == null) {
-        appLogger.w('System shelf: server $serverId not available');
+        appLogger.w('$source: server $serverId not available');
         return;
       }
 
@@ -929,7 +937,7 @@ class _MainScreenState extends State<MainScreen>
 
       unawaited(navigateToVideoPlayer(context, metadata: metadata));
     } catch (e) {
-      appLogger.e('System shelf: failed to navigate to media', error: e);
+      appLogger.e('$source: failed to navigate to media', error: e);
     }
   }
 
@@ -1038,6 +1046,9 @@ class _MainScreenState extends State<MainScreen>
         if (mounted) _sideNavKey.currentState?.focusHomeItem();
       });
     };
+    receiver.onPlayMedia = (serverId, ratingKey) {
+      unawaited(_playRequestedItem(ServerId(serverId), ratingKey, source: 'Companion remote'));
+    };
     receiver.onSearchAction = (query) {
       final trimmed = query?.trim() ?? '';
       final hasQuery = trimmed.isNotEmpty;
@@ -1101,6 +1112,7 @@ class _MainScreenState extends State<MainScreen>
         receiver.onTabSettings = null;
         receiver.onHome = null;
         receiver.onSearchAction = null;
+        receiver.onPlayMedia = null;
         receiver.navigationOwner = null;
       }
     }

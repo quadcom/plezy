@@ -52,6 +52,11 @@ enum RemoteCommandType {
   disconnect,
   ack,
   syncState,
+
+  /// Appended last on purpose. [RemoteCommand] serialises this enum by INDEX,
+  /// so a value inserted anywhere else renumbers every command after it and
+  /// mispairs with peers running an older build.
+  playMedia,
 }
 
 class _RemoteCommandTypeConverter extends IndexedEnumConverter<RemoteCommandType> {
