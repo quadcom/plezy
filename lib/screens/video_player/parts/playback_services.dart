@@ -114,6 +114,7 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
     // actually is (#1819). Re-attaching also drops a burst aimed at the
     // outgoing player's timeline.
     _relativeSkip.attachPlayheadJumps(currentPlayer.streams.playheadJump);
+    _companionRemote.attachPlayer(currentPlayer);
 
     _playerStreamSubscriptions.add(currentPlayer.streams.playing.listen(_onPlayingStateChanged));
 

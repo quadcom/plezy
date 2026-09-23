@@ -57,6 +57,10 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   String _deviceName = t.companionRemote.unknownDevice;
   String _platform = 'unknown';
   bool _isPlayerActive = false;
+  // The last syncState payload the local binding sent, replayed to a client
+  // right after it authenticates so it learns state without waiting for the
+  // next periodic tick. Becomes `{'playerActive': false}` on unbind.
+  Map<String, dynamic>? _lastSyncStatePayload;
   // Listen addresses of a running host server (`ip:port`), surfaced so the
   // host UI can show what a phone's manual connection should target.
   List<String> _hostServerAddresses = const [];
@@ -581,6 +585,9 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   @visibleForTesting
   bool get debugIsDiscoveryListening => _discoveryService?.isListening ?? false;
 
+  @visibleForTesting
+  Map<String, dynamic>? get debugLastSyncStatePayload => _lastSyncStatePayload;
+
   Future<void> startHostServer({void Function()? checkCurrent}) =>
       _serializeLifecycle(() => _startHostServerLocked(checkCurrent: checkCurrent));
 
@@ -885,6 +892,9 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
       if (!_ownsPeer(peer, generation)) return;
       appLogger.d('CompanionRemote: Device connected: ${device.name}');
       _session = _session?.copyWith(status: RemoteSessionStatus.connected, connectedDevice: device);
+      // Only the host side is admitting a new client here; a remote's own
+      // onDeviceConnected is its handshake with the host, not a peer to reply to.
+      if (isHost) _replayLastSyncState(peer);
       safeNotifyListeners();
     });
 
@@ -962,6 +972,15 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
     }
   }
 
+  /// Sends [peer] the local binding's last syncState payload, right after
+  /// [peer] admits a newly authenticated client, so it does not wait for the
+  /// next play/pause change or the 10s tick to learn the current state.
+  void _replayLastSyncState(CompanionRemotePeerService peer) {
+    final payload = _lastSyncStatePayload;
+    if (payload == null) return;
+    peer.sendCommand(RemoteCommand(type: RemoteCommandType.syncState, data: payload));
+  }
+
   void _cleanupSubscriptions() {
     _commandSubscription?.cancel();
     _commandSubscription = null;
@@ -976,6 +995,11 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   }
 
   void sendCommand(RemoteCommandType type, {Map<String, dynamic>? data}) {
+    // Kept regardless of connection state: a client that authenticates
+    // later still needs to learn the state the binding sent while nobody
+    // was connected to receive it.
+    if (type == RemoteCommandType.syncState) _lastSyncStatePayload = data;
+
     if (_peerService == null || !isConnected) {
       appLogger.w('CompanionRemote: Cannot send command - not connected');
       return;

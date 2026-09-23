@@ -64,6 +64,47 @@ void main() {
       await harness.provider.stopHostServer();
       expect(harness.provider.hostServerAddresses, isEmpty);
     });
+
+    test('a client is replayed the last syncState payload right after it authenticates', () async {
+      final host = _FakeCompanionRemotePeerService();
+      final harness = await _RemoteHarness.create(
+        _FakePeerFactory([host]).call,
+        discoveryServiceFactory: _FakeLanDiscoveryService.new,
+      );
+      addTearDown(harness.close);
+
+      await harness.provider.startHostServer();
+      final payload = {
+        'playerActive': true,
+        'playing': true,
+        'positionMs': 12000,
+        'durationMs': 600000,
+        'serverId': 'srv-1',
+        'itemId': 'item-1',
+        'sentAt': 1700000000000,
+      };
+      harness.provider.sendCommand(RemoteCommandType.syncState, data: payload);
+      expect(harness.provider.debugLastSyncStatePayload, payload);
+
+      host.emitDeviceConnected(RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()));
+
+      final replayed = host.sentCommands.where((c) => c.type == RemoteCommandType.syncState);
+      expect(replayed.last.data, payload);
+    });
+
+    test('no replay is sent when the binding never reported a syncState payload', () async {
+      final host = _FakeCompanionRemotePeerService();
+      final harness = await _RemoteHarness.create(
+        _FakePeerFactory([host]).call,
+        discoveryServiceFactory: _FakeLanDiscoveryService.new,
+      );
+      addTearDown(harness.close);
+
+      await harness.provider.startHostServer();
+      host.emitDeviceConnected(RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()));
+
+      expect(host.sentCommands.where((c) => c.type == RemoteCommandType.syncState), isEmpty);
+    });
   });
 
   group('CompanionRemoteProvider — dispose hygiene', () {
@@ -973,6 +1014,10 @@ class _FakeCompanionRemotePeerService extends CompanionRemotePeerService {
 
   void emitDeviceDisconnected() {
     if (!_streamsClosed) _disconnected.add(null);
+  }
+
+  void emitDeviceConnected(RemoteDevice device) {
+    if (!_streamsClosed) _connected.add(device);
   }
 
   void emitStatus(RemoteSessionStatus status) {
