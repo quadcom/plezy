@@ -21,6 +21,13 @@ import '../../utils/platform_detector.dart';
 /// screen's dispose. The player and volume controller are injected as
 /// late-bound getters because both are re-created across playback attempts,
 /// and volume/seek dispatch must bind to the player at command receipt.
+///
+/// Also reports now-playing status (`syncState`) to the provider: on bind,
+/// on every play/pause change, when the playhead jumps by more than
+/// [_seekJumpThreshold] (mpv has no clean completed-seek signal — a seek
+/// request lands on [Player.streams.playheadJump] before the backend has
+/// acted on it), and on a 10s timer while playing. [attachPlayer] re-wires
+/// the play/position subscriptions whenever the screen replaces its player.
 class CompanionRemoteBinding {
   CompanionRemoteBinding({
     required this._player,
@@ -39,6 +46,8 @@ class CompanionRemoteBinding {
     required this._onCycleAudio,
     required this._onHome,
     required this._readProvider,
+    required this._serverId,
+    required this._itemId,
   });
 
   final Player? Function() _player;
@@ -57,9 +66,20 @@ class CompanionRemoteBinding {
   final void Function() _onCycleAudio;
   final void Function() _onHome;
   final CompanionRemoteProvider Function() _readProvider;
+  final String? Function() _serverId;
+  final String Function() _itemId;
+
+  /// A position jump larger than this, between two consecutive
+  /// [PlayerStreams.position] ticks, is read as a landed seek.
+  static const Duration _seekJumpThreshold = Duration(seconds: 2);
 
   CompanionRemoteProvider? _provider;
   VoidCallback? _savedOnHome;
+  Player? _boundPlayer;
+  StreamSubscription<bool>? _playingSubscription;
+  StreamSubscription<Duration>? _positionSubscription;
+  Duration? _lastPosition;
+  Timer? _syncTimer;
 
   /// The MainScreen home callback saved while this screen overrides the
   /// receiver's home slot; the screen's home-button handler invokes it after
@@ -113,10 +133,57 @@ class CompanionRemoteBinding {
     // Store provider reference for use in dispose and notify remote
     try {
       _provider = _readProvider();
-      _provider!.sendCommand(RemoteCommandType.syncState, data: {'playerActive': true});
+      _sendSyncState();
     } catch (e) {
       appLogger.d('CompanionRemote provider unavailable', error: e);
     }
+
+    _syncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (_isMounted() && (_player()?.state.isActive ?? false)) _sendSyncState();
+    });
+  }
+
+  /// Re-wires the play/position subscriptions to [player]. Call whenever the
+  /// screen (re)creates its player, so a swap mid-session is not missed.
+  /// A no-op when [player] is already the one currently wired.
+  void attachPlayer(Player player) {
+    if (identical(_boundPlayer, player)) return;
+    _playingSubscription?.cancel();
+    _positionSubscription?.cancel();
+    _boundPlayer = player;
+    _lastPosition = null;
+    _playingSubscription = player.streams.playing.listen((_) => _sendSyncState());
+    _positionSubscription = player.streams.position.listen(_onPositionTick);
+  }
+
+  void _onPositionTick(Duration position) {
+    final last = _lastPosition;
+    _lastPosition = position;
+    if (last == null) return;
+    if ((position - last).abs() > _seekJumpThreshold) _sendSyncState();
+  }
+
+  void _sendSyncState() {
+    if (!_isMounted()) return;
+    _provider?.sendCommand(RemoteCommandType.syncState, data: _syncStatePayload());
+  }
+
+  /// `playerActive` alone when the current item has no server/item id to
+  /// report — never a made-up one.
+  Map<String, dynamic> _syncStatePayload() {
+    final data = <String, dynamic>{'playerActive': true};
+    final currentPlayer = _player();
+    final serverId = _serverId();
+    if (currentPlayer != null && serverId != null) {
+      final state = currentPlayer.state;
+      data['playing'] = state.isActive;
+      data['positionMs'] = currentPlayer.currentPosition.inMilliseconds;
+      data['durationMs'] = state.duration.inMilliseconds > 0 ? state.duration.inMilliseconds : 0;
+      data['serverId'] = serverId;
+      data['itemId'] = _itemId();
+      data['sentAt'] = DateTime.now().millisecondsSinceEpoch;
+    }
+    return data;
   }
 
   void _dispatchSeek({required bool forward}) {
@@ -152,6 +219,15 @@ class CompanionRemoteBinding {
   }
 
   void unbind() {
+    _playingSubscription?.cancel();
+    _playingSubscription = null;
+    _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _syncTimer?.cancel();
+    _syncTimer = null;
+    _boundPlayer = null;
+    _lastPosition = null;
+
     final receiver = CompanionRemoteReceiver.instance;
     if (!identical(receiver.playerOwner, this)) {
       _provider = null;

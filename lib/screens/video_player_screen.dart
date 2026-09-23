@@ -986,6 +986,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     onCycleAudio: () => _cycleAudioTrack(),
     onHome: () => _handleHomeButton(),
     readProvider: () => context.read<CompanionRemoteProvider>(),
+    serverId: () => _currentMetadata.serverId,
+    itemId: () => _currentMetadata.id,
   );
 
   /// Backend-neutral lookup. Returns whichever client (Plex or Jellyfin)
