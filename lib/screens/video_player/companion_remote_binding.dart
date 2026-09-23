@@ -29,6 +29,9 @@ class CompanionRemoteBinding {
     required this._volumeController,
     required this._hasNextItem,
     required this._onStop,
+    required this._onPlay,
+    required this._onPause,
+    required this._onTogglePlayPause,
     required this._onNavigateToNextItem,
     required this._onNavigateToPreviousItem,
     required this._skipByConfiguredStep,
@@ -44,6 +47,9 @@ class CompanionRemoteBinding {
   final VideoVolumeController? Function() _volumeController;
   final bool Function() _hasNextItem;
   final void Function() _onStop;
+  final void Function() _onPlay;
+  final void Function() _onPause;
+  final void Function() _onTogglePlayPause;
   final Future<void> Function() _onNavigateToNextItem;
   final Future<void> Function() _onNavigateToPreviousItem;
   final void Function({required bool forward}) _skipByConfiguredStep;
@@ -66,6 +72,17 @@ class CompanionRemoteBinding {
     receiver.playerOwner = this;
     receiver.onStop = () {
       if (_isMounted()) _onStop();
+    };
+    // Gated like the media-session router that shares these handlers, so a
+    // Watch Together guest's remote cannot drive playback.
+    receiver.onPlay = () {
+      if (_isMounted() && _canControlPlayback()) _onPlay();
+    };
+    receiver.onPause = () {
+      if (_isMounted() && _canControlPlayback()) _onPause();
+    };
+    receiver.onPlayPause = () {
+      if (_isMounted() && _canControlPlayback()) _onTogglePlayPause();
     };
     receiver.onNextTrack = () {
       if (_isMounted() && _hasNextItem()) unawaited(_onNavigateToNextItem());
@@ -141,6 +158,9 @@ class CompanionRemoteBinding {
       return;
     }
     receiver.onStop = null;
+    receiver.onPlay = null;
+    receiver.onPause = null;
+    receiver.onPlayPause = null;
     receiver.onNextTrack = null;
     receiver.onPreviousTrack = null;
     receiver.onSeekForward = null;

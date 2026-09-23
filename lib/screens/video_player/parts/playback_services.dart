@@ -620,40 +620,9 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       // gated `canControlPlayback` would make the router swallow `PauseEvent`.
       canControlPlayback: _canControlPlayback,
       canNavigateMediaItems: () => _canNavigateMediaItems() && automotivePlaybackAllowedNow(),
-      onPlay: () {
-        final currentPlayer = player;
-        if (currentPlayer == null) return;
-        unawaited(_mediaControls.seekBackForRewind(currentPlayer));
-        unawaited(_playWithPlaybackIntent(currentPlayer));
-        _wasPlayingBeforeInactive = false;
-        _announceTransportCommand(willPlay: true);
-        _mediaControls.pushPlaybackState();
-      },
-      onPause: () {
-        final currentPlayer = player;
-        if (currentPlayer == null) return;
-        if (_frameRate.suppressesMediaPause) {
-          appLogger.d('Media control: Pause event suppressed (frame rate switch in progress)');
-          return;
-        }
-        unawaited(_pauseWithPlaybackIntent(currentPlayer));
-        _announceTransportCommand(willPlay: false);
-        _mediaControls.pushPlaybackState();
-      },
-      onTogglePlayPause: () {
-        final currentPlayer = player;
-        if (currentPlayer == null) return;
-        if (currentPlayer.state.isActive) {
-          unawaited(_pauseWithPlaybackIntent(currentPlayer));
-          _announceTransportCommand(willPlay: false);
-        } else {
-          unawaited(_mediaControls.seekBackForRewind(currentPlayer));
-          unawaited(_playWithPlaybackIntent(currentPlayer));
-          _wasPlayingBeforeInactive = false;
-          _announceTransportCommand(willPlay: true);
-        }
-        _mediaControls.pushPlaybackState();
-      },
+      onPlay: _handleMediaControlPlay,
+      onPause: _handleMediaControlPause,
+      onTogglePlayPause: _handleMediaControlTogglePlayPause,
       onSeek: (position) {
         // A live stream has no absolute position to seek to: the session
         // never advertises SEEK_TO for one, and a stray event must not
@@ -681,6 +650,49 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         unawaited(_setPlaybackRate(speed));
       },
     );
+  }
+
+  /// Shared by the OS media-session router and the companion remote's `play`,
+  /// so a remote press and a media-key press run identical logic.
+  void _handleMediaControlPlay() {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    unawaited(_mediaControls.seekBackForRewind(currentPlayer));
+    unawaited(_playWithPlaybackIntent(currentPlayer));
+    _wasPlayingBeforeInactive = false;
+    _announceTransportCommand(willPlay: true);
+    _mediaControls.pushPlaybackState();
+  }
+
+  /// Shared by the OS media-session router and the companion remote's
+  /// `pause`, so a remote press and a media-key press run identical logic.
+  void _handleMediaControlPause() {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    if (_frameRate.suppressesMediaPause) {
+      appLogger.d('Media control: Pause event suppressed (frame rate switch in progress)');
+      return;
+    }
+    unawaited(_pauseWithPlaybackIntent(currentPlayer));
+    _announceTransportCommand(willPlay: false);
+    _mediaControls.pushPlaybackState();
+  }
+
+  /// Shared by the OS media-session router and the companion remote's
+  /// `playPause`, so a remote press and a media-key press run identical logic.
+  void _handleMediaControlTogglePlayPause() {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    if (currentPlayer.state.isActive) {
+      unawaited(_pauseWithPlaybackIntent(currentPlayer));
+      _announceTransportCommand(willPlay: false);
+    } else {
+      unawaited(_mediaControls.seekBackForRewind(currentPlayer));
+      unawaited(_playWithPlaybackIntent(currentPlayer));
+      _wasPlayingBeforeInactive = false;
+      _announceTransportCommand(willPlay: true);
+    }
+    _mediaControls.pushPlaybackState();
   }
 
   void _onPlayingStateChanged(bool isPlaying) {
