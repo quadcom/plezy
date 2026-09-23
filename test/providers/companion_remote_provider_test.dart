@@ -104,7 +104,9 @@ void main() {
       harness.provider.sendCommand(RemoteCommandType.syncState, data: payload);
       expect(harness.provider.debugLastSyncStatePayload, payload);
 
-      host.emitDeviceConnected(RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()));
+      host.emitDeviceConnected(
+        RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()),
+      );
 
       final replayed = host.sentCommands.where((c) => c.type == RemoteCommandType.syncState);
       expect(replayed.last.data, payload);
@@ -119,7 +121,9 @@ void main() {
       addTearDown(harness.close);
 
       await harness.provider.startHostServer();
-      host.emitDeviceConnected(RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()));
+      host.emitDeviceConnected(
+        RemoteDevice(id: 'phone-1', name: 'Phone', platform: 'android', connectedAt: DateTime.now()),
+      );
 
       expect(host.sentCommands.where((c) => c.type == RemoteCommandType.syncState), isEmpty);
     });

@@ -22,7 +22,12 @@ void main() {
       final player = _FakePlayer(position: const Duration(seconds: 12), duration: const Duration(minutes: 10));
       addTearDown(player.dispose);
 
-      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => 'item-1');
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+      );
       addTearDown(binding.unbind);
 
       binding.bind();
@@ -61,7 +66,12 @@ void main() {
       final player = _FakePlayer(position: Duration.zero, duration: const Duration(minutes: 10));
       addTearDown(player.dispose);
 
-      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => 'item-1');
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+      );
       addTearDown(binding.unbind);
 
       binding.bind();
@@ -80,7 +90,12 @@ void main() {
       final player = _FakePlayer(position: Duration.zero, duration: const Duration(minutes: 10));
       addTearDown(player.dispose);
 
-      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => 'item-1');
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+      );
       addTearDown(binding.unbind);
 
       binding.bind();
@@ -99,7 +114,12 @@ void main() {
       final player = _FakePlayer(position: const Duration(seconds: 10), duration: const Duration(minutes: 10));
       addTearDown(player.dispose);
 
-      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => 'item-1');
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+      );
       addTearDown(binding.unbind);
 
       binding.bind();
@@ -127,7 +147,12 @@ void main() {
       final player = _FakePlayer(position: const Duration(seconds: 5), duration: const Duration(minutes: 10));
       addTearDown(player.dispose);
 
-      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => 'item-1');
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+      );
 
       binding.bind();
       provider.sent.clear();
