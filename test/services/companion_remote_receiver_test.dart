@@ -58,4 +58,104 @@ void main() {
     expect(chromeController.controlsVisible, isFalse);
     expect(exits, 0);
   });
+
+  group('play/pause/playPause route to their own slot', () {
+    late FocusNode focusNode;
+    late List<KeyEvent> events;
+
+    setUp(() async {
+      focusNode = FocusNode();
+      events = [];
+    });
+
+    tearDown(() {
+      focusNode.dispose();
+      CompanionRemoteReceiver.instance.onPlay = null;
+      CompanionRemoteReceiver.instance.onPause = null;
+      CompanionRemoteReceiver.instance.onPlayPause = null;
+    });
+
+    Future<void> pumpFocusedCapture(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Focus(
+            focusNode: focusNode,
+            onKeyEvent: (_, event) {
+              events.add(event);
+              return KeyEventResult.handled;
+            },
+            child: const SizedBox.expand(),
+          ),
+        ),
+      );
+      focusNode.requestFocus();
+      await tester.pump();
+    }
+
+    testWidgets('play calls onPlay and does not simulate a key press', (tester) async {
+      await pumpFocusedCapture(tester);
+      var calls = 0;
+      CompanionRemoteReceiver.instance.onPlay = () => calls++;
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.play), null);
+      await tester.pump();
+
+      expect(calls, 1);
+      expect(events, isEmpty);
+    });
+
+    testWidgets('play falls back to a space key press when onPlay is unset', (tester) async {
+      await pumpFocusedCapture(tester);
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.play), null);
+      await tester.pump();
+
+      expect(events, hasLength(2));
+      expect(events.map((event) => event.logicalKey), everyElement(LogicalKeyboardKey.space));
+    });
+
+    testWidgets('pause calls onPause and does not simulate a key press', (tester) async {
+      await pumpFocusedCapture(tester);
+      var calls = 0;
+      CompanionRemoteReceiver.instance.onPause = () => calls++;
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.pause), null);
+      await tester.pump();
+
+      expect(calls, 1);
+      expect(events, isEmpty);
+    });
+
+    testWidgets('pause falls back to a space key press when onPause is unset', (tester) async {
+      await pumpFocusedCapture(tester);
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.pause), null);
+      await tester.pump();
+
+      expect(events, hasLength(2));
+      expect(events.map((event) => event.logicalKey), everyElement(LogicalKeyboardKey.space));
+    });
+
+    testWidgets('playPause calls onPlayPause and does not simulate a key press', (tester) async {
+      await pumpFocusedCapture(tester);
+      var calls = 0;
+      CompanionRemoteReceiver.instance.onPlayPause = () => calls++;
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.playPause), null);
+      await tester.pump();
+
+      expect(calls, 1);
+      expect(events, isEmpty);
+    });
+
+    testWidgets('playPause falls back to a space key press when onPlayPause is unset', (tester) async {
+      await pumpFocusedCapture(tester);
+
+      CompanionRemoteReceiver.instance.handleCommand(const RemoteCommand(type: RemoteCommandType.playPause), null);
+      await tester.pump();
+
+      expect(events, hasLength(2));
+      expect(events.map((event) => event.logicalKey), everyElement(LogicalKeyboardKey.space));
+    });
+  });
 }
