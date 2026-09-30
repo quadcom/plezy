@@ -18,7 +18,8 @@ import '../../widgets/settings_section.dart';
 import 'settings_utils.dart';
 
 /// App-level preferences that are not about looks or playback: language,
-/// what happens at startup, and desktop window behavior.
+/// what happens at startup, whether downloads are offered, and desktop window
+/// behavior.
 class GeneralSettingsScreen extends StatelessWidget {
   const GeneralSettingsScreen({super.key});
 
@@ -52,6 +53,20 @@ class GeneralSettingsScreen extends StatelessWidget {
               ),
           ],
         ),
+
+        // Apple TV never offers downloads, so there is nothing to switch off.
+        if (!PlatformDetector.isAppleTV())
+          SettingsGroup(
+            title: t.navigation.downloads,
+            children: [
+              SettingSwitchTile(
+                pref: SettingsService.enableDownloads,
+                icon: Symbols.download_rounded,
+                title: t.settings.enableDownloads,
+                subtitle: t.settings.enableDownloadsDescription,
+              ),
+            ],
+          ),
 
         if (PlatformDetector.isDesktopOS())
           SettingsGroup(

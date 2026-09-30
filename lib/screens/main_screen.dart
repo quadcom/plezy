@@ -58,6 +58,7 @@ import '../services/companion_remote/companion_remote_receiver.dart';
 import '../services/fullscreen_state_manager.dart';
 import '../providers/companion_remote_provider.dart';
 import '../utils/desktop_window_padding.dart';
+import '../utils/downloads_enabled.dart';
 import '../widgets/music/mini_player.dart';
 import '../widgets/navigation_label_fit.dart';
 import '../widgets/mobile_navigation_rail.dart';
@@ -401,9 +402,11 @@ class _MainScreenState extends State<MainScreen>
   MultiServerProvider? _multiServerProvider;
   CatalogSourcesProvider? _catalogSourcesProvider;
   ValueListenable<bool>? _showExploreTabListenable;
+  ValueListenable<bool>? _enableDownloadsListenable;
   RouteObserver<PageRoute<dynamic>>? _profileRouteObserver;
   bool _lastHasLiveTv = false;
   bool _lastHasExplore = false;
+  bool _lastHasDownloads = true;
 
   /// Whether a reconnection attempt is in progress
   bool _isReconnecting = false;
@@ -533,6 +536,10 @@ class _MainScreenState extends State<MainScreen>
     // mid-session; the catalog-sources listener covers source changes.
     _showExploreTabListenable = SettingsService.instanceOrNull?.listenable(SettingsService.showExploreTab);
     _showExploreTabListenable?.addListener(_handleCatalogSourcesChanged);
+    // Same for the downloads master switch in General settings.
+    _lastHasDownloads = downloadsEnabled();
+    _enableDownloadsListenable = SettingsService.instanceOrNull?.listenable(SettingsService.enableDownloads);
+    _enableDownloadsListenable?.addListener(_handleDownloadsSettingChanged);
     _currentTab = _defaultTabForMode(_isOffline);
     _lastOnlineTabId = _isOffline ? null : NavigationTabId.discover;
     _autoSwitchedToDownloads = _isOffline && _currentTab == NavigationTabId.downloads;
@@ -1086,6 +1093,7 @@ class _MainScreenState extends State<MainScreen>
     _multiServerProvider?.removeListener(_handleLiveTvChanged);
     _catalogSourcesProvider?.removeListener(_handleCatalogSourcesChanged);
     _showExploreTabListenable?.removeListener(_handleCatalogSourcesChanged);
+    _enableDownloadsListenable?.removeListener(_handleDownloadsSettingChanged);
     if (_bindingSettleListener != null) {
       _activeProfileForListener?.removeListener(_bindingSettleListener!);
     }
@@ -1262,6 +1270,7 @@ class _MainScreenState extends State<MainScreen>
     isOffline: isOffline,
     hasLiveTv: _hasLiveTv,
     hasExplore: _lastHasExplore,
+    hasDownloads: _lastHasDownloads,
     preferredStartup: SettingsService.instanceOrNull?.read(SettingsService.startupSection),
   );
 
@@ -1343,6 +1352,14 @@ class _MainScreenState extends State<MainScreen>
     final hasExplore = (_catalogSourcesProvider?.hasAnySource ?? false) && _showExploreTabSetting;
     if (hasExplore == _lastHasExplore) return;
     _lastHasExplore = hasExplore;
+
+    _handleTabAvailabilityChanged();
+  }
+
+  void _handleDownloadsSettingChanged() {
+    final hasDownloads = downloadsEnabled();
+    if (hasDownloads == _lastHasDownloads) return;
+    _lastHasDownloads = hasDownloads;
 
     _handleTabAvailabilityChanged();
   }
@@ -1919,7 +1936,12 @@ class _MainScreenState extends State<MainScreen>
   bool get _hasLiveTv => _lastHasLiveTv;
 
   List<NavigationTab> _getVisibleTabs(bool isOffline) {
-    return NavigationTab.getVisibleTabs(isOffline: isOffline, hasLiveTv: _hasLiveTv, hasExplore: _lastHasExplore);
+    return NavigationTab.getVisibleTabs(
+      isOffline: isOffline,
+      hasLiveTv: _hasLiveTv,
+      hasExplore: _lastHasExplore,
+      hasDownloads: _lastHasDownloads,
+    );
   }
 
   List<NavigationTab> _getBottomNavigationTabs(BuildContext context) {

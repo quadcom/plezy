@@ -22,7 +22,7 @@ import 'app_logger.dart';
 import 'content_utils.dart';
 import 'dialogs.dart';
 import 'download_version_utils.dart';
-import 'platform_detector.dart';
+import 'downloads_enabled.dart';
 import 'snackbar_helper.dart';
 import '../utils/error_message_utils.dart';
 
@@ -643,7 +643,7 @@ List<FocusableAction> buildSyncRuleActions(
   required bool showDownload,
   required VoidCallback onDownload,
 }) {
-  if (PlatformDetector.isAppleTV()) return const [];
+  if (!downloadsEnabled()) return const [];
   return [
     if (showDownload)
       FocusableAction(

@@ -9,6 +9,7 @@ import '../services/device_performance.dart';
 import '../services/fullscreen_state_manager.dart';
 import 'package:flutter/services.dart';
 import 'package:plezy/utils/platform_detector.dart';
+import 'package:plezy/utils/downloads_enabled.dart';
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:plezy/widgets/background_download_warning_banner.dart';
 import 'package:material_symbols_icons/symbols.dart';
