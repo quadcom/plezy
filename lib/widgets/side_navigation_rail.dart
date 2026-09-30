@@ -757,6 +757,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     return [
       if (widget.isOfflineMode && widget.onReconnect != null) _kReconnect,
       if (!widget.isOfflineMode) ...[
+        _kSearch,
         _kHome,
         if (hasNowPlaying) _kNowPlaying,
         _kLibraries,
@@ -772,7 +773,6 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         ],
         if (hasLiveTv) 'liveTv',
         if (hasExplore) _kExplore,
-        _kSearch,
       ],
       if (_showDownloads) _kDownloads,
       _kSettings,
@@ -1012,6 +1012,18 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                       const SizedBox(height: _itemGap),
                                     ],
                                     if (!widget.isOfflineMode) ...[
+                                      // Search leads the rail so a long, expanded
+                                      // Libraries list never pushes it out of view.
+                                      _buildNavItem(
+                                        icon: Symbols.search_rounded,
+                                        selectedIcon: Symbols.search_rounded,
+                                        label: Translations.of(context).common.search,
+                                        isSelected: widget.selectedTab == NavigationTabId.search,
+                                        onTap: () => widget.onDestinationSelected(NavigationTabId.search),
+                                        focusNode: _focusTracker.get(_kSearch),
+                                        isCollapsed: isCollapsed,
+                                      ),
+                                      const SizedBox(height: _itemGap),
                                       _buildNavItem(
                                         icon: Symbols.home_rounded,
                                         selectedIcon: Symbols.home_rounded,
@@ -1059,16 +1071,6 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                         ),
                                         const SizedBox(height: _itemGap),
                                       ],
-                                      _buildNavItem(
-                                        icon: Symbols.search_rounded,
-                                        selectedIcon: Symbols.search_rounded,
-                                        label: Translations.of(context).common.search,
-                                        isSelected: widget.selectedTab == NavigationTabId.search,
-                                        onTap: () => widget.onDestinationSelected(NavigationTabId.search),
-                                        focusNode: _focusTracker.get(_kSearch),
-                                        isCollapsed: isCollapsed,
-                                      ),
-                                      const SizedBox(height: _itemGap),
                                     ],
                                     // Downloads (hidden on Apple TV — no user
                                     // file storage)
