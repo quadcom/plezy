@@ -67,6 +67,11 @@ AnimatedOpacity _railSurfaceOpacity(WidgetTester tester) {
       .singleWhere((widget) => widget.child is AnimatedContainer);
 }
 
+/// The Home destination. Search sits above it, so Home is not the first item.
+Finder _homeItem() {
+  return find.ancestor(of: find.byIcon(Symbols.home_rounded), matching: find.byType(NavigationRailItem));
+}
+
 /// The Libraries header's expand/collapse chevron, matched by the symbol that
 /// only the given state renders.
 Finder _librariesChevron(IconData icon) {
@@ -191,7 +196,7 @@ void main() {
     final firstIconCenter = tester.getCenter(find.byType(AppIcon).first).dx;
     expect(firstIconCenter - tester.getTopLeft(rail).dx, closeTo(SideNavigationRailState.tvCollapsedWidth / 2, 0.1));
 
-    final selectedItem = find.byType(NavigationRailItem).first;
+    final selectedItem = _homeItem();
     final selectedItemContainer = tester.widget<Container>(
       find.descendant(of: selectedItem, matching: find.byType(Container)).first,
     );
@@ -219,7 +224,7 @@ void main() {
     // Collapsed destinations are icon-only; labels appear only expanded.
     expect(find.text('Home'), findsNothing);
 
-    final homeItem = find.byType(NavigationRailItem).first;
+    final homeItem = _homeItem();
     final pillFinder = find.descendant(of: homeItem, matching: find.byType(Container)).first;
     expect(
       tester.getSize(pillFinder),
@@ -239,7 +244,7 @@ void main() {
   testWidgets('expanded rail destination uses a full-width stadium indicator', (tester) async {
     await _pumpBasicRail(tester, alwaysExpanded: true);
 
-    final homeItem = find.byType(NavigationRailItem).first;
+    final homeItem = _homeItem();
     final indicator = find.descendant(of: homeItem, matching: find.byType(Container)).first;
     expect(tester.getSize(indicator), const Size(SideNavigationRailState.expandedWidth - 24, 48));
     expect(_railItemDecoration(tester, homeItem)?.borderRadius, BorderRadius.circular(MonoTokens.radiusFull));
@@ -295,7 +300,7 @@ void main() {
   testWidgets('expanded rail keeps selected background outside sidebar keyboard focus', (tester) async {
     await _pumpBasicRail(tester, alwaysExpanded: true);
 
-    final selectedItem = find.byType(NavigationRailItem).first;
+    final selectedItem = _homeItem();
     expect(_railItemDecoration(tester, selectedItem)?.color, testMonoTokens.text.withValues(alpha: 0.1));
   });
 
@@ -307,7 +312,7 @@ void main() {
     await tester.pumpAndSettle();
     await _press(tester, LogicalKeyboardKey.arrowDown);
 
-    final selectedItem = find.byType(NavigationRailItem).first;
+    final selectedItem = _homeItem();
     expect(_railItemDecoration(tester, selectedItem)?.color, isNull);
   });
 
@@ -436,12 +441,12 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Search. The Movies row is skipped while collapsed.
+    // Home -> Libraries -> Downloads. The Movies row is skipped while collapsed.
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.enter);
 
-    expect(selectedTab, NavigationTabId.search);
+    expect(selectedTab, NavigationTabId.downloads);
   });
 
   testWidgets('collapsed rail with expanded Libraries skips focus-excluded library rows', (tester) async {
@@ -499,13 +504,13 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Search. The Movies row stays out of D-pad order
+    // Home -> Libraries -> Downloads. The Movies row stays out of D-pad order
     // while the rail is collapsed, so DOWN lands on the next real row.
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.enter);
 
-    expect(selectedTab, NavigationTabId.search);
+    expect(selectedTab, NavigationTabId.downloads);
   });
 
   testWidgets('hover expands the rail as an overlay and collapses on exit', (tester) async {
@@ -721,13 +726,69 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Search -> Settings. Downloads is hidden on Apple TV.
-    await _press(tester, LogicalKeyboardKey.arrowDown);
+    // Home -> Libraries -> Settings. Downloads is hidden on Apple TV.
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.enter);
 
     expect(selectedTab, NavigationTabId.settings);
+  });
+
+  testWidgets('Search sits above Home at the top of the rail', (tester) async {
+    await SettingsService.getInstance();
+
+    final librariesProvider = LibrariesProvider();
+    addTearDown(librariesProvider.dispose);
+
+    final hiddenLibrariesProvider = HiddenLibrariesProvider();
+    await hiddenLibrariesProvider.ensureInitialized();
+    addTearDown(hiddenLibrariesProvider.dispose);
+
+    final manager = MultiServerManager();
+    final multiServerProvider = testMultiServerProvider(manager);
+    addTearDown(multiServerProvider.dispose);
+
+    final sideNavKey = GlobalKey<SideNavigationRailState>();
+    NavigationTabId? selectedTab;
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<LibrariesProvider>.value(value: librariesProvider),
+            ChangeNotifierProvider<HiddenLibrariesProvider>.value(value: hiddenLibrariesProvider),
+            ChangeNotifierProvider<MultiServerProvider>.value(value: multiServerProvider),
+          ],
+          child: MaterialApp(
+            theme: ThemeData(extensions: const [testMonoTokens]),
+            home: Scaffold(
+              body: SideNavigationRail(
+                key: sideNavKey,
+                selectedTab: NavigationTabId.discover,
+                isSidebarFocused: true,
+                alwaysExpanded: true,
+                onDestinationSelected: (tab) => selectedTab = tab,
+                onLibrarySelected: (_) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchTop = tester.getTopLeft(find.byIcon(Symbols.search_rounded)).dy;
+    final homeTop = tester.getTopLeft(find.byIcon(Symbols.home_rounded)).dy;
+    expect(searchTop, lessThan(homeTop));
+
+    sideNavKey.currentState!.focusActiveItem();
+    await tester.pumpAndSettle();
+
+    // UP from Home reaches Search, the first row.
+    await _press(tester, LogicalKeyboardKey.arrowUp);
+    await _press(tester, LogicalKeyboardKey.enter);
+
+    expect(selectedTab, NavigationTabId.search);
   });
 
   testWidgets('D-pad down from a hidden server header focuses that hidden server library', (tester) async {
