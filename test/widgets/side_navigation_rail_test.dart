@@ -872,6 +872,68 @@ void main() {
     expect(selectedLibraryKey, hiddenServerALibrary.globalKey);
   });
 
+  testWidgets('hidden libraries fold back up when the rail closes', (tester) async {
+    await SettingsService.getInstance();
+
+    final visibleLibrary = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
+    final hiddenLibrary = _library(id: '2', title: 'Old Movies', serverId: ServerId('server-a'), serverName: 'Server A');
+
+    final librariesProvider = LibrariesProvider();
+    await librariesProvider.updateLibraryOrder([visibleLibrary, hiddenLibrary]);
+    addTearDown(librariesProvider.dispose);
+
+    final hiddenLibrariesProvider = HiddenLibrariesProvider();
+    await hiddenLibrariesProvider.ensureInitialized();
+    await hiddenLibrariesProvider.hideLibrary(hiddenLibrary.globalKey);
+    addTearDown(hiddenLibrariesProvider.dispose);
+
+    final manager = MultiServerManager();
+    final multiServerProvider = testMultiServerProvider(manager);
+    addTearDown(multiServerProvider.dispose);
+
+    final sideNavKey = GlobalKey<SideNavigationRailState>();
+
+    Future<void> pumpRail({required bool isSidebarFocused}) async {
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MultiProvider(
+            providers: [
+              ChangeNotifierProvider<LibrariesProvider>.value(value: librariesProvider),
+              ChangeNotifierProvider<HiddenLibrariesProvider>.value(value: hiddenLibrariesProvider),
+              ChangeNotifierProvider<MultiServerProvider>.value(value: multiServerProvider),
+            ],
+            child: MaterialApp(
+              theme: ThemeData(extensions: const [testMonoTokens]),
+              home: Scaffold(
+                body: SideNavigationRail(
+                  key: sideNavKey,
+                  selectedTab: NavigationTabId.discover,
+                  isSidebarFocused: isSidebarFocused,
+                  onDestinationSelected: (_) {},
+                  onLibrarySelected: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    await pumpRail(isSidebarFocused: true);
+    await tester.tap(find.text('Hidden libraries (1)'));
+    await tester.pumpAndSettle();
+    expect(find.text('Old Movies'), findsOneWidget);
+
+    // D-pad right into the content closes the rail; coming back reopens it.
+    await pumpRail(isSidebarFocused: false);
+    await pumpRail(isSidebarFocused: true);
+
+    expect(find.text('Movies'), findsOneWidget);
+    expect(find.text('Hidden libraries (1)'), findsOneWidget);
+    expect(find.text('Old Movies'), findsNothing);
+  });
+
   testWidgets('rail item focus repaints locally without rebuilding its parent', (tester) async {
     final focusNode = FocusNode();
     addTearDown(focusNode.dispose);

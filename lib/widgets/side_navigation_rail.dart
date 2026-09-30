@@ -482,6 +482,10 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   bool _hiddenLibrariesExpanded = false;
   final Set<String> _collapsedServerGroupKeys = {};
 
+  /// [_shouldExpand] as of the previous build, so the build that closes the
+  /// rail can fold the hidden-libraries group back up.
+  bool _wasExpanded = false;
+
   // Unified focus state tracker for all nav items (main + libraries)
   late final FocusMemoryTracker _focusTracker;
 
@@ -853,6 +857,13 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
 
   @override
   Widget build(BuildContext context) {
+    // Fold the hidden-libraries group whenever the rail closes, however it
+    // closes (D-pad focus leaving, hover exit, touch dismiss), so the next
+    // visit opens on the visible libraries instead of a long list to scroll.
+    final shouldExpand = _shouldExpand;
+    if (_wasExpanded && !shouldExpand) _hiddenLibrariesExpanded = false;
+    _wasExpanded = shouldExpand;
+
     final t = tokens(context);
     final librariesProvider = context.watch<LibrariesProvider>();
     final hiddenLibrariesProvider = context.watch<HiddenLibrariesProvider>();
@@ -871,7 +882,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
       }
     }
 
-    final isCollapsed = !_shouldExpand;
+    final isCollapsed = !shouldExpand;
     final effectiveCollapsedWidth = collapsedWidthForContext(context);
     final horizontalPadding = horizontalPaddingForContext(context, isCollapsed: isCollapsed);
     final hasLiveTv = context.watch<MultiServerProvider>().hasLiveTv;
