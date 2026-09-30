@@ -45,12 +45,13 @@ class NavigationTab {
     required bool isOffline,
     bool hasLiveTv = false,
     bool hasExplore = false,
+    bool hasDownloads = true,
   }) {
     return allNavigationTabs.where((tab) {
       if (isOffline && tab.onlineOnly) return false;
       if (tab.id == NavigationTabId.liveTv && !hasLiveTv) return false;
       if (tab.id == NavigationTabId.explore && !hasExplore) return false;
-      if (tab.id == NavigationTabId.downloads && PlatformDetector.isAppleTV()) return false;
+      if (tab.id == NavigationTabId.downloads && (!hasDownloads || PlatformDetector.isAppleTV())) return false;
       return true;
     }).toList();
   }
@@ -64,9 +65,15 @@ class NavigationTab {
     required bool isOffline,
     required bool hasLiveTv,
     bool hasExplore = false,
+    bool hasDownloads = true,
     required NavigationTabId? preferredStartup,
   }) {
-    final tabs = getVisibleTabs(isOffline: isOffline, hasLiveTv: hasLiveTv, hasExplore: hasExplore);
+    final tabs = getVisibleTabs(
+      isOffline: isOffline,
+      hasLiveTv: hasLiveTv,
+      hasExplore: hasExplore,
+      hasDownloads: hasDownloads,
+    );
     if (isOffline && tabs.any((t) => t.id == NavigationTabId.downloads)) {
       return NavigationTabId.downloads;
     }

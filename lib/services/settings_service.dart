@@ -718,6 +718,11 @@ class SettingsService extends BaseSharedPreferencesService {
   /// at all. UI-only: catalog sources stay connected so watchlist surfaces
   /// keep working while the tab is hidden.
   static const showExploreTab = BoolPref('show_explore_tab', defaultValue: true);
+
+  /// Master switch for everything download-related: the Downloads tab, the
+  /// download buttons and menu entries, and the Downloads settings section.
+  /// Files already on the device are left alone.
+  static const enableDownloads = BoolPref('enable_downloads', defaultValue: true);
   static const alwaysKeepSidebarOpen = BoolPref('always_keep_sidebar_open');
 
   /// Sidebar Libraries section expansion. Persisted so a collapsed section
@@ -1339,6 +1344,7 @@ class SettingsService extends BaseSharedPreferencesService {
     useExoPlayer,
     startupSection,
     showExploreTab,
+    enableDownloads,
     alwaysKeepSidebarOpen,
     librariesSectionExpanded,
     showUnwatchedCount,

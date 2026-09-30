@@ -25,6 +25,7 @@ import '../services/settings_service.dart';
 import '../utils/music_navigation.dart';
 import '../utils/content_utils.dart';
 import '../utils/platform_detector.dart';
+import '../utils/downloads_enabled.dart';
 import '../utils/scroll_utils.dart';
 import '../utils/library_grouping.dart';
 import 'music/equalizer_icon.dart';
@@ -498,7 +499,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   /// focus-expanded — displaces content instead and stays transparent on TV.
   bool get _isFloatingPanel => _interactionExpanded && !widget.alwaysExpanded;
 
-  bool get _showDownloads => !PlatformDetector.isAppleTV();
+  bool get _showDownloads => downloadsEnabled();
 
   /// macOS has the system green button; mobile/TV have no OS fullscreen toggle.
   bool get _showFullscreenToggle => Platform.isWindows || Platform.isLinux;
@@ -885,7 +886,8 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     final musicService = context.watch<MusicPlaybackService?>();
     final nowPlayingTrack = widget.isOfflineMode || !PlatformDetector.isTV() ? null : musicService?.currentTrack;
 
-    // Listen to fullscreen + the groupLibrariesByServer / showExploreTab
+    // Listen to fullscreen + the groupLibrariesByServer / showExploreTab /
+    // enableDownloads
     // settings so the rail rebuilds when they are toggled in Appearance, and to
     // librariesSectionExpanded so the Libraries header toggle repaints.
     return ListenableBuilder(
@@ -893,6 +895,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         FullscreenStateManager(),
         SettingsService.instance.listenable(SettingsService.groupLibrariesByServer),
         SettingsService.instance.listenable(SettingsService.showExploreTab),
+        SettingsService.instance.listenable(SettingsService.enableDownloads),
         SettingsService.instance.listenable(SettingsService.librariesSectionExpanded),
       ]),
       builder: (context, _) {

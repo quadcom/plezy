@@ -21,7 +21,7 @@ import '../../utils/dialogs.dart';
 import '../../utils/formatters.dart';
 import '../../utils/media_image_helper.dart';
 import '../../utils/music_navigation.dart';
-import '../../utils/platform_detector.dart';
+import '../../utils/downloads_enabled.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_icon.dart';
@@ -200,7 +200,7 @@ class _AlbumDetailScreenState extends BaseMediaListDetailScreen<AlbumDetailScree
   /// states in compact form. Hidden on Apple TV (no user-accessible storage)
   /// and when no [DownloadProvider] is in scope.
   FocusableAction? _downloadAction() {
-    if (PlatformDetector.isAppleTV()) return null;
+    if (!downloadsEnabled()) return null;
     if (widget.album.serverId == null || context.read<DownloadProvider?>() == null) return null;
 
     return FocusableAction(

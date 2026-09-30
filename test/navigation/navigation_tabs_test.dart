@@ -76,5 +76,24 @@ void main() {
       final offline = NavigationTab.getVisibleTabs(isOffline: true, hasExplore: true);
       expect(offline.map((tab) => tab.id), isNot(contains(NavigationTabId.explore)));
     });
+
+    test('the downloads switch hides the Downloads tab online and offline', () {
+      expect(NavigationTab.getVisibleTabs(isOffline: false).map((tab) => tab.id), contains(NavigationTabId.downloads));
+
+      final online = NavigationTab.getVisibleTabs(isOffline: false, hasDownloads: false);
+      expect(online.map((tab) => tab.id), isNot(contains(NavigationTabId.downloads)));
+
+      final offline = NavigationTab.getVisibleTabs(isOffline: true, hasDownloads: false);
+      expect(offline.map((tab) => tab.id), [NavigationTabId.settings]);
+    });
+  });
+
+  group('NavigationTab.resolveDefaultTab with downloads off', () {
+    test('offline falls back to Settings instead of Downloads', () {
+      expect(
+        NavigationTab.resolveDefaultTab(isOffline: true, hasLiveTv: false, hasDownloads: false, preferredStartup: null),
+        NavigationTabId.settings,
+      );
+    });
   });
 }

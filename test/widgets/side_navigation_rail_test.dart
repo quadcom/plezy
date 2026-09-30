@@ -371,6 +371,19 @@ void main() {
     expect(find.widgetWithText(NavigationRailItem, 'Explore'), findsOneWidget);
   });
 
+  testWidgets('Downloads item follows the enableDownloads setting', (tester) async {
+    await _pumpBasicRail(tester, alwaysExpanded: true);
+    expect(find.widgetWithText(NavigationRailItem, 'Downloads'), findsOneWidget);
+
+    await SettingsService.instance.write(SettingsService.enableDownloads, false);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(NavigationRailItem, 'Downloads'), findsNothing);
+
+    await SettingsService.instance.write(SettingsService.enableDownloads, true);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(NavigationRailItem, 'Downloads'), findsOneWidget);
+  });
+
   testWidgets('collapsing the Libraries section survives a fresh rail', (tester) async {
     final movies = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
 

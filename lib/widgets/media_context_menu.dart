@@ -39,6 +39,7 @@ import '../utils/library_refresh_notifier.dart';
 import '../utils/media_navigation_helper.dart';
 import '../utils/music_navigation.dart';
 import '../utils/platform_detector.dart';
+import '../utils/downloads_enabled.dart';
 import '../utils/snackbar_helper.dart';
 import '../utils/dialogs.dart';
 import '../services/external_player_service.dart';
@@ -525,7 +526,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     return [
       _MenuAction(value: 'play', icon: Symbols.play_arrow_rounded, label: t.common.play),
       _MenuAction(value: 'shuffle', icon: Symbols.shuffle_rounded, label: t.mediaMenu.shufflePlay),
-      if ((isDownloadablePlaylist || menu.isCollection) && !PlatformDetector.isAppleTV())
+      if ((isDownloadablePlaylist || menu.isCollection) && downloadsEnabled())
         ..._syncDownloadMenuActions(
           hasSyncRule: Provider.of<DownloadProvider>(context, listen: false).hasSyncRule(_itemSyncRuleKey(context)),
           hasAnyDownload: false,
@@ -692,7 +693,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
     // one-tap download). Apple TV has no user-accessible file storage —
     // skip entirely.
     final canDownload =
-        !PlatformDetector.isAppleTV() &&
+        downloadsEnabled() &&
         (mediaItem.isVideoContent || mediaKind == MediaKind.album || mediaKind == MediaKind.track);
     final downloadProvider = canDownload ? Provider.of<DownloadProvider>(context, listen: false) : null;
     return [
