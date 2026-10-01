@@ -3205,6 +3205,12 @@ class Translations$libraries$en {
 	/// en: 'Library options'
 	String get libraryOptions => 'Library options';
 
+	/// en: 'List last in search'
+	String get listLastInSearch => 'List last in search';
+
+	/// en: 'List normally in search'
+	String get listNormallyInSearch => 'List normally in search';
+
 	/// en: 'library content'
 	String get content => 'library content';
 
@@ -8266,6 +8272,8 @@ extension on Translations {
 			'libraries.showLibrary' => 'Show library',
 			'libraries.hideLibrary' => 'Hide library',
 			'libraries.libraryOptions' => 'Library options',
+			'libraries.listLastInSearch' => 'List last in search',
+			'libraries.listNormallyInSearch' => 'List normally in search',
 			'libraries.content' => 'library content',
 			'libraries.selectLibrary' => 'Select library',
 			'libraries.filtersWithCount' => ({required Object count}) => 'Filters (${count})',
@@ -8764,10 +8772,10 @@ extension on Translations {
 			'watchTogether.currentPlayback' => 'Current Playback',
 			'watchTogether.joinCurrentPlayback' => 'Join Current Playback',
 			'watchTogether.joinCurrentPlaybackDescription' => 'Jump back into what the host is currently watching',
-			'watchTogether.failedToOpenCurrentPlayback' => 'Failed to open current playback',
-			'watchTogether.participantJoined' => ({required Object name}) => '${name} joined',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.failedToOpenCurrentPlayback' => 'Failed to open current playback',
+			'watchTogether.participantJoined' => ({required Object name}) => '${name} joined',
 			'watchTogether.participantLeft' => ({required Object name}) => '${name} left',
 			'watchTogether.participantPaused' => ({required Object name}) => '${name} paused',
 			'watchTogether.participantResumed' => ({required Object name}) => '${name} resumed',
@@ -9278,10 +9286,10 @@ extension on Translations {
 			'addServer.failedToRegisterAccount' => ({required Object error}) => 'Failed to register account: ${error}',
 			'addServer.enterMediaBrowserUrlError' => ({required Object product}) => 'Enter your ${product} server URL',
 			'addServer.addConnectionTitle' => 'Add connection',
-			'addServer.addConnectionTitleScoped' => ({required Object name}) => 'Add to ${name}',
-			'addServer.signInWithPlexCard' => 'Sign in with Plex',
 			_ => null,
 		} ?? switch (path) {
+			'addServer.addConnectionTitleScoped' => ({required Object name}) => 'Add to ${name}',
+			'addServer.signInWithPlexCard' => 'Sign in with Plex',
 			'addServer.signInWithPlexCardSubtitle' => 'Authorize this device. Shared servers are added.',
 			'addServer.signInWithPlexCardSubtitleScoped' => 'Authorize a Plex account. Home users become profiles.',
 			'addServer.connectToMediaBrowserCard' => ({required Object product}) => 'Connect to ${product}',

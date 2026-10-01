@@ -137,6 +137,31 @@ void main() {
       p.dispose();
     });
 
+    test('setLibrarySearchLast persists per profile, apart from hidden libraries', () async {
+      final storage = await StorageService.getInstance();
+      final owner = HiddenLibrariesProvider(storageService: storage, profileId: 'owner');
+      final kids = HiddenLibrariesProvider(storageService: storage, profileId: 'kids');
+      await owner.ensureInitialized();
+      await kids.ensureInitialized();
+
+      var notified = 0;
+      owner.addListener(() => notified++);
+      await owner.setLibrarySearchLast('srv:soon', true);
+      await owner.setLibrarySearchLast('srv:soon', true);
+
+      expect(owner.searchLastLibraryKeys, {'srv:soon'});
+      expect(owner.hiddenLibraryKeys, isEmpty);
+      expect(notified, 1);
+      expect(storage.getSearchLastLibrariesForProfile('owner'), {'srv:soon'});
+      expect(storage.getSearchLastLibrariesForProfile('kids'), isEmpty);
+
+      await owner.setLibrarySearchLast('srv:soon', false);
+      expect(storage.getSearchLastLibrariesForProfile('owner'), isEmpty);
+
+      owner.dispose();
+      kids.dispose();
+    });
+
     test('safeNotifyListeners no-ops after dispose', () async {
       final p = HiddenLibrariesProvider();
       await p.ensureInitialized();

@@ -1120,6 +1120,8 @@
     "showLibrary": "Show library",
     "hideLibrary": "Hide library",
     "libraryOptions": "Library options",
+    "listLastInSearch": "List last in search",
+    "listNormallyInSearch": "List normally in search",
     "content": "library content",
     "selectLibrary": "Select library",
     "filtersWithCount": "Filters (${count})",

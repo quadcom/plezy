@@ -55,18 +55,35 @@ List<MediaItem> rankMediaSearchResults(List<MediaItem> items, String query, {int
   return [for (final entry in ranked) entry.item];
 }
 
-/// Moves results from [preferredServerIds] ahead of every other server's,
-/// keeping the relevance order inside each group. Returns [items] itself
-/// when there is nothing to move.
-List<MediaItem> groupSearchResultsByServer(List<MediaItem> items, Set<String> preferredServerIds) {
-  if (preferredServerIds.isEmpty || items.isEmpty) return items;
-  final preferred = <MediaItem>[];
-  final others = <MediaItem>[];
-  for (final item in items) {
-    (preferredServerIds.contains(item.serverId) ? preferred : others).add(item);
+/// Splits ranked search results into one block per server, keeping the
+/// relevance order inside each: servers in [ownServerIds] come first, then
+/// every other server, each side in order of its best-ranked result. Inside a
+/// server's block, results from [lastLibraryKeys] (library global keys) come
+/// after the rest.
+final class SearchResultGrouping {
+  final Set<String> ownServerIds;
+  final Set<String> lastLibraryKeys;
+
+  const SearchResultGrouping({this.ownServerIds = const {}, this.lastLibraryKeys = const {}});
+
+  static const none = SearchResultGrouping();
+
+  bool isListedLast(MediaItem item) => lastLibraryKeys.contains(item.libraryGlobalKey);
+
+  /// Returns [items] itself when it is already in group order.
+  List<MediaItem> apply(List<MediaItem> items) {
+    final servers = <String?>{for (final item in items) item.serverId};
+    final ordered = [
+      for (final server in [...servers.where(ownServerIds.contains), ...servers.whereNot(ownServerIds.contains)])
+        for (final listedLast in [false, true])
+          for (final item in items)
+            if (item.serverId == server && isListedLast(item) == listedLast) item,
+    ];
+    for (var i = 0; i < items.length; i++) {
+      if (!identical(items[i], ordered[i])) return ordered;
+    }
+    return items;
   }
-  if (preferred.isEmpty || others.isEmpty) return items;
-  return [...preferred, ...others];
 }
 
 double _mediaSearchRelevanceScoreNormalized(MediaItem item, _NormalizedSearchQuery query) {

@@ -5,10 +5,15 @@ import '../services/storage_service.dart';
 /// Provider for managing hidden library state across the app.
 /// This ensures that when a library is hidden/unhidden in one screen,
 /// all other screens are automatically updated.
+///
+/// It also holds the libraries listed last in search: still searched, but
+/// their results follow the rest of their server's (e.g. a library of
+/// trailers for titles not released yet).
 class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixin {
   StorageService? _storageService;
   final String? profileId;
   Set<String> _hiddenLibraryKeys = {};
+  Set<String> _searchLastLibraryKeys = {};
   bool _isInitialized = false;
   late final Future<void> _initFuture;
 
@@ -26,6 +31,8 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
 
   Set<String> get hiddenLibraryKeys => Set.unmodifiable(_hiddenLibraryKeys);
 
+  Set<String> get searchLastLibraryKeys => Set.unmodifiable(_searchLastLibraryKeys);
+
   /// Initialize the provider by loading hidden libraries from storage
   Future<void> _initialize() async {
     await _loadFromStorage();
@@ -39,6 +46,9 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     _hiddenLibraryKeys = scopedProfileId == null
         ? storage.getHiddenLibraries()
         : storage.getHiddenLibrariesForProfile(scopedProfileId);
+    _searchLastLibraryKeys = scopedProfileId == null
+        ? storage.getSearchLastLibraries()
+        : storage.getSearchLastLibrariesForProfile(scopedProfileId);
   }
 
   /// Hide a library by its key
@@ -66,6 +76,24 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     if (isDisposed) return;
     checkCurrent?.call();
     _hiddenLibraryKeys = next;
+    safeNotifyListeners();
+  }
+
+  Future<void> setLibrarySearchLast(String libraryKey, bool searchLast) async {
+    await ensureInitialized();
+    if (isDisposed) return;
+    if (_searchLastLibraryKeys.contains(libraryKey) == searchLast) return;
+    final next = Set<String>.of(_searchLastLibraryKeys);
+    searchLast ? next.add(libraryKey) : next.remove(libraryKey);
+    final storage = _storageService!;
+    final scopedProfileId = profileId;
+    if (scopedProfileId == null) {
+      await storage.saveSearchLastLibraries(next);
+    } else {
+      await storage.saveSearchLastLibrariesForProfile(scopedProfileId, next);
+    }
+    if (isDisposed) return;
+    _searchLastLibraryKeys = next;
     safeNotifyListeners();
   }
 

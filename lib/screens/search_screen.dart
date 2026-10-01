@@ -52,11 +52,12 @@ class _SearchScreenState extends State<SearchScreen>
   String? _focusResultsForQuery;
   final _tvTextInputController = TvTextInputController();
   AbortController? _activeSearchAbort;
-  ({String query, SearchAggregationResult result, Set<String> ownServerIds})? _pendingSearchOutcome;
+  ({String query, SearchAggregationResult result, SearchResultGrouping grouping})? _pendingSearchOutcome;
 
-  /// Servers the user owns (or administers) among those that answered the
-  /// visible query. Their results are listed first, ahead of shared servers'.
-  Set<String> _ownServerIds = const {};
+  /// How the visible query's results are grouped: servers the user owns (or
+  /// administers) first, ahead of shared servers', and on each side the
+  /// libraries marked "List last in search" after the rest.
+  SearchResultGrouping _grouping = SearchResultGrouping.none;
 
   /// Media-kind filter over the current results. Chips and the filtered view
   /// derive from [_searchCandidates] — the pre-rank pool behind the ranked
@@ -71,6 +72,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   HiddenLibrariesProvider? _hiddenLibraries;
   Set<String> _lastSeenHiddenKeys = const {};
+  Set<String> _lastSeenSearchLastKeys = const {};
 
   @override
   void initState() {
@@ -98,6 +100,7 @@ class _SearchScreenState extends State<SearchScreen>
     await hiddenLibraries.ensureInitialized();
     if (!mounted) return;
     _lastSeenHiddenKeys = Set.of(hiddenLibraries.hiddenLibraryKeys);
+    _lastSeenSearchLastKeys = Set.of(hiddenLibraries.searchLastLibraryKeys);
     _hiddenLibraries = hiddenLibraries..addListener(_onHiddenLibrariesChanged);
   }
 
@@ -105,14 +108,18 @@ class _SearchScreenState extends State<SearchScreen>
     final hiddenLibraries = _hiddenLibraries;
     if (hiddenLibraries == null || !mounted) return;
     final currentKeys = hiddenLibraries.hiddenLibraryKeys;
-    if (currentKeys.length == _lastSeenHiddenKeys.length && currentKeys.containsAll(_lastSeenHiddenKeys)) {
+    final currentSearchLastKeys = hiddenLibraries.searchLastLibraryKeys;
+    if (_sameKeys(currentKeys, _lastSeenHiddenKeys) && _sameKeys(currentSearchLastKeys, _lastSeenSearchLastKeys)) {
       return;
     }
     _lastSeenHiddenKeys = Set.of(currentKeys);
+    _lastSeenSearchLastKeys = Set.of(currentSearchLastKeys);
     final query = searchController.text.trim();
     if (query.isEmpty || !hasSearched) return;
     unawaited(runSearch(query));
   }
+
+  static bool _sameKeys(Set<String> a, Set<String> b) => a.length == b.length && a.containsAll(b);
 
   @override
   String get searchDebugLabel => 'Search';
@@ -150,12 +157,15 @@ class _SearchScreenState extends State<SearchScreen>
         );
       }
       final serverManager = multiServerProvider.serverManager;
-      final ownServerIds = {
-        for (final id in result.succeededServerIds)
-          if (serverManager.isOwnerOrAdmin(ServerId(id))) id,
-      };
-      _pendingSearchOutcome = (query: query, result: result, ownServerIds: ownServerIds);
-      return groupSearchResultsByServer(result.items, ownServerIds);
+      final grouping = SearchResultGrouping(
+        ownServerIds: {
+          for (final id in result.succeededServerIds)
+            if (serverManager.isOwnerOrAdmin(ServerId(id))) id,
+        },
+        lastLibraryKeys: hiddenLibraries.searchLastLibraryKeys,
+      );
+      _pendingSearchOutcome = (query: query, result: result, grouping: grouping);
+      return grouping.apply(result.items);
     } finally {
       if (identical(_activeSearchAbort, abort)) _activeSearchAbort = null;
     }
@@ -192,7 +202,7 @@ class _SearchScreenState extends State<SearchScreen>
     _pendingSearchOutcome = null;
     final matchedOutcome = outcome != null && outcome.query == query ? outcome : null;
     final matched = matchedOutcome?.result;
-    _ownServerIds = matchedOutcome?.ownServerIds ?? const {};
+    _grouping = matchedOutcome?.grouping ?? SearchResultGrouping.none;
 
     // Committed alongside the results the pending setState renders (build has
     // not run yet): the pre-rank pool the kind chips derive from. A selected
@@ -368,7 +378,7 @@ class _SearchScreenState extends State<SearchScreen>
       query,
       limit: defaultMediaSearchLimit,
     );
-    return groupSearchResultsByServer(ranked, _ownServerIds);
+    return _grouping.apply(ranked);
   }
 
   void _selectKindFilter(MediaKind? kind) {
@@ -384,7 +394,7 @@ class _SearchScreenState extends State<SearchScreen>
     _searchCandidates = const [];
     _candidateKinds = const [];
     _rankedKindResults = null;
-    _ownServerIds = const {};
+    _grouping = SearchResultGrouping.none;
   }
 
   FocusNode _chipFocusNode(MediaKind? kind) {
@@ -453,11 +463,6 @@ class _SearchScreenState extends State<SearchScreen>
     final libraries = context.watch<LibrariesProvider>();
     final showServerName = multiServer.totalServerCount > 1;
     final visible = _visibleResults;
-    // First row from a server the user does not own; a divider sits above it
-    // when the user's own servers' results are listed before it.
-    final firstSharedIndex = _ownServerIds.isEmpty
-        ? -1
-        : visible.indexWhere((item) => !_ownServerIds.contains(item.serverId));
     return buildResultsSliver(
       childCount: visible.length,
       // Half the default top padding when the chip strip sits directly above:
@@ -478,13 +483,33 @@ class _SearchScreenState extends State<SearchScreen>
           showServerName: showServerName,
           libraryName: libraries.libraryLabelFor(item),
         );
-        if (index == 0 || index != firstSharedIndex) return card;
+        // A divider opens each group after the first (see [_grouping]); a
+        // server's block after the first also gets the server's name.
+        if (index == 0) return card;
+        final previous = visible[index - 1];
+        final newServer = item.serverId != previous.serverId;
+        if (!newServer && _grouping.isListedLast(item) == _grouping.isListedLast(previous)) return card;
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [const Divider(height: 33, thickness: 1), card],
+          children: [
+            const Divider(height: 33, thickness: 1),
+            if (newServer) _buildServerHeader(context, item, multiServer),
+            card,
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildServerHeader(BuildContext context, MediaItem item, MultiServerProvider multiServer) {
+    final serverId = item.serverId;
+    final name =
+        item.serverName ?? (serverId == null ? null : multiServer.serverManager.serverDisplayName(ServerId(serverId)));
+    if (name == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(name, style: Theme.of(context).textTheme.titleMedium),
     );
   }
 

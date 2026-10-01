@@ -19,6 +19,7 @@ class StorageService extends BaseSharedPreferencesService {
   static const String _keyLibraryOrder = 'library_order';
   static const String _keyCurrentUserUUID = 'current_user_uuid';
   static const String _keyHiddenLibraries = 'hidden_libraries';
+  static const String _keySearchLastLibraries = 'search_last_libraries';
   static const String _keyServersList = 'servers_list';
   static const String _keyServerOrder = 'server_order';
   static const String _keyActiveProfileId = 'active_app_profile_id';
@@ -34,7 +35,12 @@ class StorageService extends BaseSharedPreferencesService {
   // Key groups for bulk clearing
   static const List<String> _credentialKeys = [_keyPlexToken, _keyClientId, _keyCurrentUserUUID];
 
-  static const List<String> _libraryPreferenceKeys = [_keyLibraryFilters, _keyLibraryOrder, _keyHiddenLibraries];
+  static const List<String> _libraryPreferenceKeys = [
+    _keyLibraryFilters,
+    _keyLibraryOrder,
+    _keyHiddenLibraries,
+    _keySearchLastLibraries,
+  ];
 
   StorageService._();
 
@@ -358,6 +364,21 @@ class StorageService extends BaseSharedPreferencesService {
     ),
   );
 
+  // Libraries whose search results are listed after the rest of their
+  // server's (stored as JSON array of library global keys)
+  Future<void> saveSearchLastLibraries(Set<String> libraryKeys) async {
+    await _setStringList('$_userPrefix$_keySearchLastLibraries', libraryKeys.toList());
+  }
+
+  Future<void> saveSearchLastLibrariesForProfile(String profileId, Set<String> libraryKeys) async {
+    await _setStringList('${_userPrefixForProfileId(profileId)}$_keySearchLastLibraries', libraryKeys.toList());
+  }
+
+  Set<String> getSearchLastLibraries() => _decodeStringSet(_getScopedString(_keySearchLastLibraries));
+
+  Set<String> getSearchLastLibrariesForProfile(String profileId) =>
+      _decodeStringSet(readNullableString('${_userPrefixForProfileId(profileId)}$_keySearchLastLibraries'));
+
   Set<String> _decodeStringSet(String? jsonString) {
     if (jsonString == null) return {};
 
@@ -407,6 +428,7 @@ class StorageService extends BaseSharedPreferencesService {
       _clearLibraryPreferencesForServerPrefix('', serverId),
       _filterServerEntriesFromAllStringListKeys(_keyLibraryOrder, serverId),
       _filterServerEntriesFromAllStringListKeys(_keyHiddenLibraries, serverId),
+      _filterServerEntriesFromAllStringListKeys(_keySearchLastLibraries, serverId),
       _clearServerSelectedLibraryKeysEverywhere(serverId),
       _clearServerPerLibraryKeysEverywhere(_prefixLibrarySort, serverId),
       _clearServerPerLibraryKeysEverywhere(_prefixLibraryFilters, serverId),
@@ -419,6 +441,7 @@ class StorageService extends BaseSharedPreferencesService {
     await Future.wait([
       _filterServerEntriesFromStringList('$prefix$_keyLibraryOrder', serverId),
       _filterServerEntriesFromStringList('$prefix$_keyHiddenLibraries', serverId),
+      _filterServerEntriesFromStringList('$prefix$_keySearchLastLibraries', serverId),
       _clearSelectedLibraryForServer('$prefix$_keySelectedLibraryKey', serverId),
       _clearKeysWithPrefixForServer('$prefix$_prefixLibrarySort', serverId),
       _clearKeysWithPrefixForServer('$prefix$_prefixLibraryFilters', serverId),

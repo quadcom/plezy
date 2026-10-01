@@ -70,6 +70,28 @@ Future<void> showLibraryManagementSheet(
     }
   }
 
+  // Read when the menu opens, so the label always matches the current state.
+  List<ContextMenuItem> menuItemsFor(MediaLibrary library) {
+    final searchLast = hiddenLibrariesProvider.searchLastLibraryKeys.contains(library.globalKey);
+    return [
+      ..._getLibraryMenuItems(library),
+      ContextMenuItem(
+        value: _searchLastAction,
+        icon: searchLast ? Symbols.vertical_align_top_rounded : Symbols.vertical_align_bottom_rounded,
+        label: searchLast ? t.libraries.listNormallyInSearch : t.libraries.listLastInSearch,
+      ),
+    ];
+  }
+
+  void onMenuAction(String action, MediaLibrary library) {
+    if (action == _searchLastAction) {
+      final searchLast = hiddenLibrariesProvider.searchLastLibraryKeys.contains(library.globalKey);
+      unawaited(hiddenLibrariesProvider.setLibrarySearchLast(library.globalKey, !searchLast));
+      return;
+    }
+    unawaited(_handleLibraryMenuAction(context, action, library));
+  }
+
   Widget buildSheet({required bool isDialog}) => _LibraryManagementSheet(
     isDialog: isDialog,
     allLibraries: List.from(allLibraries),
@@ -79,8 +101,8 @@ Future<void> showLibraryManagementSheet(
       onOrderChanged?.call();
     },
     onToggleVisibility: onToggleVisibility ?? defaultToggleVisibility,
-    getLibraryMenuItems: _getLibraryMenuItems,
-    onLibraryMenuAction: (action, library) => _handleLibraryMenuAction(context, action, library),
+    getLibraryMenuItems: menuItemsFor,
+    onLibraryMenuAction: onMenuAction,
   );
 
   if (PlatformDetector.isTV()) {
@@ -96,6 +118,10 @@ Future<void> showLibraryManagementSheet(
     builder: (context) => buildSheet(isDialog: false),
   );
 }
+
+/// Library menu entry toggling whether the library's search results are
+/// listed after the rest of its server's.
+const _searchLastAction = 'search_last';
 
 List<ContextMenuItem> _getLibraryMenuItems(MediaLibrary library) {
   // Refresh metadata is the only admin action every backend supports — Plex
