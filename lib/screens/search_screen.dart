@@ -52,7 +52,11 @@ class _SearchScreenState extends State<SearchScreen>
   String? _focusResultsForQuery;
   final _tvTextInputController = TvTextInputController();
   AbortController? _activeSearchAbort;
-  ({String query, SearchAggregationResult result})? _pendingSearchOutcome;
+  ({String query, SearchAggregationResult result, Set<String> ownServerIds})? _pendingSearchOutcome;
+
+  /// Servers the user owns (or administers) among those that answered the
+  /// visible query. Their results are listed first, ahead of shared servers'.
+  Set<String> _ownServerIds = const {};
 
   /// Media-kind filter over the current results. Chips and the filtered view
   /// derive from [_searchCandidates] — the pre-rank pool behind the ranked
@@ -145,8 +149,13 @@ class _SearchScreenState extends State<SearchScreen>
           message: 'Search was cancelled before any server completed',
         );
       }
-      _pendingSearchOutcome = (query: query, result: result);
-      return result.items;
+      final serverManager = multiServerProvider.serverManager;
+      final ownServerIds = {
+        for (final id in result.succeededServerIds)
+          if (serverManager.isOwnerOrAdmin(ServerId(id))) id,
+      };
+      _pendingSearchOutcome = (query: query, result: result, ownServerIds: ownServerIds);
+      return groupSearchResultsByServer(result.items, ownServerIds);
     } finally {
       if (identical(_activeSearchAbort, abort)) _activeSearchAbort = null;
     }
@@ -181,7 +190,9 @@ class _SearchScreenState extends State<SearchScreen>
   void onSearchCompleted(String query, List<MediaItem> results) {
     final outcome = _pendingSearchOutcome;
     _pendingSearchOutcome = null;
-    final matched = outcome != null && outcome.query == query ? outcome.result : null;
+    final matchedOutcome = outcome != null && outcome.query == query ? outcome : null;
+    final matched = matchedOutcome?.result;
+    _ownServerIds = matchedOutcome?.ownServerIds ?? const {};
 
     // Committed alongside the results the pending setState renders (build has
     // not run yet): the pre-rank pool the kind chips derive from. A selected
@@ -349,7 +360,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   List<MediaItem>? _rankKindResults(MediaKind? kind, String query) {
     if (kind == null) return null;
-    return rankMediaSearchResults(
+    final ranked = rankMediaSearchResults(
       [
         for (final item in _searchCandidates)
           if (item.kind == kind) item,
@@ -357,6 +368,7 @@ class _SearchScreenState extends State<SearchScreen>
       query,
       limit: defaultMediaSearchLimit,
     );
+    return groupSearchResultsByServer(ranked, _ownServerIds);
   }
 
   void _selectKindFilter(MediaKind? kind) {
@@ -372,6 +384,7 @@ class _SearchScreenState extends State<SearchScreen>
     _searchCandidates = const [];
     _candidateKinds = const [];
     _rankedKindResults = null;
+    _ownServerIds = const {};
   }
 
   FocusNode _chipFocusNode(MediaKind? kind) {
@@ -440,6 +453,11 @@ class _SearchScreenState extends State<SearchScreen>
     final libraries = context.watch<LibrariesProvider>();
     final showServerName = multiServer.totalServerCount > 1;
     final visible = _visibleResults;
+    // First row from a server the user does not own; a divider sits above it
+    // when the user's own servers' results are listed before it.
+    final firstSharedIndex = _ownServerIds.isEmpty
+        ? -1
+        : visible.indexWhere((item) => !_ownServerIds.contains(item.serverId));
     return buildResultsSliver(
       childCount: visible.length,
       // Half the default top padding when the chip strip sits directly above:
@@ -447,7 +465,7 @@ class _SearchScreenState extends State<SearchScreen>
       padding: _showKindChips ? const EdgeInsets.fromLTRB(16, 8, 16, 16) : const EdgeInsets.all(16),
       (context, index) {
         final item = visible[index];
-        return FocusableMediaCard(
+        final card = FocusableMediaCard(
           key: Key(item.globalKey),
           item: item,
           viewModeOverride: ViewMode.list,
@@ -459,6 +477,12 @@ class _SearchScreenState extends State<SearchScreen>
           onNavigateUp: index == 0 ? (_showKindChips ? _focusKindChips : focusSearchInput) : null,
           showServerName: showServerName,
           libraryName: libraries.libraryLabelFor(item),
+        );
+        if (index == 0 || index != firstSharedIndex) return card;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [const Divider(height: 33, thickness: 1), card],
         );
       },
     );

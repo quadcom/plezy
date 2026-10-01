@@ -55,6 +55,20 @@ List<MediaItem> rankMediaSearchResults(List<MediaItem> items, String query, {int
   return [for (final entry in ranked) entry.item];
 }
 
+/// Moves results from [preferredServerIds] ahead of every other server's,
+/// keeping the relevance order inside each group. Returns [items] itself
+/// when there is nothing to move.
+List<MediaItem> groupSearchResultsByServer(List<MediaItem> items, Set<String> preferredServerIds) {
+  if (preferredServerIds.isEmpty || items.isEmpty) return items;
+  final preferred = <MediaItem>[];
+  final others = <MediaItem>[];
+  for (final item in items) {
+    (preferredServerIds.contains(item.serverId) ? preferred : others).add(item);
+  }
+  if (preferred.isEmpty || others.isEmpty) return items;
+  return [...preferred, ...others];
+}
+
 double _mediaSearchRelevanceScoreNormalized(MediaItem item, _NormalizedSearchQuery query) {
   var best = _scoreWeightedField(item.title, query, 1.0);
   best = math.max(best, _scoreWeightedField(item.titleSort, query, 0.98));

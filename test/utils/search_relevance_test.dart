@@ -125,6 +125,27 @@ void main() {
       expect(() => rankMediaSearchResults(items, '!!!', limit: -1), throwsRangeError);
     });
   });
+
+  group('groupSearchResultsByServer', () {
+    test('lists preferred servers first and keeps relevance order inside each group', () {
+      final items = [
+        testMediaItem(id: 'shared-1', serverId: 'shared'),
+        testMediaItem(id: 'own-1', serverId: 'own'),
+        testMediaItem(id: 'shared-2', serverId: 'shared'),
+        testMediaItem(id: 'own-2', serverId: 'own'),
+      ];
+
+      expect(_ids(groupSearchResultsByServer(items, {'own'})), ['own-1', 'own-2', 'shared-1', 'shared-2']);
+    });
+
+    test('returns the list unchanged when nothing needs to move', () {
+      final items = [testMediaItem(id: 'a', serverId: 'shared'), testMediaItem(id: 'b', serverId: 'shared')];
+
+      expect(groupSearchResultsByServer(items, const {}), same(items));
+      expect(groupSearchResultsByServer(items, {'own'}), same(items));
+      expect(groupSearchResultsByServer(items, {'shared'}), same(items));
+    });
+  });
 }
 
 List<String> _ids(Iterable<MediaItem> items) => [for (final item in items) item.id];
