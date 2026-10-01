@@ -1,7 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/media_item.dart';
-import 'package:plezy/utils/global_key_utils.dart';
 import 'package:plezy/utils/search_relevance.dart';
 
 import '../test_helpers/media_items.dart';
@@ -125,53 +123,6 @@ void main() {
 
       expect(() => rankMediaSearchResults(items, 'Target', limit: -1), throwsRangeError);
       expect(() => rankMediaSearchResults(items, '!!!', limit: -1), throwsRangeError);
-    });
-  });
-
-  group('SearchResultGrouping', () {
-    MediaItem item(String id, String serverId, {String libraryId = 'movies'}) =>
-        testMediaItem(id: id, serverId: serverId, libraryId: libraryId);
-
-    test('lists own servers first, and last-listed libraries after the rest on each side', () {
-      final items = [
-        item('shared-trailer', 'shared', libraryId: 'soon'),
-        item('own-trailer', 'own', libraryId: 'soon'),
-        item('shared-1', 'shared'),
-        item('own-1', 'own'),
-        item('shared-2', 'shared'),
-        item('own-2', 'own'),
-      ];
-      final grouping = SearchResultGrouping(
-        ownServerIds: {'own'},
-        lastLibraryKeys: {buildGlobalKey(ServerId('own'), 'soon'), buildGlobalKey(ServerId('shared'), 'soon')},
-      );
-
-      expect(_ids(grouping.apply(items)), ['own-1', 'own-2', 'own-trailer', 'shared-1', 'shared-2', 'shared-trailer']);
-    });
-
-    test("a last-listed library on one server does not move another server's library with the same id", () {
-      final items = [
-        item('own-soon', 'own', libraryId: 'soon'),
-        item('own-1', 'own'),
-        item('shared-soon', 'shared', libraryId: 'soon'),
-      ];
-      final grouping = SearchResultGrouping(lastLibraryKeys: {buildGlobalKey(ServerId('own'), 'soon')});
-
-      expect(_ids(grouping.apply(items)), ['own-1', 'own-soon', 'shared-soon']);
-    });
-
-    test('gives each other server its own block, best-ranked server first', () {
-      final items = [item('b-1', 'b'), item('own-1', 'own'), item('c-1', 'c'), item('b-2', 'b'), item('c-2', 'c')];
-
-      expect(_ids(SearchResultGrouping(ownServerIds: {'own'}).apply(items)), ['own-1', 'b-1', 'b-2', 'c-1', 'c-2']);
-    });
-
-    test('returns the list unchanged when nothing needs to move', () {
-      final items = [item('a', 'own'), item('b', 'shared')];
-
-      expect(SearchResultGrouping.none.apply(items), same(items));
-      expect(SearchResultGrouping(ownServerIds: {'own'}).apply(items), same(items));
-      expect(SearchResultGrouping(lastLibraryKeys: {'elsewhere:soon'}).apply(items), same(items));
     });
   });
 }

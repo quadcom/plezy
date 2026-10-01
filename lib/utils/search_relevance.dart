@@ -55,37 +55,6 @@ List<MediaItem> rankMediaSearchResults(List<MediaItem> items, String query, {int
   return [for (final entry in ranked) entry.item];
 }
 
-/// Splits ranked search results into one block per server, keeping the
-/// relevance order inside each: servers in [ownServerIds] come first, then
-/// every other server, each side in order of its best-ranked result. Inside a
-/// server's block, results from [lastLibraryKeys] (library global keys) come
-/// after the rest.
-final class SearchResultGrouping {
-  final Set<String> ownServerIds;
-  final Set<String> lastLibraryKeys;
-
-  const SearchResultGrouping({this.ownServerIds = const {}, this.lastLibraryKeys = const {}});
-
-  static const none = SearchResultGrouping();
-
-  bool isListedLast(MediaItem item) => lastLibraryKeys.contains(item.libraryGlobalKey);
-
-  /// Returns [items] itself when it is already in group order.
-  List<MediaItem> apply(List<MediaItem> items) {
-    final servers = <String?>{for (final item in items) item.serverId};
-    final ordered = [
-      for (final server in [...servers.where(ownServerIds.contains), ...servers.whereNot(ownServerIds.contains)])
-        for (final listedLast in [false, true])
-          for (final item in items)
-            if (item.serverId == server && isListedLast(item) == listedLast) item,
-    ];
-    for (var i = 0; i < items.length; i++) {
-      if (!identical(items[i], ordered[i])) return ordered;
-    }
-    return items;
-  }
-}
-
 double _mediaSearchRelevanceScoreNormalized(MediaItem item, _NormalizedSearchQuery query) {
   var best = _scoreWeightedField(item.title, query, 1.0);
   best = math.max(best, _scoreWeightedField(item.titleSort, query, 0.98));

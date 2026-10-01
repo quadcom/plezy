@@ -431,7 +431,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('search rows show the library name when the server has several libraries', (tester) async {
+  testWidgets('search results sit under a heading per library, in library order', (tester) async {
     final (client, key) = await _pumpTvSearchScreen(
       tester,
       items: [
@@ -464,11 +464,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(client.queries, ['movie']);
-    // The source line always carries the full provenance: backend icon,
-    // server name, then library name.
-    expect(find.text('Server • Movies'), findsOneWidget);
-    expect(find.text('Server • Anime'), findsOneWidget);
-    expect(find.byType(BackendBadge), findsNWidgets(2));
+    // The library name moved from each card into its section's heading.
+    expect(find.text('Movies'), findsOneWidget);
+    expect(find.text('Anime'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Movies')).dy, lessThan(tester.getTopLeft(find.text('Anime')).dy));
+    expect(find.text('Server • Movies'), findsNothing);
   });
 
   testWidgets('library name back-fills from loaded libraries when the row only carries an id', (tester) async {
@@ -484,8 +484,8 @@ void main() {
     (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
     await tester.pumpAndSettle();
 
-    expect(find.text('Server • Movies'), findsOneWidget);
-    expect(find.text('Server • Anime'), findsOneWidget);
+    expect(find.text('Movies'), findsOneWidget);
+    expect(find.text('Anime'), findsOneWidget);
   });
 
   testWidgets('no library label on a single-library server', (tester) async {
@@ -535,7 +535,7 @@ void main() {
 
     (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
     await tester.pumpAndSettle();
-    expect(find.text('Server • Movies'), findsOneWidget);
+    expect(find.text('Movies'), findsOneWidget);
 
     // A fresh fetchItem carries no library context (a Jellyfin /Items/{id}
     // response has none); the merge must keep the stamp search applied.
@@ -553,7 +553,7 @@ void main() {
 
     expect(client.fetchedItemIds, ['movie_1']);
     expect(find.text('Movie 1 (Refreshed)'), findsOneWidget);
-    expect(find.text('Server • Movies'), findsOneWidget);
+    expect(find.text('Movies'), findsOneWidget);
     final refreshed = tester.widget<FocusableMediaCard>(cardFinder).item as MediaItem;
     expect(refreshed.libraryId, '1');
     expect(refreshed.libraryTitle, 'Movies');

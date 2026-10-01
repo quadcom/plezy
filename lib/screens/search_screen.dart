@@ -24,11 +24,14 @@ import '../utils/platform_detector.dart';
 import '../utils/snackbar_helper.dart';
 import '../utils/media_server_http_client.dart';
 import '../utils/search_relevance.dart';
+import '../utils/search_result_sections.dart';
 import '../widgets/desktop_app_bar.dart';
 import '../widgets/loading_indicator_box.dart';
+import '../widgets/media_card_sliver_layout.dart';
 import '../widgets/search_input_field.dart';
 import '../widgets/focusable_media_card.dart';
 import '../widgets/focusable_tab_chip.dart';
+import '../widgets/settings_builder.dart';
 import '../utils/focus_utils.dart';
 import 'libraries/state_messages.dart';
 import 'main_screen.dart';
@@ -52,12 +55,11 @@ class _SearchScreenState extends State<SearchScreen>
   String? _focusResultsForQuery;
   final _tvTextInputController = TvTextInputController();
   AbortController? _activeSearchAbort;
-  ({String query, SearchAggregationResult result, SearchResultGrouping grouping})? _pendingSearchOutcome;
+  ({String query, SearchAggregationResult result, Set<String> ownServerIds})? _pendingSearchOutcome;
 
-  /// How the visible query's results are grouped: servers the user owns (or
-  /// administers) first, ahead of shared servers', and on each side the
-  /// libraries marked "List last in search" after the rest.
-  SearchResultGrouping _grouping = SearchResultGrouping.none;
+  /// Servers the user owns (or administers) among those that answered the
+  /// visible query. Their libraries' sections come before shared servers'.
+  Set<String> _ownServerIds = const {};
 
   /// Media-kind filter over the current results. Chips and the filtered view
   /// derive from [_searchCandidates] — the pre-rank pool behind the ranked
@@ -72,7 +74,6 @@ class _SearchScreenState extends State<SearchScreen>
 
   HiddenLibrariesProvider? _hiddenLibraries;
   Set<String> _lastSeenHiddenKeys = const {};
-  Set<String> _lastSeenSearchLastKeys = const {};
 
   @override
   void initState() {
@@ -100,7 +101,6 @@ class _SearchScreenState extends State<SearchScreen>
     await hiddenLibraries.ensureInitialized();
     if (!mounted) return;
     _lastSeenHiddenKeys = Set.of(hiddenLibraries.hiddenLibraryKeys);
-    _lastSeenSearchLastKeys = Set.of(hiddenLibraries.searchLastLibraryKeys);
     _hiddenLibraries = hiddenLibraries..addListener(_onHiddenLibrariesChanged);
   }
 
@@ -108,18 +108,14 @@ class _SearchScreenState extends State<SearchScreen>
     final hiddenLibraries = _hiddenLibraries;
     if (hiddenLibraries == null || !mounted) return;
     final currentKeys = hiddenLibraries.hiddenLibraryKeys;
-    final currentSearchLastKeys = hiddenLibraries.searchLastLibraryKeys;
-    if (_sameKeys(currentKeys, _lastSeenHiddenKeys) && _sameKeys(currentSearchLastKeys, _lastSeenSearchLastKeys)) {
+    if (currentKeys.length == _lastSeenHiddenKeys.length && currentKeys.containsAll(_lastSeenHiddenKeys)) {
       return;
     }
     _lastSeenHiddenKeys = Set.of(currentKeys);
-    _lastSeenSearchLastKeys = Set.of(currentSearchLastKeys);
     final query = searchController.text.trim();
     if (query.isEmpty || !hasSearched) return;
     unawaited(runSearch(query));
   }
-
-  static bool _sameKeys(Set<String> a, Set<String> b) => a.length == b.length && a.containsAll(b);
 
   @override
   String get searchDebugLabel => 'Search';
@@ -157,15 +153,12 @@ class _SearchScreenState extends State<SearchScreen>
         );
       }
       final serverManager = multiServerProvider.serverManager;
-      final grouping = SearchResultGrouping(
-        ownServerIds: {
-          for (final id in result.succeededServerIds)
-            if (serverManager.isOwnerOrAdmin(ServerId(id))) id,
-        },
-        lastLibraryKeys: hiddenLibraries.searchLastLibraryKeys,
-      );
-      _pendingSearchOutcome = (query: query, result: result, grouping: grouping);
-      return grouping.apply(result.items);
+      final ownServerIds = {
+        for (final id in result.succeededServerIds)
+          if (serverManager.isOwnerOrAdmin(ServerId(id))) id,
+      };
+      _pendingSearchOutcome = (query: query, result: result, ownServerIds: ownServerIds);
+      return result.items;
     } finally {
       if (identical(_activeSearchAbort, abort)) _activeSearchAbort = null;
     }
@@ -202,7 +195,7 @@ class _SearchScreenState extends State<SearchScreen>
     _pendingSearchOutcome = null;
     final matchedOutcome = outcome != null && outcome.query == query ? outcome : null;
     final matched = matchedOutcome?.result;
-    _grouping = matchedOutcome?.grouping ?? SearchResultGrouping.none;
+    _ownServerIds = matchedOutcome?.ownServerIds ?? const {};
 
     // Committed alongside the results the pending setState renders (build has
     // not run yet): the pre-rank pool the kind chips derive from. A selected
@@ -370,7 +363,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   List<MediaItem>? _rankKindResults(MediaKind? kind, String query) {
     if (kind == null) return null;
-    final ranked = rankMediaSearchResults(
+    return rankMediaSearchResults(
       [
         for (final item in _searchCandidates)
           if (item.kind == kind) item,
@@ -378,7 +371,6 @@ class _SearchScreenState extends State<SearchScreen>
       query,
       limit: defaultMediaSearchLimit,
     );
-    return _grouping.apply(ranked);
   }
 
   void _selectKindFilter(MediaKind? kind) {
@@ -394,7 +386,7 @@ class _SearchScreenState extends State<SearchScreen>
     _searchCandidates = const [];
     _candidateKinds = const [];
     _rankedKindResults = null;
-    _grouping = SearchResultGrouping.none;
+    _ownServerIds = const {};
   }
 
   FocusNode _chipFocusNode(MediaKind? kind) {
@@ -458,120 +450,150 @@ class _SearchScreenState extends State<SearchScreen>
     );
   }
 
-  Widget _buildResultsList(BuildContext context) {
+  /// One heading and poster grid per library (see [sectionSearchResults]).
+  List<Widget> _buildResultSections(BuildContext context) {
     final multiServer = context.watch<MultiServerProvider>();
     final libraries = context.watch<LibrariesProvider>();
-    final showServerName = multiServer.totalServerCount > 1;
-    final visible = _visibleResults;
-    return buildResultsSliver(
-      childCount: visible.length,
-      // Half the default top padding when the chip strip sits directly above:
-      // the strip already separates results from the search field.
-      padding: _showKindChips ? const EdgeInsets.fromLTRB(16, 8, 16, 16) : const EdgeInsets.all(16),
-      (context, index) {
-        final item = visible[index];
-        final card = FocusableMediaCard(
-          key: Key(item.globalKey),
-          item: item,
-          viewModeOverride: ViewMode.list,
-          disableScale: true,
-          focusNode: index == 0 ? firstResultFocusNode : null,
-          onRefresh: updateItem,
-          onListRefresh: refresh,
-          onNavigateLeft: _navigateToSidebar,
-          onNavigateUp: index == 0 ? (_showKindChips ? _focusKindChips : focusSearchInput) : null,
-          showServerName: showServerName,
-          libraryName: libraries.libraryLabelFor(item),
-        );
-        // A divider opens each group after the first (see [_grouping]); a
-        // server's block after the first also gets the server's name.
-        if (index == 0) return card;
-        final previous = visible[index - 1];
-        final newServer = item.serverId != previous.serverId;
-        if (!newServer && _grouping.isListedLast(item) == _grouping.isListedLast(previous)) return card;
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Divider(height: 33, thickness: 1),
-            if (newServer) _buildServerHeader(context, item, multiServer),
-            card,
-          ],
-        );
-      },
+    final settings = SettingsService.instance;
+    final density = settings.read(SettingsService.libraryDensity);
+    final fullCardLayout = PlatformDetector.isTV() && settings.read(SettingsService.tvFullCardLayout);
+    final sections = sectionSearchResults(
+      _visibleResults,
+      ownServerIds: _ownServerIds,
+      libraries: libraries.libraries,
+      serverNameOf: (serverId) => multiServer.serverManager.serverDisplayName(ServerId(serverId)),
     );
-  }
-
-  Widget _buildServerHeader(BuildContext context, MediaItem item, MultiServerProvider multiServer) {
-    final serverId = item.serverId;
-    final name =
-        item.serverName ?? (serverId == null ? null : multiServer.serverManager.serverDisplayName(ServerId(serverId)));
-    if (name == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(name, style: Theme.of(context).textTheme.titleMedium),
-    );
+    return [
+      for (final (sectionIndex, section) in sections.indexed) ...[
+        SliverToBoxAdapter(
+          child: _SearchSectionHeader(section: section, isFirst: sectionIndex == 0),
+        ),
+        MediaCardSliverLayout(
+          viewMode: ViewMode.grid,
+          itemCount: section.items.length,
+          density: density,
+          // Room for the focus decoration (scale + border) around the cards.
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          fullBleedImage: fullCardLayout,
+          itemBuilder: (context, position) {
+            final item = section.items[position.index];
+            final isFirstCard = sectionIndex == 0 && position.index == 0;
+            return FocusableMediaCard(
+              key: Key(item.globalKey),
+              item: item,
+              viewModeOverride: ViewMode.grid,
+              disableScale: position.disableScale,
+              fullBleedImage: fullCardLayout && position.isGrid,
+              focusNode: isFirstCard ? firstResultFocusNode : null,
+              onRefresh: updateItem,
+              onListRefresh: refresh,
+              onNavigateLeft: position.isFirstColumn ? _navigateToSidebar : null,
+              onNavigateUp: sectionIndex == 0 && position.isFirstRow
+                  ? (_showKindChips ? _focusKindChips : focusSearchInput)
+                  : null,
+            );
+          },
+        ),
+      ],
+      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: CustomScrollView(
-          primary: false,
-          slivers: [
-            DesktopSliverAppBar(title: Text(t.common.search), floating: true),
-            SliverToBoxAdapter(
-              child: SearchInputField(
-                controller: searchController,
-                focusNode: searchFocusNode,
-                debugLabel: searchDebugLabel,
-                hintText: t.search.hint,
-                tvTextInputController: _tvTextInputController,
-                onNavigateLeft: _navigateToSidebar,
-                onNavigateDown: searchResults.isNotEmpty && !isSearching
-                    ? (_showKindChips ? _focusKindChips : firstResultFocusNode.requestFocus)
-                    : null,
-                onEditingComplete: PlatformDetector.isTV() ? handleSearchSubmit : null,
-                onBack: () {
-                  if (searchController.text.isNotEmpty) {
-                    searchController.clear();
-                  } else {
-                    _navigateToSidebar();
-                  }
-                },
+        child: SettingsBuilder(
+          prefs: const [SettingsService.libraryDensity, SettingsService.tvFullCardLayout],
+          builder: (context) => CustomScrollView(
+            primary: false,
+            slivers: [
+              DesktopSliverAppBar(title: Text(t.common.search), floating: true),
+              SliverToBoxAdapter(
+                child: SearchInputField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  debugLabel: searchDebugLabel,
+                  hintText: t.search.hint,
+                  tvTextInputController: _tvTextInputController,
+                  onNavigateLeft: _navigateToSidebar,
+                  onNavigateDown: searchResults.isNotEmpty && !isSearching
+                      ? (_showKindChips ? _focusKindChips : firstResultFocusNode.requestFocus)
+                      : null,
+                  onEditingComplete: PlatformDetector.isTV() ? handleSearchSubmit : null,
+                  onBack: () {
+                    if (searchController.text.isNotEmpty) {
+                      searchController.clear();
+                    } else {
+                      _navigateToSidebar();
+                    }
+                  },
+                ),
               ),
-            ),
-            if (isSearching)
-              LoadingIndicatorBox.sliver
-            else if (!hasSearched)
-              SliverFillRemaining(
-                child: StateMessageWidget(
-                  message: t.search.searchYourMedia,
-                  subtitle: t.search.enterTitleActorOrKeyword,
-                  icon: Symbols.search_rounded,
-                  iconSize: 80,
-                ),
-              )
-            else if (lastSearchFailed)
-              SliverFillRemaining(
-                child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
-              )
-            else if (searchResults.isEmpty)
-              SliverFillRemaining(
-                child: StateMessageWidget(
-                  message: t.messages.noResultsFound,
-                  subtitle: t.search.tryDifferentTerm,
-                  icon: Symbols.search_off_rounded,
-                  iconSize: 80,
-                ),
-              )
-            else ...[
-              if (_showKindChips) _buildKindFilterChips(),
-              _buildResultsList(context),
+              if (isSearching)
+                LoadingIndicatorBox.sliver
+              else if (!hasSearched)
+                SliverFillRemaining(
+                  child: StateMessageWidget(
+                    message: t.search.searchYourMedia,
+                    subtitle: t.search.enterTitleActorOrKeyword,
+                    icon: Symbols.search_rounded,
+                    iconSize: 80,
+                  ),
+                )
+              else if (lastSearchFailed)
+                SliverFillRemaining(
+                  child: StateMessageWidget(message: t.explore.searchFailed, icon: Symbols.error_rounded, iconSize: 80),
+                )
+              else if (searchResults.isEmpty)
+                SliverFillRemaining(
+                  child: StateMessageWidget(
+                    message: t.messages.noResultsFound,
+                    subtitle: t.search.tryDifferentTerm,
+                    icon: Symbols.search_off_rounded,
+                    iconSize: 80,
+                  ),
+                )
+              else ...[
+                if (_showKindChips) _buildKindFilterChips(),
+                ..._buildResultSections(context),
+              ],
             ],
-          ],
+          ),
         ),
+      ),
+    );
+  }
+}
+
+/// A library's heading over its results; libraries on servers the user does
+/// not own also name the server.
+class _SearchSectionHeader extends StatelessWidget {
+  final SearchResultSection section;
+  final bool isFirst;
+
+  const _SearchSectionHeader({required this.section, required this.isFirst});
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final subtitle = section.subtitle;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, isFirst ? 8 : 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!isFirst) const Divider(height: 1, thickness: 1),
+          if (!isFirst) const SizedBox(height: 16),
+          Text(section.title, style: textTheme.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+          if (subtitle != null && subtitle.isNotEmpty)
+            Text(
+              subtitle,
+              style: textTheme.bodySmall?.copyWith(color: textTheme.bodySmall?.color?.withValues(alpha: 0.7)),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+        ],
       ),
     );
   }
