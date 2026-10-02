@@ -431,10 +431,10 @@ class SettingsExportService {
     final bytes = Uint8List.fromList(utf8.encode(jsonString));
     final fileName = await _defaultFileName();
 
-    // Android TV has no document picker — write to the app docs dir and let
-    // the caller surface the path.
+    // Android TV has no document picker — write to the TV transfer folder and
+    // let the caller surface the path.
     if (Platform.isAndroid && PlatformDetector.isTV()) {
-      return _writeToAppDocuments(fileName, bytes);
+      return _writeToTvFolder(fileName, bytes);
     }
 
     return FilePickerService.instance.saveFile(
@@ -446,11 +446,38 @@ class SettingsExportService {
     );
   }
 
-  static Future<String> _writeToAppDocuments(String fileName, Uint8List bytes) async {
-    final dir = await getApplicationDocumentsDirectory();
+  /// Android TV's settings transfer folder: the app's own external files
+  /// folder (`/sdcard/Android/data/<package>/files`). Unlike the private
+  /// documents folder, `adb pull` and `adb push` reach it on a release build,
+  /// so settings can be moved between installs without a document picker.
+  static Future<Directory> _tvTransferDirectory() async {
+    return await getExternalStorageDirectory() ?? await getApplicationDocumentsDirectory();
+  }
+
+  static Future<String> _writeToTvFolder(String fileName, Uint8List bytes) async {
+    final dir = await _tvTransferDirectory();
     final file = File(p.join(dir.path, fileName));
     await file.writeAsBytes(bytes, flush: true);
     return file.path;
+  }
+
+  /// The newest `plezy-settings-*` export in the TV transfer folder, or `null`.
+  static Future<File?> _newestTvExport() async {
+    final dir = await _tvTransferDirectory();
+    if (!await dir.exists()) return null;
+    File? newest;
+    DateTime? newestModified;
+    await for (final entity in dir.list(followLinks: false)) {
+      if (entity is! File) continue;
+      final name = p.basename(entity.path);
+      if (!name.startsWith('plezy-settings-') || !name.endsWith('.$fileExtension')) continue;
+      final modified = await entity.lastModified();
+      if (newestModified == null || modified.isAfter(newestModified)) {
+        newest = entity;
+        newestModified = modified;
+      }
+    }
+    return newest;
   }
 
   /// Prompts the user to pick a settings JSON and writes its contents into
@@ -464,6 +491,16 @@ class SettingsExportService {
     final uuid = storage.activeUserScope();
     if (uuid == null || uuid.isEmpty) {
       throw const NoUserSignedInException();
+    }
+
+    // Android TV has no usable document picker: take the newest export in the
+    // TV transfer folder when there is one.
+    if (Platform.isAndroid && PlatformDetector.isTV()) {
+      final tvExport = await _newestTvExport();
+      if (tvExport != null) {
+        appLogger.i('Importing settings from ${tvExport.path}');
+        return _importContents(await tvExport.readAsString(), uuid);
+      }
     }
 
     final picked = await FilePickerService.instance.pickFiles(
@@ -488,6 +525,10 @@ class SettingsExportService {
       throw const InvalidExportFileException('Could not read the selected file');
     }
 
+    return _importContents(contents, uuid);
+  }
+
+  static Future<ImportResult> _importContents(String contents, String uuid) async {
     final Object? decoded;
     try {
       decoded = json.decode(contents);
