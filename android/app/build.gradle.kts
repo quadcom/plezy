@@ -239,13 +239,20 @@ android {
   // by FEATURE_AUTOMOTIVE and the manifest declares `uses-library android.car required=false`.
   useLibrary("android.car")
 
+  // BuildConfig.APPLICATION_ID names the content-provider authorities, which follow the app ID.
+  buildFeatures {
+    buildConfig = true
+  }
+
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
   }
 
   defaultConfig {
-    applicationId = "com.edde746.plezy"
+    // The fork installs beside the Play Store Plezy under its own ID. PLEZY_APPLICATION_ID
+    // overrides it, e.g. for a bridge build that still upgrades an older com.edde746.plezy install.
+    applicationId = System.getenv("PLEZY_APPLICATION_ID") ?: "com.quadcom.plezy"
     minSdk = 25 // Fire OS 6.x (API 25); :libmpv shares the same floor
     targetSdk = flutter.targetSdkVersion
     versionCode = flutter.versionCode

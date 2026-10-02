@@ -113,7 +113,14 @@
     "skipVersion": "Skip This Version",
     "viewRelease": "View Release",
     "latestVersion": "You are on the latest version",
-    "checkFailed": "Failed to check for updates"
+    "checkFailed": "Failed to check for updates",
+    "install": "Install",
+    "downloading": "Downloading update",
+    "downloadingPercent": "Downloading update: ${percent}%",
+    "installing": "Opening the installer",
+    "installPermissionNeeded": "To install updates, allow Plezy to install unknown apps in the settings page that opens, then press Install again.",
+    "openSettings": "Open Settings",
+    "installFailed": "The update could not be installed"
   },
   "settings": {
     "title": "Settings",

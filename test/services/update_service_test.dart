@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -95,4 +96,63 @@ void main() {
       );
     });
   }
+
+  test('checks the fork releases and returns the release APKs', () async {
+    final requested = <Uri>[];
+    final client = MediaServerHttpClient(
+      client: MockClient((request) async {
+        requested.add(request.url);
+        return http.Response(
+          jsonEncode({
+            'tag_name': 'v2026.10.1',
+            'html_url': 'https://github.com/quadcom/plezy/releases/tag/v2026.10.1',
+            'name': 'Plezy 2026.10.1',
+            'body': 'Based on Plezy 2.21.0',
+            'published_at': '2026-10-02T12:00:00Z',
+            'assets': [
+              {
+                'name': 'plezy-2026.10.1-arm64-v8a.apk',
+                'browser_download_url': 'https://example.test/a.apk',
+                'size': 10,
+              },
+              {'name': 'broken'},
+            ],
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }),
+    );
+    addTearDown(client.close);
+
+    final info = await UpdateService.debugPerformUpdateCheck(respectCooldown: false, client: client);
+
+    expect(requested.single.path, '/repos/quadcom/plezy/releases/latest');
+    expect(info?['latestVersion'], '2026.10.1');
+    expect(info?['assets'], [
+      {'name': 'plezy-2026.10.1-arm64-v8a.apk', 'url': 'https://example.test/a.apk', 'size': 10},
+    ]);
+  });
+
+  test('date-based fork versions compare by year, month, then release', () {
+    expect(UpdateService.debugIsNewerVersion('2026.10.1', '2.21.0'), isTrue);
+    expect(UpdateService.debugIsNewerVersion('2026.10.2', '2026.10.1'), isTrue);
+    expect(UpdateService.debugIsNewerVersion('2026.11.1', '2026.10.9'), isTrue);
+    expect(UpdateService.debugIsNewerVersion('2026.10.1', '2026.10.1'), isFalse);
+    expect(UpdateService.debugIsNewerVersion('2026.9.5', '2026.10.1'), isFalse);
+  });
+
+  test('release assets without a name or download URL are dropped', () {
+    expect(UpdateService.releaseAssets(null), isEmpty);
+    expect(
+      UpdateService.releaseAssets([
+        {'name': 'x.apk', 'browser_download_url': 'https://example.test/x.apk'},
+        {'browser_download_url': 'https://example.test/y.apk'},
+        'junk',
+      ]),
+      [
+        {'name': 'x.apk', 'url': 'https://example.test/x.apk', 'size': null},
+      ],
+    );
+  });
 }
