@@ -15,7 +15,9 @@ import 'base_shared_preferences_service.dart';
 /// via auto_updater for native update dialogs and in-app installs.
 /// On all other platforms: falls back to GitHub API check + browser link dialog.
 class UpdateService {
-  static const String _githubRepo = 'edde746/plezy';
+  /// GitHub repo whose releases are checked. The quadcom fork checks its own
+  /// releases; PLEZY_UPDATE_REPO overrides it at build time.
+  static const String _githubRepo = String.fromEnvironment('PLEZY_UPDATE_REPO', defaultValue: 'quadcom/plezy');
   static const String _feedUrl = 'https://cdn.jsdelivr.net/gh/edde746/plezy@appcast/appcast.xml';
 
   static const String _keySkippedVersion = 'update_skipped_version';
@@ -179,6 +181,7 @@ class UpdateService {
             'releaseName': data['name'] as String? ?? 'Version $cleanVersion',
             'releaseNotes': data['body'] as String? ?? '',
             'publishedAt': data['published_at'] as String,
+            'assets': releaseAssets(data['assets']),
           };
         }
       }
@@ -189,6 +192,21 @@ class UpdateService {
     return null;
   }
 
+  /// The downloadable files of a GitHub release, as `{name, url, size}` maps.
+  /// Entries missing a name or download URL are left out.
+  static List<Map<String, dynamic>> releaseAssets(Object? raw) {
+    if (raw is! List) return const [];
+    return [
+      for (final asset in raw)
+        if (asset is Map && asset['name'] is String && asset['browser_download_url'] is String)
+          {
+            'name': asset['name'] as String,
+            'url': asset['browser_download_url'] as String,
+            'size': asset['size'] is int ? asset['size'] as int : null,
+          },
+    ];
+  }
+
   @visibleForTesting
   static Future<Map<String, dynamic>?> debugPerformUpdateCheck({
     required bool respectCooldown,
@@ -196,6 +214,10 @@ class UpdateService {
   }) {
     return _performUpdateCheck(respectCooldown: respectCooldown, client: client, forceEnabled: true);
   }
+
+  @visibleForTesting
+  static bool debugIsNewerVersion(String newVersion, String currentVersion) =>
+      _isNewerVersion(newVersion, currentVersion);
 
   /// Check for updates on GitHub (manual check, ignores cooldown)
   /// Returns a map with update info, or null if no update or error

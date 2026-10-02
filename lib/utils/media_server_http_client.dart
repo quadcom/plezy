@@ -174,12 +174,16 @@ class MediaServerHttpClient {
   }
 
   /// Stream-download a URL directly into a file.
+  ///
+  /// [onProgress] gets the bytes received so far and the total from
+  /// Content-Length (`null` when the server sends none).
   Future<void> downloadFile(
     String url,
     String filePath, {
     Map<String, String>? headers,
     Duration? timeout,
     AbortController? abort,
+    void Function(int received, int? total)? onProgress,
   }) {
     final tempFile = File('$filePath.download');
     return _perform<void>(
@@ -214,7 +218,17 @@ class MediaServerHttpClient {
         if (await tempFile.exists()) await tempFile.delete();
         final sink = tempFile.openWrite();
         try {
-          await scope.receive(streamed.stream.pipe(sink));
+          Stream<List<int>> body = streamed.stream;
+          if (onProgress != null) {
+            final total = streamed.contentLength;
+            var received = 0;
+            body = body.map((chunk) {
+              received += chunk.length;
+              onProgress(received, total);
+              return chunk;
+            });
+          }
+          await scope.receive(body.pipe(sink));
         } finally {
           await sink.close();
         }
