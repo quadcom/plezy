@@ -1927,7 +1927,15 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       onNavigateUp: widget.onBack,
       onNavigateLeftEdge: _navigateToSidebar,
       onBack: widget.onBack,
+      trailingText: _itemCountLabel,
     );
+  }
+
+  /// How many items the current grouping, filters and search match, as Plex
+  /// reports it. Hidden in folders mode and until the first page arrives.
+  String? get _itemCountLabel {
+    if (_selectedGrouping == 'folders' || !hasLoadedData || (isLoading && totalSize == 0)) return null;
+    return totalSize == 1 ? t.playlists.oneItem : t.playlists.itemCount(count: totalSize);
   }
 
   /// Builds content as slivers for the CustomScrollView

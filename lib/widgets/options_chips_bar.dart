@@ -84,6 +84,10 @@ class OptionsChipsBar extends StatelessWidget {
   /// Invoked on BACK from any chip.
   final VoidCallback? onBack;
 
+  /// Optional read-only text shown at the bar's right edge (e.g. how many
+  /// items the current filters match). Not focusable.
+  final String? trailingText;
+
   const OptionsChipsBar({
     super.key,
     required this.chips,
@@ -91,6 +95,7 @@ class OptionsChipsBar extends StatelessWidget {
     this.onNavigateUp,
     this.onNavigateLeftEdge,
     this.onBack,
+    this.trailingText,
   });
 
   @override
@@ -100,9 +105,18 @@ class OptionsChipsBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       alignment: .centerLeft,
       child: Row(
-        mainAxisSize: .min,
+        mainAxisSize: trailingText == null ? .min : .max,
         children: [
           for (var i = 0; i < chips.length; i++) ...[if (i > 0) const SizedBox(width: 8), _buildChip(i)],
+          if (trailingText != null) ...[
+            const Spacer(),
+            Text(
+              trailingText!,
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+            ),
+          ],
         ],
       ),
     );

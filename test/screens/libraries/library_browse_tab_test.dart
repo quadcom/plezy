@@ -37,6 +37,7 @@ import 'package:plezy/utils/library_content_notifier.dart';
 import 'package:plezy/utils/platform_detector.dart';
 import 'package:plezy/widgets/focusable_filter_chip.dart';
 import 'package:plezy/widgets/focusable_media_card.dart';
+import 'package:plezy/widgets/options_chips_bar.dart';
 
 import '../../test_helpers/backend_client_fixtures.dart';
 import '../../test_helpers/library_tab_scaffold.dart';
@@ -171,6 +172,21 @@ void main() {
     await _pumpUntil(tester, () => harness.clientA.pageRequestCount > requestsBefore);
     final sort = harness.clientA.pageQueries.last.sort;
     expect(sort?.field, 'year');
+
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('chips bar shows how many items the server reports', (tester) async {
+    // The chips bar is the non-mobile browse chrome.
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+    final harness = _BrowseHarness(clientA: _BrowseClient('server-a', 'Library A'));
+    addTearDown(harness.dispose);
+
+    await _pumpHarness(tester, harness);
+    await _pumpUntil(tester, () => harness.clientA.pageRequestCount >= 1);
+    await tester.pump();
+
+    expect(find.descendant(of: find.byType(OptionsChipsBar), matching: find.text('1 item')), findsOneWidget);
 
     debugDefaultTargetPlatformOverride = null;
   });
