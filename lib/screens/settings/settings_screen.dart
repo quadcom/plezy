@@ -677,15 +677,16 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           trailing: _isCheckingForUpdate
               ? const LoadingIndicatorBox(size: 24)
               : const AppIcon(Symbols.chevron_right_rounded, fill: 1),
-          onTap: _isCheckingForUpdate
-              ? null
-              : () {
-                  if (hasUpdate) {
-                    _showUpdateDialog();
-                  } else {
-                    _checkForUpdates();
-                  }
-                },
+          // Never null while checking: a ListTile without onTap can't hold
+          // focus, so the D-pad focus would jump to the next row.
+          onTap: () {
+            if (_isCheckingForUpdate) return;
+            if (hasUpdate) {
+              _showUpdateDialog();
+            } else {
+              _checkForUpdates();
+            }
+          },
         ),
         _buildAutoCheckUpdatesOnStartupTile(),
       ],

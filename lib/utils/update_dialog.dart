@@ -64,6 +64,7 @@ Future<void> showUpdateAvailableDialog(
               },
               label: t.update.install,
               isPrimary: true,
+              autofocus: true,
             )
           else
             DialogActionButton(
@@ -76,6 +77,7 @@ Future<void> showUpdateAvailableDialog(
               },
               label: t.update.viewRelease,
               isPrimary: true,
+              autofocus: true,
             ),
         ],
       );
@@ -109,6 +111,11 @@ class _UpdateInstallDialogState extends State<_UpdateInstallDialog> {
   double? _progress;
   AbortController? _abort;
 
+  /// The action a D-pad user most likely wants once the dialog changes stage
+  /// (Open Settings, or Retry). Focused explicitly: the Cancel button from the
+  /// downloading stage is kept by the rebuild and would otherwise hold focus.
+  final _stageActionFocus = FocusNode(debugLabel: 'UpdateInstallStageAction');
+
   @override
   void initState() {
     super.initState();
@@ -118,6 +125,7 @@ class _UpdateInstallDialogState extends State<_UpdateInstallDialog> {
   @override
   void dispose() {
     _abort?.abort();
+    _stageActionFocus.dispose();
     super.dispose();
   }
 
@@ -147,14 +155,21 @@ class _UpdateInstallDialogState extends State<_UpdateInstallDialog> {
       await Future<void>.delayed(const Duration(seconds: 2));
       if (mounted) Navigator.pop(context);
     } on InstallPermissionRequiredException {
-      if (mounted) setState(() => _stage = _InstallStage.needsPermission);
+      if (mounted) _showStage(_InstallStage.needsPermission);
     } catch (e, st) {
       if (abort.isAborted) return;
       appLogger.e('Update download or install failed', error: e, stackTrace: st);
-      if (mounted) setState(() => _stage = _InstallStage.failed);
+      if (mounted) _showStage(_InstallStage.failed);
     } finally {
       if (identical(_abort, abort)) _abort = null;
     }
+  }
+
+  void _showStage(_InstallStage stage) {
+    setState(() => _stage = stage);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _stageActionFocus.requestFocus();
+    });
   }
 
   @override
@@ -189,14 +204,18 @@ class _UpdateInstallDialogState extends State<_UpdateInstallDialog> {
         content = Text(t.update.installPermissionNeeded);
         actions = [
           DialogActionButton(onPressed: () => Navigator.pop(context), label: t.common.cancel),
-          DialogActionButton(onPressed: AndroidAppUpdater.openInstallSettings, label: t.update.openSettings),
+          DialogActionButton(
+            onPressed: AndroidAppUpdater.openInstallSettings,
+            label: t.update.openSettings,
+            focusNode: _stageActionFocus,
+          ),
           DialogActionButton(onPressed: _start, label: t.update.install, isPrimary: true),
         ];
       case _InstallStage.failed:
         content = Text(t.update.installFailed);
         actions = [
           DialogActionButton(onPressed: () => Navigator.pop(context), label: t.common.close),
-          DialogActionButton(onPressed: _start, label: t.common.retry, isPrimary: true),
+          DialogActionButton(onPressed: _start, label: t.common.retry, isPrimary: true, focusNode: _stageActionFocus),
         ];
     }
     return AlertDialog(title: Text(t.update.available), content: content, actions: actions);

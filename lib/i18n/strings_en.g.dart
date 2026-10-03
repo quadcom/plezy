@@ -390,8 +390,8 @@ class Translations$update$en {
 	/// en: 'Opening the installer'
 	String get installing => 'Opening the installer';
 
-	/// en: 'To install updates, allow Plezy to install unknown apps in the settings page that opens, then press Install again.'
-	String get installPermissionNeeded => 'To install updates, allow Plezy to install unknown apps in the settings page that opens, then press Install again.';
+	/// en: 'To install updates, Plezy needs permission to install unknown apps. Press Open Settings, turn on the switch, go back, then press Install again.'
+	String get installPermissionNeeded => 'To install updates, Plezy needs permission to install unknown apps. Press Open Settings, turn on the switch, go back, then press Install again.';
 
 	/// en: 'Open Settings'
 	String get openSettings => 'Open Settings';
@@ -7353,7 +7353,7 @@ extension on Translations {
 			'update.downloading' => 'Downloading update',
 			'update.downloadingPercent' => ({required Object percent}) => 'Downloading update: ${percent}%',
 			'update.installing' => 'Opening the installer',
-			'update.installPermissionNeeded' => 'To install updates, allow Plezy to install unknown apps in the settings page that opens, then press Install again.',
+			'update.installPermissionNeeded' => 'To install updates, Plezy needs permission to install unknown apps. Press Open Settings, turn on the switch, go back, then press Install again.',
 			'update.openSettings' => 'Open Settings',
 			'update.installFailed' => 'The update could not be installed',
 			'settings.title' => 'Settings',

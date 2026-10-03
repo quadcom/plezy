@@ -118,7 +118,7 @@
     "downloading": "Downloading update",
     "downloadingPercent": "Downloading update: ${percent}%",
     "installing": "Opening the installer",
-    "installPermissionNeeded": "To install updates, allow Plezy to install unknown apps in the settings page that opens, then press Install again.",
+    "installPermissionNeeded": "To install updates, Plezy needs permission to install unknown apps. Press Open Settings, turn on the switch, go back, then press Install again.",
     "openSettings": "Open Settings",
     "installFailed": "The update could not be installed"
   },
