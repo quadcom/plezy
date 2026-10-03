@@ -61,6 +61,52 @@ void main() {
     expect(selectedDescending, isFalse);
   });
 
+  testWidgets('tapping the selected sort row again flips its direction', (tester) async {
+    const sorts = [
+      MediaSort(key: 'titleSort', title: 'Title', defaultDirection: 'asc'),
+      MediaSort(key: 'originallyAvailableAt', title: 'Release Date', defaultDirection: 'desc'),
+    ];
+
+    bool? selectedDescending;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: OverlaySheetHost(
+          child: Builder(
+            builder: (context) => ElevatedButton(
+              onPressed: () {
+                OverlaySheetController.of(context).show(
+                  builder: (_) => SortBottomSheet(
+                    sortOptions: sorts,
+                    selectedSort: null,
+                    isSortDescending: false,
+                    onSortChanged: (sort, descending) => selectedDescending = descending,
+                  ),
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Release Date'));
+    await tester.pump();
+    expect(selectedDescending, isTrue);
+
+    await tester.tap(find.text('Release Date'));
+    await tester.pump();
+    expect(selectedDescending, isFalse);
+
+    await tester.tap(find.text('Release Date'));
+    await tester.pump();
+    expect(selectedDescending, isTrue);
+  });
+
   testWidgets('preselected scrolled sort sheet with active mouse does not throw', (tester) async {
     const sorts = [
       MediaSort(key: 'titleSort', title: 'Title', defaultDirection: 'asc'),

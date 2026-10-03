@@ -81,7 +81,7 @@ class _SortBottomSheetState extends State<SortBottomSheet> {
   }
 
   void _handleSortSelect(MediaSort sort) {
-    final descending = (_currentSort?.key == sort.key) ? _currentDescending : sort.isDefaultDescending;
+    final descending = (_currentSort?.key == sort.key) ? !_currentDescending : sort.isDefaultDescending;
     setState(() {
       _currentSort = sort;
       _currentDescending = descending;
