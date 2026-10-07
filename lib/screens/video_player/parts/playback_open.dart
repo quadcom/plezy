@@ -1,5 +1,9 @@
 part of '../../video_player_screen.dart';
 
+/// How much a transcoded stream buffers before it starts, and refills after
+/// a stall, as mpv's `cache-pause-wait`.
+const Duration transcodeCachePauseWait = Duration(seconds: 4);
+
 /// Outcome of the pre-open display negotiation for one open: which
 /// pre-switch ran (ExoPlayer only), whether playback must open paused behind
 /// a startup gate, and which post-open follow-up releases it.
@@ -774,7 +778,15 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     if (isNetworkVod && isTranscoding) {
       await player.setProperty('network-timeout', '20');
       await player.setProperty('demuxer-lavf-o', 'reconnect=1,reconnect_streamed=1,reconnect_on_network_error=1');
+      // A fresh transcode serves its first segments barely ahead of real time.
+      // With mpv's defaults (start at once, refill 1 s) playback flapped
+      // play/stall/play for the first seconds; buffer before starting and
+      // refill more per stall so it waits once instead. Same refill as the
+      // Watch Together host uses.
+      await player.setProperty('cache-pause-initial', 'yes');
+      await player.setProperty('cache-pause-wait', '${transcodeCachePauseWait.inSeconds}');
     } else {
+      await player.setProperty('cache-pause-initial', 'no');
       // mpv's documented default network-timeout.
       await player.setProperty('network-timeout', '60');
       await player.setProperty('demuxer-lavf-o', '');
