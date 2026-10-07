@@ -1475,7 +1475,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     switch (state) {
       case AppLifecycleState.inactive:
         _recordLifecycleState('inactive');
-        if (PlatformDetector.isAutomotive()) {
+        // A passenger screen enters picture-in-picture through inactive, like a
+        // phone, so it must not hide the video plane here.
+        if (PlatformDetector.isAutomotive() && !PlatformDetector.isPassengerScreen()) {
           _enqueueLifecycleTransition('inactive_automotive', _handleAppHidden);
         }
         break;

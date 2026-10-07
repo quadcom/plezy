@@ -118,5 +118,21 @@ void main() {
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
       expect(automotivePlaybackAllowedNow(), isFalse, reason: 'driving denies playback even while resumed');
     });
+
+    testWidgets('a passenger screen keeps playing while driving and while backgrounded', (tester) async {
+      TvDetectionService.debugSetAutomotiveOverride(true);
+      TvDetectionService.setPassengerScreenSync(true);
+      CarUxRestrictionsService.debugSetOverride(CarUxRestrictionState.restricted);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      expect(automotivePlaybackAllowedNow(), isTrue);
+
+      TvDetectionService.setPassengerScreenSync(false);
+      expect(automotivePlaybackAllowedNow(), isFalse);
+    });
+
+    test('the passenger setting means nothing off a car', () {
+      TvDetectionService.setPassengerScreenSync(true);
+      expect(PlatformDetector.isPassengerScreen(), isFalse);
+    });
   });
 }

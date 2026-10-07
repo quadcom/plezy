@@ -756,6 +756,7 @@ class SettingsService extends BaseSharedPreferencesService {
   static const matchDynamicRange = BoolPref('match_dynamic_range');
   static const appLocale = _AppLocalePref();
   static const autoPip = _AutoPipPref();
+  static const passengerScreenMode = BoolPref('passenger_screen_mode');
   static const customDownloadPath = NullableStringPref('custom_download_path');
   static final customRelayUrl = NullableStringPref('custom_relay_url', transform: _normalizeRelayBaseUrl);
 
@@ -1365,6 +1366,7 @@ class SettingsService extends BaseSharedPreferencesService {
     audioDownmixNormalize,
     appLocale,
     autoPip,
+    passengerScreenMode,
     maxVolume,
     downmixCenterBoost,
     subtitlePosition,

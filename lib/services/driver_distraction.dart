@@ -45,8 +45,11 @@ bool automotivePlaybackAllowed({
 /// Short-circuits before reading [WidgetsBinding.instance] so this stays usable
 /// from plain `test()` suites, where the binding is not initialized and the
 /// `instance` getter throws.
+///
+/// A car screen marked as a passenger screen in settings is exempt: its owner
+/// has said the driver cannot see it, so nothing is stopped for driving.
 bool automotivePlaybackAllowedNow() {
-  if (!PlatformDetector.isAutomotive()) return true;
+  if (!PlatformDetector.isAutomotive() || PlatformDetector.isPassengerScreen()) return true;
   final restrictions = CarUxRestrictionsService.instance.state;
   return automotivePlaybackAllowed(
     isAutomotive: true,

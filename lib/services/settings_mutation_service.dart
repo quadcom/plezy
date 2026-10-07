@@ -70,6 +70,12 @@ class SettingsMutationService {
       rebuildsRoot: true,
     ),
     _SettingsEffect(
+      SettingsService.passengerScreenMode,
+      (_, settings, _) async =>
+          TvDetectionService.setPassengerScreenSync(settings.read(SettingsService.passengerScreenMode)),
+      rebuildsRoot: true,
+    ),
+    _SettingsEffect(
       SettingsService.visualEffects,
       (_, settings, _) async => DevicePerformance.setOverrideSync(settings.read(SettingsService.visualEffects)),
       rebuildsRoot: true,

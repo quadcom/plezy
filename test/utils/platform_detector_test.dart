@@ -116,13 +116,19 @@ void main() {
   });
 
   group('pictureInPictureAllowed', () {
-    bool allowed({bool host = true, bool appleTv = false, bool tv = false, bool automotive = false}) =>
-        pictureInPictureAllowed(
-          hostSupportsPictureInPicture: host,
-          isAppleTv: appleTv,
-          isTv: tv,
-          isAutomotive: automotive,
-        );
+    bool allowed({
+      bool host = true,
+      bool appleTv = false,
+      bool tv = false,
+      bool automotive = false,
+      bool passenger = false,
+    }) => pictureInPictureAllowed(
+      hostSupportsPictureInPicture: host,
+      isAppleTv: appleTv,
+      isTv: tv,
+      isAutomotive: automotive,
+      isPassengerScreen: passenger,
+    );
 
     test('a plain handheld host may float a player', () {
       expect(allowed(), isTrue);
@@ -130,6 +136,11 @@ void main() {
 
     test('automotive vetoes a host that otherwise supports PiP', () {
       expect(allowed(automotive: true), isFalse);
+    });
+
+    test('a passenger screen lifts the automotive veto, but only where the host supports PiP', () {
+      expect(allowed(automotive: true, passenger: true), isTrue);
+      expect(allowed(host: false, automotive: true, passenger: true), isFalse);
     });
 
     test('TV form factors veto a host that otherwise supports PiP', () {

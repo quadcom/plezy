@@ -61,6 +61,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 _hardwareDecodingTile(),
                 if (exoActive) _playbackBufferTile(),
                 if (exoActive) _tunneledPlaybackTile(),
+                if (PlatformDetector.isAutomotive()) _passengerScreenTile(),
                 if (PlatformDetector.supportsPictureInPicture()) _autoPipTile(),
               ],
             ),
@@ -429,6 +430,13 @@ class PlaybackSettingsScreen extends StatelessWidget {
     icon: Symbols.hardware_rounded,
     title: t.settings.hardwareDecoding,
     subtitle: t.settings.hardwareDecodingDescription,
+  );
+
+  Widget _passengerScreenTile() => SettingSwitchTile(
+    pref: SettingsService.passengerScreenMode,
+    icon: Symbols.airline_seat_recline_normal_rounded,
+    title: t.settings.passengerScreenMode,
+    subtitle: t.settings.passengerScreenModeDescription,
   );
 
   Widget _autoPipTile() => SettingSwitchTile(

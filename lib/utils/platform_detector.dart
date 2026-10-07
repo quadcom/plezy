@@ -61,12 +61,17 @@ AndroidTvFeatureDetection detectAndroidTvFromSystemFeatures(Iterable<String> fea
 /// on the Linux and Windows CI runners every [Platform] branch of the real gate
 /// is false and unmockable, which would otherwise make the vetoes vacuous
 /// exactly where the release is gated.
+///
+/// [isPassengerScreen] lifts the car veto on a screen the owner has marked as
+/// a passenger screen (the setting of that name), such as an aftermarket
+/// Android display that offers a floating window over other apps.
 bool pictureInPictureAllowed({
   required bool hostSupportsPictureInPicture,
   required bool isAppleTv,
   required bool isTv,
   required bool isAutomotive,
-}) => hostSupportsPictureInPicture && !isAppleTv && !isTv && !isAutomotive;
+  bool isPassengerScreen = false,
+}) => hostSupportsPictureInPicture && !isAppleTv && !isTv && (!isAutomotive || isPassengerScreen);
 
 /// Service for detecting if the app is running on Android TV or Apple TV.
 class TvDetectionService {
@@ -75,6 +80,7 @@ class TvDetectionService {
   static set debugDetectionGate(Future<void>? value) => _singleton.debugGate = value;
   static bool? _debugAppleTVOverride;
   static bool? _debugAutomotiveOverride;
+  static bool _passengerScreen = false;
   bool _detected = false;
   bool _forceTv = false;
   bool _isAppleTV = false;
@@ -187,6 +193,13 @@ class TvDetectionService {
   /// Synchronous Android Automotive OS check (false before initialization).
   static bool isAutomotiveSync() => _debugAutomotiveOverride ?? _singleton.instance?._isAutomotive ?? false;
 
+  /// True on a car screen the owner has marked as a passenger screen. Never
+  /// true off a car, so the setting cannot change any other form factor.
+  static bool isPassengerScreenSync() => _passengerScreen && isAutomotiveSync();
+
+  /// Update the passenger-screen setting; [isPassengerScreenSync] reflects it immediately.
+  static void setPassengerScreenSync(bool value) => _passengerScreen = value;
+
   @visibleForTesting
   static void debugSetAppleTVOverride(bool? value) {
     _debugAppleTVOverride = value;
@@ -202,6 +215,7 @@ class TvDetectionService {
     _singleton.debugReset();
     _debugAppleTVOverride = null;
     _debugAutomotiveOverride = null;
+    _passengerScreen = false;
   }
 
   static List<String> tvDetectionReasonsSync() => _singleton.instance?._effectiveDetectionReasons ?? const [];
@@ -222,6 +236,12 @@ class PlatformDetector {
   /// True on Android Automotive OS head units.
   static bool isAutomotive() {
     return TvDetectionService.isAutomotiveSync();
+  }
+
+  /// True on a car screen marked as a passenger screen in settings: floating
+  /// player allowed, and playback no longer stopped for driving.
+  static bool isPassengerScreen() {
+    return TvDetectionService.isPassengerScreenSync();
   }
 
   /// Detects if the app should use side navigation (Desktop or TV).
@@ -328,6 +348,7 @@ class PlatformDetector {
     isAppleTv: isAppleTV(),
     isTv: isTV(),
     isAutomotive: isAutomotive(),
+    isPassengerScreen: isPassengerScreen(),
   );
 
   /// Detects if the device is likely a tablet based on screen size

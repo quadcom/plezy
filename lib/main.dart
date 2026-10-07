@@ -202,6 +202,7 @@ void _bootstrapApp() {
 Future<StartupThemeResolution> _resolveStartupTheme() async {
   final settings = await SettingsService.getInstance();
   await TvDetectionService.getInstance(forceTv: settings.read(SettingsService.forceTvMode));
+  TvDetectionService.setPassengerScreenSync(settings.read(SettingsService.passengerScreenMode));
   final mode = settings.read(SettingsService.themeMode);
   return (themeMode: ThemeProvider.materialThemeModeFor(mode), darkTheme: ThemeProvider.darkThemeFor(mode));
 }
@@ -950,6 +951,7 @@ Future<_StartupDependencies> _initializeStartup(SettingsService settings) async 
         VideoDecodeCapabilities.getInstance(),
       ).wait;
     });
+    TvDetectionService.setPassengerScreenSync(settings.read(SettingsService.passengerScreenMode));
 
     if (userAuthorities != null) {
       await _optionalGatePhase(StartupPhase.certificateTrust, () => userAuthorities);

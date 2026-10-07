@@ -1047,6 +1047,12 @@ class Translations$settings$en {
 	/// en: 'Automatically enter picture-in-picture when you leave the app during playback'
 	String get autoPipDescription => 'Automatically enter picture-in-picture when you leave the app during playback';
 
+	/// en: 'Passenger screen'
+	String get passengerScreenMode => 'Passenger screen';
+
+	/// en: 'Allow picture-in-picture and keep playing while the car is moving. Only for screens the driver can't see.'
+	String get passengerScreenModeDescription => 'Allow picture-in-picture and keep playing while the car is moving. Only for screens the driver can\'t see.';
+
 	/// en: 'Match Content Frame Rate'
 	String get matchContentFrameRate => 'Match Content Frame Rate';
 
@@ -7569,6 +7575,8 @@ extension on Translations {
 			'settings.companionRemoteServerStopFailed' => 'Couldn\'t stop the companion server',
 			'settings.autoPip' => 'Auto Picture-in-Picture',
 			'settings.autoPipDescription' => 'Automatically enter picture-in-picture when you leave the app during playback',
+			'settings.passengerScreenMode' => 'Passenger screen',
+			'settings.passengerScreenModeDescription' => 'Allow picture-in-picture and keep playing while the car is moving. Only for screens the driver can\'t see.',
 			'settings.matchContentFrameRate' => 'Match Content Frame Rate',
 			'settings.matchContentFrameRateDescription' => 'Match display refresh rate to video content',
 			'settings.matchContentResolution' => 'Match Content Resolution',
@@ -7757,10 +7765,10 @@ extension on Translations {
 			'fileInfo.streamId' => 'Stream ID',
 			'fileInfo.language' => 'Language',
 			'fileInfo.languageCode' => 'Language Code',
-			'fileInfo.streamTitle' => 'Track Title',
-			'fileInfo.channels' => 'Channels',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.streamTitle' => 'Track Title',
+			'fileInfo.channels' => 'Channels',
 			'fileInfo.sampleRate' => 'Sample Rate',
 			'fileInfo.spatialAudio' => 'Spatial Audio',
 			'fileInfo.textBased' => 'Text Based',
@@ -8271,10 +8279,10 @@ extension on Translations {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Failed to empty trash: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyzing "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analysis started for "${title}"',
-			'libraries.failedToAnalyze' => ({required Object error}) => 'Failed to analyze library: ${error}',
-			'libraries.noLibrariesFound' => 'No libraries found',
 			_ => null,
 		} ?? switch (path) {
+			'libraries.failedToAnalyze' => ({required Object error}) => 'Failed to analyze library: ${error}',
+			'libraries.noLibrariesFound' => 'No libraries found',
 			'libraries.allLibrariesHidden' => 'All libraries are hidden',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Hidden libraries (${count})',
 			'libraries.thisLibraryIsEmpty' => 'This library is empty',
@@ -8785,10 +8793,10 @@ extension on Translations {
 			'watchTogether.codeMustBe5Chars' => 'Session code must be 5 characters',
 			'watchTogether.joinInstructions' => 'Enter the host\'s session code to join.',
 			'watchTogether.failedToCreate' => 'Failed to create session',
-			'watchTogether.failedToJoin' => 'Failed to join session',
-			'watchTogether.sessionCodeCopied' => 'Session code copied to clipboard',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.failedToJoin' => 'Failed to join session',
+			'watchTogether.sessionCodeCopied' => 'Session code copied to clipboard',
 			'watchTogether.relayUnreachable' => 'Relay server unreachable. ISP blocking may prevent Watch Together.',
 			'watchTogether.reconnectingToHost' => 'Reconnecting to host...',
 			'watchTogether.currentPlayback' => 'Current Playback',
@@ -9299,10 +9307,10 @@ extension on Translations {
 			'addServer.change' => 'Change',
 			'addServer.required' => 'Required',
 			'addServer.couldNotReachServer' => ({required Object error}) => 'Could not reach the server: ${error}',
-			'addServer.signInFailed' => ({required Object error}) => 'Sign-in failed: ${error}',
-			'addServer.quickConnectFailed' => ({required Object error}) => 'Quick Connect failed: ${error}',
 			_ => null,
 		} ?? switch (path) {
+			'addServer.signInFailed' => ({required Object error}) => 'Sign-in failed: ${error}',
+			'addServer.quickConnectFailed' => ({required Object error}) => 'Quick Connect failed: ${error}',
 			'addServer.addPlexTitle' => 'Sign in with Plex',
 			'addServer.pinExpired' => 'PIN expired before sign-in. Please try again.',
 			'addServer.failedToRegisterAccount' => ({required Object error}) => 'Failed to register account: ${error}',
