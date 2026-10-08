@@ -149,6 +149,9 @@ class Translations$auth$en {
 	/// en: 'Open Quick Connect in Jellyfin and enter this code.'
 	String get quickConnectInstructions => 'Open Quick Connect in Jellyfin and enter this code.';
 
+	/// en: 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.'
+	String get quickConnectScanInstructions => 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.';
+
 	/// en: 'Waiting for approval…'
 	String get quickConnectWaiting => 'Waiting for approval…';
 
@@ -7266,6 +7269,7 @@ extension on Translations {
 			'auth.quickConnect' => 'Quick Connect',
 			'auth.useQuickConnect' => 'Use Quick Connect',
 			'auth.quickConnectInstructions' => 'Open Quick Connect in Jellyfin and enter this code.',
+			'auth.quickConnectScanInstructions' => 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.',
 			'auth.quickConnectWaiting' => 'Waiting for approval…',
 			'auth.quickConnectCancel' => 'Cancel',
 			'auth.quickConnectExpired' => 'Quick Connect expired. Try again.',

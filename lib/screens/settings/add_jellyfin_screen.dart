@@ -471,6 +471,9 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
               child: Center(
                 child: QuickConnectCodePanel(
                   code: quickConnectCode!,
+                  approveUrl: _serverEndpoint == null
+                      ? null
+                      : jellyfinQuickConnectApproveUrl(_serverEndpoint!.activeBaseUrl, quickConnectCode!),
                   cancelFocusNode: _cancelQuickConnectFocus,
                   onCancel: cancelQuickConnect,
                   errorText: errorText,

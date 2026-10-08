@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../focus/focusable_button.dart';
 import '../i18n/strings.g.dart';
+import '../theme/mono_tokens.dart';
 import 'app_icon.dart';
 import 'loading_indicator_box.dart';
 
@@ -13,9 +15,17 @@ import 'loading_indicator_box.dart';
 /// the same panel for the same interaction, only the server polling the code
 /// differs. Callers place it in a filling slot (`SliverFillRemaining` + a
 /// centering `Padding`) and own the poll itself.
+///
+/// With an [approveUrl], wide screens (a TV, a desktop) also show it as a QR
+/// code beside the code, so a phone can approve without typing. Narrow
+/// screens skip it: that phone is usually the device signing in.
 class QuickConnectCodePanel extends StatelessWidget {
   /// Code the user types into Jellyfin's Quick Connect screen.
   final String code;
+
+  /// Page that approves [code] when opened on a signed-in phone. Only the
+  /// Jellyfin add-server flow has one; Seerr's Quick Connect has no such page.
+  final String? approveUrl;
 
   /// Focused after the panel appears so a remote can dismiss it.
   final FocusNode? cancelFocusNode;
@@ -30,6 +40,7 @@ class QuickConnectCodePanel extends StatelessWidget {
     super.key,
     required this.code,
     required this.onCancel,
+    this.approveUrl,
     this.cancelFocusNode,
     this.errorText,
   });
@@ -38,13 +49,14 @@ class QuickConnectCodePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurface.withValues(alpha: 0.7);
-    return ConstrainedBox(
+    final showQr = approveUrl != null && MediaQuery.sizeOf(context).width > 700;
+    final panel = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: Column(
         mainAxisSize: .min,
         children: [
           Text(
-            t.auth.quickConnectInstructions,
+            showQr ? t.auth.quickConnectScanInstructions : t.auth.quickConnectInstructions,
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge?.copyWith(color: muted),
           ),
@@ -95,6 +107,24 @@ class QuickConnectCodePanel extends StatelessWidget {
           ],
         ],
       ),
+    );
+    if (!showQr) return panel;
+    return Row(
+      mainAxisSize: .min,
+      children: [
+        // Tight SizedBox so ancestors that measure intrinsics (e.g.
+        // SliverFillRemaining with hasScrollBody: false) never recurse into
+        // QrImageView's internal LayoutBuilder, which doesn't support them.
+        SizedBox.square(
+          dimension: 240,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(tokens(context).radiusMd),
+            child: QrImageView(data: approveUrl!, size: 240, version: QrVersions.auto, backgroundColor: Colors.white),
+          ),
+        ),
+        const SizedBox(width: 48),
+        Flexible(child: panel),
+      ],
     );
   }
 }

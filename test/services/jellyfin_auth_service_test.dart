@@ -898,4 +898,20 @@ void main() {
       expect(requests, 0);
     });
   });
+
+  group('jellyfinQuickConnectApproveUrl', () {
+    test('links the Jellyfin web Quick Connect page with the code filled in', () {
+      expect(
+        jellyfinQuickConnectApproveUrl('http://jf.example:8096/', '123456'),
+        'http://jf.example:8096/web/#/quickconnect?code=123456',
+      );
+    });
+
+    test('keeps a reverse-proxy base path', () {
+      expect(
+        jellyfinQuickConnectApproveUrl('https://example.com/jellyfin', '123456'),
+        'https://example.com/jellyfin/web/#/quickconnect?code=123456',
+      );
+    });
+  });
 }

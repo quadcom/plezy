@@ -24,6 +24,13 @@ class JellyfinQuickConnectInitiation {
   const JellyfinQuickConnectInitiation({required this.code, required this.secret});
 }
 
+/// Jellyfin web's Quick Connect page with [code] already filled in, for a
+/// phone to open from a QR code. Jellyfin web reads `code` from the hash
+/// route's query (hand-tested 2026-10-08); a web build that ignores it still
+/// opens the right page, and the code is typed in as before.
+String jellyfinQuickConnectApproveUrl(String baseUrl, String code) =>
+    '${JellyfinEndpointDiscovery.normalizeBaseUrl(baseUrl)}/web/#/quickconnect?code=${Uri.encodeQueryComponent(code)}';
+
 class _JellyfinAuthenticationResponse {
   final String accessToken;
   final String userId;

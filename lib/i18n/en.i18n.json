@@ -15,6 +15,7 @@
     "quickConnect": "Quick Connect",
     "useQuickConnect": "Use Quick Connect",
     "quickConnectInstructions": "Open Quick Connect in Jellyfin and enter this code.",
+    "quickConnectScanInstructions": "Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.",
     "quickConnectWaiting": "Waiting for approval…",
     "quickConnectCancel": "Cancel",
     "quickConnectExpired": "Quick Connect expired. Try again.",
