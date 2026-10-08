@@ -8,6 +8,10 @@ import '../theme/mono_tokens.dart';
 import 'app_icon.dart';
 import 'loading_indicator_box.dart';
 
+/// Whether [QuickConnectCodePanel] shows its approve QR code here: wide
+/// screens only (a TV, a desktop).
+bool quickConnectQrFits(BuildContext context) => MediaQuery.sizeOf(context).width > 700;
+
 /// The Quick Connect waiting panel: the code to type into Jellyfin, a
 /// "waiting for approval" line, and a cancel affordance.
 ///
@@ -49,7 +53,7 @@ class QuickConnectCodePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final muted = theme.colorScheme.onSurface.withValues(alpha: 0.7);
-    final showQr = approveUrl != null && MediaQuery.sizeOf(context).width > 700;
+    final showQr = approveUrl != null && quickConnectQrFits(context);
     final panel = ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 420),
       child: Column(

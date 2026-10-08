@@ -38,6 +38,12 @@ import 'async_form_state_mixin.dart';
 import 'connection_persistence.dart';
 import 'quick_connect_flow_mixin.dart';
 
+/// Jellyfin server built into this build with `--dart-define=PLEZY_JELLYFIN_URL=<address>`, or empty.
+/// The quadcom fork sets it so the people it is shared with never need the
+/// address: the Jellyfin add-server screen starts on it and, where the QR code
+/// fits, goes straight to Quick Connect.
+const String builtInJellyfinUrl = String.fromEnvironment('PLEZY_JELLYFIN_URL');
+
 @visibleForTesting
 Future<String> resolveJellyfinClientVersion({Future<PackageInfo> Function()? packageInfoLoader}) async {
   const fallbackVersion = '1.0';
@@ -89,6 +95,10 @@ class AddJellyfinScreen extends StatefulWidget {
   /// profile (typical for the global Connections screen entry point).
   final Profile? targetProfile;
   final MediaBrowserDialect dialect;
+
+  /// Address filled in and probed as the screen opens, for the Jellyfin
+  /// dialect only. Defaults to [builtInJellyfinUrl]; empty means none.
+  final String initialServerUrl;
   final FutureOr<JellyfinConnectionAuthService> Function()? _authServiceFactory;
   final FutureOr<List<DiscoveredJellyfinServer>> Function()? _localDiscoveryFactory;
 
@@ -96,6 +106,7 @@ class AddJellyfinScreen extends StatefulWidget {
     super.key,
     this.targetProfile,
     this.dialect = MediaBrowserDialect.jellyfin,
+    this.initialServerUrl = builtInJellyfinUrl,
     @visibleForTesting this._authServiceFactory,
     @visibleForTesting this._localDiscoveryFactory,
   });
@@ -134,6 +145,13 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   void initState() {
     super.initState();
     unawaited(_discoverLocalServers());
+    final initialUrl = widget.dialect == MediaBrowserDialect.jellyfin ? widget.initialServerUrl.trim() : '';
+    if (initialUrl.isNotEmpty) {
+      _urlController.text = initialUrl;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) unawaited(_probe(fromInitialServer: true));
+      });
+    }
   }
 
   @override
@@ -225,7 +243,10 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
     await _probe();
   }
 
-  Future<void> _probe() async {
+  /// [fromInitialServer] marks the probe of [AddJellyfinScreen.initialServerUrl]
+  /// as the screen opens; it goes straight to Quick Connect wherever the QR
+  /// code shows, not only on TV.
+  Future<void> _probe({bool fromInitialServer = false}) async {
     final input = JellyfinEndpointDiscovery.buildUserInputCandidates(_enteredUrls(), dialect: widget.dialect);
     if (input.probeBaseUrls.isEmpty) {
       setErrorText(t.addServer.enterMediaBrowserUrlError(product: widget.dialect.productName));
@@ -253,7 +274,9 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
         // On TV, typing a username/password with a remote is misery — auto-jump
         // to Quick Connect when the server supports it. Mirrors the
         // PlatformDetector.isTV() default in add_plex_account_screen.dart.
-        final autoStart = qcEnabled && PlatformDetector.isTV();
+        // A built-in server does the same wherever its QR code fits, so the
+        // people it is shared with never type an address or a password.
+        final autoStart = qcEnabled && (PlatformDetector.isTV() || (fromInitialServer && quickConnectQrFits(context)));
         if (!autoStart) requestFocusAfterFrame(_usernameFocus);
         return autoStart;
       },

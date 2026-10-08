@@ -30,6 +30,7 @@ import 'package:plezy/services/storage_service.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
 import 'package:provider/provider.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
 import '../../test_helpers/prefs.dart';
@@ -679,6 +680,75 @@ void main() {
 
     // Let the cancelled poll's backoff timer fire so the test ends clean.
     await tester.pump(const Duration(seconds: 6));
+  });
+
+  testWidgets('a built-in server on a wide screen opens straight on the Quick Connect QR code', (tester) async {
+    resetSharedPreferencesForTest();
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _testApp(
+        AddJellyfinScreen(
+          initialServerUrl: 'https://jf.example.com',
+          authServiceFactory: () => _jellyfinAuthService(quickConnectEnabled: true),
+          localDiscoveryFactory: _noLocalServers,
+        ),
+      ),
+    );
+    // The waiting panel's spinner never settles; pump bounded frames.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('123456'), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pump();
+    final url = tester.widget<TextField>(find.byType(TextField).first).controller!.text;
+    expect(url, contains('jf.example.com'));
+
+    await tester.pump(const Duration(seconds: 6));
+  });
+
+  testWidgets('a built-in server on a narrow screen is filled in and probed, without starting Quick Connect', (
+    tester,
+  ) async {
+    resetSharedPreferencesForTest();
+    tester.view.physicalSize = const Size(400, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      _testApp(
+        AddJellyfinScreen(
+          initialServerUrl: 'https://jf.example.com',
+          authServiceFactory: () => _jellyfinAuthService(quickConnectEnabled: true),
+          localDiscoveryFactory: _noLocalServers,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Use Quick Connect'), findsOneWidget);
+    expect(find.text('123456'), findsNothing);
+  });
+
+  testWidgets('the Emby dialect ignores a built-in Jellyfin server', (tester) async {
+    resetSharedPreferencesForTest();
+    await tester.pumpWidget(
+      _testApp(
+        AddJellyfinScreen(
+          dialect: MediaBrowserDialect.emby,
+          initialServerUrl: 'https://jf.example.com',
+          authServiceFactory: () => _jellyfinAuthService(quickConnectEnabled: true),
+          localDiscoveryFactory: _noLocalServers,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, isEmpty);
   });
 
   testWidgets('TV auto Quick Connect never opens the keyboard across the panel swap', (tester) async {
