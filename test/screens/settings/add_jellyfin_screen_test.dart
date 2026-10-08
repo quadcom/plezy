@@ -196,6 +196,28 @@ class _CountingActiveProfileBinder extends ActiveProfileBinder {
   }
 }
 
+/// Serves a fixed connection list without touching its database.
+class _ListedConnectionRegistry extends ConnectionRegistry {
+  _ListedConnectionRegistry(this._listed) : super(AppDatabase.forTesting(NativeDatabase.memory()));
+
+  final List<Connection> _listed;
+
+  @override
+  Future<List<Connection>> list() async => _listed;
+}
+
+JellyfinConnection _connectedJellyfin({required String baseUrl, String machineId = 'srv-1'}) => JellyfinConnection(
+  id: 'jf-$machineId',
+  baseUrl: baseUrl,
+  serverName: 'Home',
+  serverMachineId: machineId,
+  userId: 'user-1',
+  userName: 'Viewer',
+  accessToken: 'token',
+  deviceId: 'device-1',
+  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
+);
+
 class _FailingRouteJoinRegistry extends ProfileConnectionRegistry {
   _FailingRouteJoinRegistry(super.db);
 
@@ -732,6 +754,71 @@ void main() {
 
     expect(find.text('Use Quick Connect'), findsOneWidget);
     expect(find.text('123456'), findsNothing);
+  });
+
+  Future<void> pumpWithConnections(WidgetTester tester, List<Connection> connected) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      Provider<ConnectionRegistry>.value(
+        value: _ListedConnectionRegistry(connected),
+        child: _testApp(
+          AddJellyfinScreen(
+            initialServerUrl: 'https://jf.example.com',
+            authServiceFactory: () => _jellyfinAuthService(quickConnectEnabled: true),
+            localDiscoveryFactory: _noLocalServers,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('a built-in server already connected opens on the empty form', (tester) async {
+    resetSharedPreferencesForTest();
+    await pumpWithConnections(tester, [_connectedJellyfin(baseUrl: 'https://jf.example.com')]);
+
+    expect(find.text('123456'), findsNothing);
+    expect(find.text('Use Quick Connect'), findsNothing);
+    expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, isEmpty);
+  });
+
+  testWidgets('a built-in server already connected by another address opens on the empty form', (tester) async {
+    resetSharedPreferencesForTest();
+    await pumpWithConnections(tester, [_connectedJellyfin(baseUrl: 'http://192.0.2.10:8096')]);
+
+    expect(find.text('123456'), findsNothing);
+    expect(find.text('Use Quick Connect'), findsNothing);
+    expect(tester.widget<TextField>(find.byType(TextField).first).controller!.text, isEmpty);
+  });
+
+  testWidgets('another Jellyfin server connected still opens on the built-in QR code', (tester) async {
+    resetSharedPreferencesForTest();
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      Provider<ConnectionRegistry>.value(
+        value: _ListedConnectionRegistry([
+          _connectedJellyfin(baseUrl: 'http://192.0.2.20:8096', machineId: 'other-server'),
+        ]),
+        child: _testApp(
+          AddJellyfinScreen(
+            initialServerUrl: 'https://jf.example.com',
+            authServiceFactory: () => _jellyfinAuthService(quickConnectEnabled: true),
+            localDiscoveryFactory: _noLocalServers,
+          ),
+        ),
+      ),
+    );
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('123456'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pump(const Duration(seconds: 6));
   });
 
   testWidgets('the Emby dialect ignores a built-in Jellyfin server', (tester) async {

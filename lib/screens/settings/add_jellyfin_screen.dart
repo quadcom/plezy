@@ -140,17 +140,37 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   bool _isDiscoveringLocalServers = true;
   bool _quickConnectEnabled = false;
   int _localDiscoveryAttemptId = 0;
+  Set<String> _connectedMachineIds = const {};
 
   @override
   void initState() {
     super.initState();
     unawaited(_discoverLocalServers());
     final initialUrl = widget.dialect == MediaBrowserDialect.jellyfin ? widget.initialServerUrl.trim() : '';
-    if (initialUrl.isNotEmpty) {
-      _urlController.text = initialUrl;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) unawaited(_probe(fromInitialServer: true));
-      });
+    if (initialUrl.isNotEmpty) unawaited(_openOnInitialServer(initialUrl));
+  }
+
+  /// Fills in and probes [AddJellyfinScreen.initialServerUrl], unless that
+  /// server is already connected: its Quick Connect sign-in is for the first
+  /// connection only, so later visits open on the empty form.
+  Future<void> _openOnInitialServer(String url) async {
+    final connected = await _existingConnections();
+    if (!mounted) return;
+    final normalised = JellyfinEndpointDiscovery.normalizeBaseUrl(url);
+    if (connected.any((c) => c.baseUrls.contains(normalised))) return;
+    // Matched again by machine id once probed, for a server added by another address.
+    _connectedMachineIds = {for (final c in connected) c.serverMachineId};
+    setState(() => _urlController.text = url);
+    await _probe(fromInitialServer: true);
+  }
+
+  Future<List<JellyfinConnection>> _existingConnections() async {
+    try {
+      final all = await context.read<ConnectionRegistry>().list();
+      return all.whereType<JellyfinConnection>().where((c) => c.dialect == widget.dialect).toList();
+    } on ProviderNotFoundException {
+      // No ConnectionRegistry in the tree (tests / isolated subtrees).
+      return const [];
     }
   }
 
@@ -176,23 +196,10 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
   Future<void> _discoverLocalServers() async {
     final attemptId = ++_localDiscoveryAttemptId;
     try {
-      List<Connection> existingConnections = const <Connection>[];
-      try {
-        existingConnections = await context.read<ConnectionRegistry>().list();
-      } on ProviderNotFoundException {
-        // No ConnectionRegistry in the tree (tests / isolated subtrees).
-      }
-      final existing = existingConnections
-          .whereType<JellyfinConnection>()
-          .where((c) => c.dialect == widget.dialect)
-          .map(
-            (c) => DiscoveredJellyfinServer(
-              address: c.baseUrl,
-              id: c.serverMachineId,
-              name: c.serverName,
-              dialect: c.dialect,
-            ),
-          );
+      final existing = (await _existingConnections()).map(
+        (c) =>
+            DiscoveredJellyfinServer(address: c.baseUrl, id: c.serverMachineId, name: c.serverName, dialect: c.dialect),
+      );
 
       final factory = widget._localDiscoveryFactory;
       final lanServers = factory != null
@@ -260,6 +267,14 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           baseUrlsToPersist: input.explicitBaseUrls,
           baseUrlValidationGroups: input.validationBaseUrlGroups,
         );
+        if (fromInitialServer && _connectedMachineIds.contains(endpoint.serverInfo.machineId)) {
+          // The initial server was added before by another address: open on
+          // the empty form, as when it was added by this one.
+          if (!mounted) return false;
+          setState(_urlController.clear);
+          requestFocusAfterFrame(_urlFocus);
+          return false;
+        }
         final serverDialect = endpoint.serverInfo.dialect ?? widget.dialect;
         final qcEnabled = widget.dialect.supportsQuickConnect && serverDialect.supportsQuickConnect
             ? await auth.isQuickConnectEnabled(endpoint.activeBaseUrl)
