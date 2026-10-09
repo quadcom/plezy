@@ -85,6 +85,15 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     _onServerHiddenChanged = onServerHiddenChanged;
   }
 
+  /// Put the provider in account mode without a server round trip.
+  @visibleForTesting
+  void debugSetAccount(JellyfinClient account, LibraryLayout layout) {
+    _account = account;
+    _ownServerId = account.layoutServerId;
+    _layout = layout;
+    safeNotifyListeners();
+  }
+
   /// [library]'s state.
   LibraryState stateOf(MediaLibrary library) {
     final layout = _layout;

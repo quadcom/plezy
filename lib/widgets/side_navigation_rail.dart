@@ -709,7 +709,8 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   }) {
     if (!showServerHeaders) {
       final nonUniqueNames = _getNonUniqueLibraryNames(libs);
-      return libs.map((lib) {
+      // Typed as the row base: the Favourites row is inserted into this list.
+      return libs.map<_LibraryNavRow>((lib) {
         return _LibraryItemRow(
           section: section,
           library: lib,

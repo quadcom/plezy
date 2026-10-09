@@ -1,3 +1,8 @@
+import '../test_helpers/backend_client_fixtures.dart';
+import 'package:plezy/services/jellyfin_api_cache.dart';
+import 'package:plezy/media/library_layout.dart';
+import 'package:plezy/database/app_database.dart';
+import 'package:drift/native.dart';
 import 'dart:ui' show PointerDeviceKind;
 import 'package:plezy/media/ids.dart';
 
@@ -83,6 +88,7 @@ Future<void> _pumpBasicRail(
   double? height,
   CatalogSourcesProvider? catalogSources,
   ValueChanged<bool>? onFloatingPanelChanged,
+  HiddenLibrariesProvider? hiddenLibraries,
 }) async {
   await SettingsService.getInstance();
 
@@ -92,9 +98,9 @@ Future<void> _pumpBasicRail(
   }
   addTearDown(librariesProvider.dispose);
 
-  final hiddenLibrariesProvider = HiddenLibrariesProvider();
+  final hiddenLibrariesProvider = hiddenLibraries ?? HiddenLibrariesProvider();
   await hiddenLibrariesProvider.ensureInitialized();
-  addTearDown(hiddenLibrariesProvider.dispose);
+  if (hiddenLibraries == null) addTearDown(hiddenLibrariesProvider.dispose);
 
   final manager = MultiServerManager();
   final multiServerProvider = testMultiServerProvider(manager);
@@ -363,6 +369,56 @@ void main() {
     await SettingsService.instance.write(SettingsService.showExploreTab, true);
     await tester.pumpAndSettle();
     expect(find.widgetWithText(NavigationRailItem, 'Explore'), findsOneWidget);
+  });
+
+  group('PlezyFin Favourites entry', () {
+    late AppDatabase db;
+    setUp(() {
+      db = AppDatabase.forTesting(NativeDatabase.memory());
+      JellyfinApiCache.initialize(db);
+    });
+    tearDown(() async => db.close());
+
+    const movies = MediaLibrary(id: 'movies', backend: MediaBackend.jellyfin, title: 'Movies', serverId: 'srv-1');
+    const kids = MediaLibrary(id: 'kids', backend: MediaBackend.jellyfin, title: 'Kids', serverId: 'srv-1');
+
+    Future<HiddenLibrariesProvider> accountLayout(LibraryState favorites) async {
+      final client = testJellyfinClient();
+      addTearDown(client.close);
+      final provider = HiddenLibrariesProvider();
+      addTearDown(provider.dispose);
+      await provider.ensureInitialized();
+      provider.syncLibraries(const [movies, kids]);
+      provider.debugSetAccount(
+        client,
+        LibraryLayout(
+          order: const ['srv1/movies', 'srv1/favorites', 'srv1/kids'],
+          state: {'srv1/movies': LibraryState.shown, 'srv1/kids': LibraryState.folded, 'srv1/favorites': favorites},
+        ),
+      );
+      return provider;
+    }
+
+    // 2026-10-09: inserting the row into the typed library list crashed the
+    // whole rail, leaving it empty on Adrian's PC.
+    testWidgets('a shown entry sits among the shown libraries', (tester) async {
+      final provider = await accountLayout(LibraryState.shown);
+      await _pumpBasicRail(tester, alwaysExpanded: true, libraries: const [movies, kids], hiddenLibraries: provider);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('Movies'), findsOneWidget);
+      expect(find.text(t.navigation.favorites), findsOneWidget);
+      expect(find.text(t.libraries.hiddenLibrariesCount(count: 1)), findsOneWidget);
+    });
+
+    testWidgets('a folded entry counts in the Hidden libraries row', (tester) async {
+      final provider = await accountLayout(LibraryState.folded);
+      await _pumpBasicRail(tester, alwaysExpanded: true, libraries: const [movies, kids], hiddenLibraries: provider);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(t.navigation.favorites), findsNothing);
+      expect(find.text(t.libraries.hiddenLibrariesCount(count: 2)), findsOneWidget);
+    });
   });
 
   testWidgets('Downloads item follows the enableDownloads setting', (tester) async {
