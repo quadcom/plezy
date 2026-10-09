@@ -1,3 +1,5 @@
+import 'package:plezy/widgets/hub_section.dart';
+import 'package:plezy/media/home_layout.dart';
 import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:intl/date_symbol_data_local.dart';
@@ -733,6 +735,144 @@ void main() {
 
     // Dispose the screen so the hero's periodic timers are cancelled before
     // the binding's pending-timer check.
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  // Adrian, 2026-10-09: Continue Watching and Next Up are two rows, each one
+  // switched and styled on its own in Home sections.
+  testWidgets('Continue Watching and Next Up are separate rows that follow Home sections', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(false);
+    await SettingsService.getInstance();
+    await SettingsService.instance.write(SettingsService.showHeroSection, false);
+    tester.view.devicePixelRatio = 1.0;
+    tester.view.physicalSize = const Size(1280, 720);
+    addTearDown(() {
+      tester.view.resetDevicePixelRatio();
+      tester.view.resetPhysicalSize();
+    });
+
+    final onDeck = [
+      testMediaItem(
+        id: 'started',
+        backend: MediaBackend.plex,
+        kind: MediaKind.movie,
+        title: 'Started Movie',
+        serverId: 'server_1',
+        serverName: 'Server',
+        durationMs: 1000,
+        viewOffsetMs: 400,
+      ),
+      testMediaItem(
+        id: 'next',
+        backend: MediaBackend.plex,
+        kind: MediaKind.movie,
+        title: 'Next Movie',
+        serverId: 'server_1',
+        serverName: 'Server',
+      ),
+    ];
+    final client = _FakeMediaServerClient(hubs: const [], continueWatching: onDeck);
+    final manager = MultiServerManager()..debugRegisterClientForTesting(client);
+    final multiServerProvider = testMultiServerProvider(manager);
+    final hiddenLibrariesProvider = HiddenLibrariesProvider();
+    final librariesProvider = LibrariesProvider();
+    final watchTogetherProvider = WatchTogetherProvider();
+    final companionRemoteProvider = CompanionRemoteProvider();
+
+    final db = AppDatabase.forTesting(NativeDatabase.memory());
+    final profileRegistry = _FakeProfileRegistry(db);
+    final connectionRegistry = _FakeConnectionRegistry(db);
+    final profileConnectionRegistry = _FakeProfileConnectionRegistry(db);
+    final storage = await StorageService.getInstance();
+    final plexHome = PlexHomeService(
+      connections: connectionRegistry,
+      profileConnections: profileConnectionRegistry,
+      storage: storage,
+      plexHomeUserFetcher: (_) async => const [],
+    );
+    final activeProfileProvider = ActiveProfileProvider(
+      registry: profileRegistry,
+      plexHome: plexHome,
+      connections: connectionRegistry,
+      profileConnections: profileConnectionRegistry,
+      storage: storage,
+    );
+    final discoverProvider = DiscoverProvider(
+      multiServerProvider,
+      hiddenLibrariesProvider,
+      librariesProvider,
+      profileId: null,
+      isProfileBinding: () => activeProfileProvider.isBinding,
+    );
+
+    addTearDown(() async {
+      discoverProvider.dispose();
+      activeProfileProvider.dispose();
+      companionRemoteProvider.dispose();
+      watchTogetherProvider.dispose();
+      librariesProvider.dispose();
+      hiddenLibrariesProvider.dispose();
+      multiServerProvider.dispose();
+      await plexHome.dispose();
+      await db.close();
+    });
+
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<MultiServerProvider>.value(value: multiServerProvider),
+            ChangeNotifierProvider<HiddenLibrariesProvider>.value(value: hiddenLibrariesProvider),
+            ChangeNotifierProvider<LibrariesProvider>.value(value: librariesProvider),
+            ChangeNotifierProvider<WatchTogetherProvider>.value(value: watchTogetherProvider),
+            ChangeNotifierProvider<CompanionRemoteProvider>.value(value: companionRemoteProvider),
+            ChangeNotifierProvider<ActiveProfileProvider>.value(value: activeProfileProvider),
+            ChangeNotifierProvider<DiscoverProvider>.value(value: discoverProvider),
+          ],
+          child: InputModeTracker(
+            child: MaterialApp(
+              theme: monoTheme(dark: true),
+              home: MainScreenFocusScope(
+                focusSidebar: () {},
+                sideNavigationWidth: SideNavigationRailState.expandedWidth,
+                reservedSideNavigationWidth: SideNavigationRailState.tvCollapsedWidth,
+                foregroundLeft: 0,
+                foregroundWidth: 1280,
+                viewportWidth: 1280,
+                child: const DiscoverScreen(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text(t.discover.continueWatching), findsOneWidget);
+    expect(find.text(t.discover.nextUp), findsOneWidget);
+    final continueRow = find.ancestor(of: find.text(t.discover.continueWatching), matching: find.byType(HubSection));
+    final nextUpRow = find.ancestor(of: find.text(t.discover.nextUp), matching: find.byType(HubSection));
+    expect(tester.widget<HubSection>(continueRow).hub.items.single.id, 'started');
+    expect(tester.widget<HubSection>(nextUpRow).hub.items.single.id, 'next');
+
+    await hiddenLibrariesProvider.setHomeSectionOn(HomeLayout.nextUp, on: false);
+    await hiddenLibrariesProvider.setCardStyle(HomeLayout.resume, HomeCardStyle.thumb);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text(t.discover.nextUp), findsNothing);
+    expect(
+      tester
+          .widget<HubSection>(
+            find.ancestor(of: find.text(t.discover.continueWatching), matching: find.byType(HubSection)),
+          )
+          .hub
+          .cardStyle,
+      HomeCardStyle.thumb,
+    );
+
     await tester.pumpWidget(const SizedBox());
   });
 

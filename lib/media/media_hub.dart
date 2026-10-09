@@ -1,3 +1,5 @@
+import '../services/settings_service.dart' show EpisodePosterMode;
+import 'home_layout.dart';
 import 'media_item.dart';
 
 /// A named, ordered list of items grouped on the home screen (Plex `Hub`,
@@ -31,6 +33,10 @@ class MediaHub {
   final String? serverId;
   final String? serverName;
 
+  /// The card style the user picked for this home row; null keeps the usual
+  /// look.
+  final HomeCardStyle? cardStyle;
+
   const MediaHub({
     required this.id,
     required this.title,
@@ -42,6 +48,7 @@ class MediaHub {
     this.libraryId,
     this.serverId,
     this.serverName,
+    this.cardStyle,
   });
 
   /// True for hubs that represent the user's resumable Continue Watching row.
@@ -59,6 +66,34 @@ class MediaHub {
     return hubIdentifier != null && matches(hubIdentifier);
   }
 
+  /// The episode poster mode this row's cards use: screen grabs always show
+  /// episode stills, posters never do.
+  EpisodePosterMode cardPosterMode(EpisodePosterMode setting) => switch (cardStyle) {
+    HomeCardStyle.thumb => EpisodePosterMode.episodeThumbnail,
+    HomeCardStyle.poster when setting == EpisodePosterMode.episodeThumbnail => EpisodePosterMode.seriesPoster,
+    _ => setting,
+  };
+
+  /// Whether every card in this row is a screen grab, films and shows too.
+  bool get forcesScreenGrabs => cardStyle == HomeCardStyle.thumb;
+
+  /// This hub with [style] as its card style.
+  MediaHub withCardStyle(HomeCardStyle? style) => style == cardStyle
+      ? this
+      : MediaHub(
+          id: id,
+          identifier: identifier,
+          title: title,
+          type: type,
+          items: items,
+          size: size,
+          more: more,
+          libraryId: libraryId,
+          serverId: serverId,
+          serverName: serverName,
+          cardStyle: style,
+        );
+
   MediaHub copyWith({List<MediaItem>? items, int? size, String? title}) {
     return MediaHub(
       id: id,
@@ -71,6 +106,7 @@ class MediaHub {
       libraryId: libraryId,
       serverId: serverId,
       serverName: serverName,
+      cardStyle: cardStyle,
     );
   }
 }

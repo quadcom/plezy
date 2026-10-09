@@ -1,0 +1,239 @@
+import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
+import 'package:provider/provider.dart';
+
+import '../../i18n/strings.g.dart';
+import '../../media/home_layout.dart';
+import '../../media/library_layout.dart';
+import '../../media/media_kind.dart';
+import '../../media/media_library.dart';
+import '../../providers/hidden_libraries_provider.dart';
+import '../../providers/libraries_provider.dart';
+import '../../services/settings_service.dart';
+import '../../utils/app_logger.dart';
+import '../../utils/platform_detector.dart';
+import '../../utils/snackbar_helper.dart';
+import '../../widgets/app_icon.dart';
+import '../../widgets/focusable_list_tile.dart';
+import '../../widgets/settings_page.dart';
+import '../../widgets/settings_section.dart';
+import 'settings_utils.dart';
+
+/// What the user can do to one home section.
+enum _SectionAction { turnOn, turnOff, moveUp, moveDown, cardsUsual, cardsPosters, cardsScreenGrabs }
+
+/// Home sections: turn the banner, Continue Watching, Next Up and the library
+/// rows on or off, put them in order, and pick posters or screen grabs per
+/// row. With a PlezyFin account this is saved with the account, so every
+/// device follows (Adrian, 2026-10-09; plan
+/// `local/plans/settings-search-home-sections.md`).
+class HomeSectionsScreen extends StatelessWidget {
+  const HomeSectionsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = context.watch<HiddenLibrariesProvider>();
+    final libraries = context.watch<LibrariesProvider>().libraries;
+    final home = layout.home;
+    final sections = home.sections;
+    final rowLibraries = [
+      for (final library in libraries)
+        if (_hasHomeRows(library) && layout.stateOf(library) == LibraryState.shown) library,
+    ];
+    return SettingsPage(
+      title: Text(t.settings.homeSections),
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+          child: Text(
+            layout.isAccountLayout ? t.settings.homeSectionsSavedAccount : t.settings.homeSectionsSavedDevice,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        SettingsGroup(
+          title: t.settings.homeSectionsRows,
+          children: [
+            for (final (index, section) in sections.indexed)
+              _SectionTile(
+                key: ValueKey(section),
+                section: section,
+                index: index,
+                count: sections.length,
+                on: _isOn(context, layout, section),
+                cardStyle: _hasCards(section) ? layout.cardStyleFor(section) : null,
+              ),
+          ],
+        ),
+        if (rowLibraries.isNotEmpty)
+          SettingsGroup(
+            title: t.settings.homeSectionsLibraryCards,
+            children: [
+              for (final library in rowLibraries)
+                FocusableListTile(
+                  key: ValueKey(library.globalKey),
+                  leading: const AppIcon(Symbols.video_library_rounded, fill: 1),
+                  title: Text(library.title),
+                  subtitle: Text(_cardStyleLabel(layout.libraryCardStyle(library))),
+                  onTap: () => _pickLibraryCards(context, layout, library),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
+  static bool _hasHomeRows(MediaLibrary library) =>
+      const {MediaKind.movie, MediaKind.show, MediaKind.clip, MediaKind.artist}.contains(library.kind);
+
+  static Future<void> _pickLibraryCards(
+    BuildContext context,
+    HiddenLibrariesProvider layout,
+    MediaLibrary library,
+  ) async {
+    final picked = await showSelectionDialog<HomeCardStyle?>(
+      context: context,
+      title: library.title,
+      options: [
+        DialogOption(value: null, title: t.settings.cardsUsual),
+        DialogOption(value: HomeCardStyle.poster, title: t.settings.cardsPosters),
+        DialogOption(value: HomeCardStyle.thumb, title: t.settings.cardsScreenGrabs),
+      ],
+      currentValue: layout.libraryCardStyle(library),
+    );
+    if (picked == null || !context.mounted) return;
+    await _save(context, () => layout.setLibraryCardStyle(library, picked.value));
+  }
+}
+
+/// Whether [section] is on. Without an account the banner follows this
+/// device's Show hero setting, as it always did.
+bool _isOn(BuildContext context, HiddenLibrariesProvider layout, String section) {
+  if (section == HomeLayout.hero && !layout.isAccountLayout) {
+    return SettingsService.instance.read(SettingsService.showHeroSection);
+  }
+  return layout.home.isOn(section);
+}
+
+bool _hasCards(String section) => section == HomeLayout.resume || section == HomeLayout.nextUp;
+
+String _sectionTitle(String section) => switch (section) {
+  HomeLayout.hero => t.settings.homeSectionBanner,
+  HomeLayout.resume => t.discover.continueWatching,
+  HomeLayout.nextUp => t.discover.nextUp,
+  _ => t.settings.homeSectionLibraries,
+};
+
+IconData _sectionIcon(String section) => switch (section) {
+  HomeLayout.hero => Symbols.featured_play_list_rounded,
+  HomeLayout.resume => Symbols.play_circle_rounded,
+  HomeLayout.nextUp => Symbols.skip_next_rounded,
+  _ => Symbols.video_library_rounded,
+};
+
+String _cardStyleLabel(HomeCardStyle? style) => switch (style) {
+  HomeCardStyle.poster => t.settings.cardsPosters,
+  HomeCardStyle.thumb => t.settings.cardsScreenGrabs,
+  null => t.settings.cardsUsual,
+};
+
+Future<void> _save(BuildContext context, Future<void> Function() write) async {
+  try {
+    await write();
+  } catch (e, st) {
+    appLogger.w('Home sections: could not save', error: e, stackTrace: st);
+    if (context.mounted) showErrorSnackBar(context, t.settings.saveFailed);
+  }
+}
+
+class _SectionTile extends StatelessWidget {
+  final String section;
+  final int index;
+  final int count;
+  final bool on;
+  final HomeCardStyle? cardStyle;
+
+  const _SectionTile({
+    super.key,
+    required this.section,
+    required this.index,
+    required this.count,
+    required this.on,
+    required this.cardStyle,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final parts = [
+      on ? t.settings.homeSectionOn : t.settings.homeSectionOff,
+      if (_hasCards(section)) _cardStyleLabel(cardStyle),
+      if (section == HomeLayout.hero && PlatformDetector.isTV()) t.settings.homeSectionNotOnTv,
+    ];
+    return FocusableListTile(
+      leading: AppIcon(_sectionIcon(section), fill: 1),
+      title: Text(_sectionTitle(section)),
+      subtitle: Text(parts.join(' · ')),
+      trailing: AppIcon(on ? Symbols.toggle_on_rounded : Symbols.toggle_off_rounded, fill: 1),
+      onTap: () => _showActions(context),
+    );
+  }
+
+  Future<void> _showActions(BuildContext context) async {
+    final layout = context.read<HiddenLibrariesProvider>();
+    final picked = await showSelectionDialog<_SectionAction?>(
+      context: context,
+      title: _sectionTitle(section),
+      options: [
+        DialogOption(
+          value: on ? _SectionAction.turnOff : _SectionAction.turnOn,
+          title: on ? t.settings.homeSectionTurnOff : t.settings.homeSectionTurnOn,
+        ),
+        if (index > 0) DialogOption(value: _SectionAction.moveUp, title: t.settings.homeSectionMoveUp),
+        if (index < count - 1) DialogOption(value: _SectionAction.moveDown, title: t.settings.homeSectionMoveDown),
+        if (_hasCards(section)) ...[
+          DialogOption(value: _SectionAction.cardsUsual, title: t.settings.cardsUsual),
+          DialogOption(value: _SectionAction.cardsPosters, title: t.settings.cardsPosters),
+          DialogOption(value: _SectionAction.cardsScreenGrabs, title: t.settings.cardsScreenGrabs),
+        ],
+      ],
+      // Marks the current card style; the other actions are never selected.
+      currentValue: switch (cardStyle) {
+        _ when !_hasCards(section) => null,
+        HomeCardStyle.poster => _SectionAction.cardsPosters,
+        HomeCardStyle.thumb => _SectionAction.cardsScreenGrabs,
+        null => _SectionAction.cardsUsual,
+      },
+    );
+    final action = picked?.value;
+    if (action == null || !context.mounted) return;
+    await _save(context, () => _apply(layout, action));
+  }
+
+  Future<void> _apply(HiddenLibrariesProvider layout, _SectionAction action) async {
+    switch (action) {
+      case _SectionAction.turnOn || _SectionAction.turnOff:
+        final turnOn = action == _SectionAction.turnOn;
+        if (section == HomeLayout.hero && !layout.isAccountLayout) {
+          await SettingsService.instance.write(SettingsService.showHeroSection, turnOn);
+          // Notify the screen, which reads the setting through the provider.
+          await layout.setHomeSectionOn(HomeLayout.hero, on: true);
+        } else {
+          await layout.setHomeSectionOn(section, on: turnOn);
+        }
+      case _SectionAction.moveUp || _SectionAction.moveDown:
+        final sections = List<String>.of(layout.home.sections);
+        final from = sections.indexOf(section);
+        final to = action == _SectionAction.moveUp ? from - 1 : from + 1;
+        if (from < 0 || to < 0 || to >= sections.length) return;
+        sections
+          ..removeAt(from)
+          ..insert(to, section);
+        await layout.setHomeSections(sections);
+      case _SectionAction.cardsUsual:
+        await layout.setCardStyle(section, null);
+      case _SectionAction.cardsPosters:
+        await layout.setCardStyle(section, HomeCardStyle.poster);
+      case _SectionAction.cardsScreenGrabs:
+        await layout.setCardStyle(section, HomeCardStyle.thumb);
+    }
+  }
+}

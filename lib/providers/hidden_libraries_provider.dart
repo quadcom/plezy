@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../media/home_layout.dart';
 import '../media/ids.dart';
 import '../media/library_layout.dart';
 import '../media/media_backend.dart';
@@ -43,8 +44,12 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   String? _ownServerId;
   LibraryLayout? _layout;
 
-  /// The admin's default layout, for row titles the user has not set.
+  /// The admin's default layout, for row titles and home sections the user
+  /// has not set.
   LibraryLayout? _defaults;
+
+  /// Device mode: the home sections kept on this device.
+  HomeLayout? _deviceHome;
 
   bool _isInitialized = false;
   late final Future<void> _initFuture;
@@ -87,10 +92,11 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
 
   /// Put the provider in account mode without a server round trip.
   @visibleForTesting
-  void debugSetAccount(JellyfinClient account, LibraryLayout layout) {
+  void debugSetAccount(JellyfinClient account, LibraryLayout layout, {LibraryLayout? defaults}) {
     _account = account;
     _ownServerId = account.layoutServerId;
     _layout = layout;
+    _defaults = defaults;
     safeNotifyListeners();
   }
 
@@ -175,6 +181,79 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     return layout.titleFor(libraryLayoutKey(library), defaults: _defaults);
   }
 
+  /// The home sections in force: with an account, the record's, else the
+  /// admin default's, else all on; without one, this device's (PlezyFin,
+  /// 2026-10-09). The banner's switch is only the account's: without an
+  /// account the device's Show hero setting decides, as before.
+  HomeLayout get home => (isAccountLayout ? _layout!.home ?? _defaults?.home : _deviceHome) ?? HomeLayout.standard;
+
+  /// [row]'s card style: a section id or a library layout key. Null keeps the
+  /// row's usual look.
+  HomeCardStyle? cardStyleFor(String row) {
+    if (!isAccountLayout) return _deviceHome?.cards[row];
+    return _layout!.home?.cards[row] ?? _defaults?.home?.cards[row];
+  }
+
+  /// [library]'s card style on home.
+  HomeCardStyle? libraryCardStyle(MediaLibrary library) => cardStyleFor(_homeRowKey(library));
+
+  /// The card key of [library]'s home rows: its layout key with an account,
+  /// its global key on the device.
+  String _homeRowKey(MediaLibrary library) => isAccountLayout ? libraryLayoutKey(library) : library.globalKey;
+
+  /// The library a home row belongs to, by server and library id.
+  MediaLibrary? libraryFor({required String serverId, required String libraryId}) =>
+      _libraries.where((l) => l.serverId == serverId && l.id == libraryId).firstOrNull;
+
+  /// The home sections a write starts from: the record's own, or the ones in
+  /// force without the default's card choices, so those keep following the
+  /// default.
+  HomeLayout get _homeBase {
+    if (isAccountLayout) {
+      final own = _layout!.home;
+      if (own != null) return own;
+      final shown = home;
+      return HomeLayout(order: shown.sections, off: shown.off);
+    }
+    return _deviceHome ?? HomeLayout.standard;
+  }
+
+  /// Put the home sections in [sections] order.
+  Future<void> setHomeSections(List<String> sections) => _saveHome((base) => base.withSections(sections));
+
+  /// Turn a home section on or off.
+  Future<void> setHomeSectionOn(String id, {required bool on}) => _saveHome((base) => base.withSection(id, on: on));
+
+  /// Set [row]'s card style; null goes back to the usual look.
+  Future<void> setCardStyle(String row, HomeCardStyle? style) => _saveHome((base) => base.withCard(row, style));
+
+  /// Set [library]'s home rows' card style.
+  Future<void> setLibraryCardStyle(MediaLibrary library, HomeCardStyle? style) =>
+      setCardStyle(_homeRowKey(library), style);
+
+  Future<void> _saveHome(HomeLayout Function(HomeLayout base) change) async {
+    await ensureInitialized();
+    if (isDisposed) return;
+    if (isAccountLayout) {
+      final account = _account;
+      final ownServerId = _ownServerId!;
+      if (account == null) throw StateError('The PlezyFin server is not reachable');
+      final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
+      // Start from the fresh record's own home, so a change made elsewhere
+      // since this device last read it is kept.
+      _layout = fresh;
+      final next = fresh.withHome(change(_homeBase), now: DateTime.now());
+      await account.saveLibraryLayout(next);
+      if (isDisposed) return;
+      await _setAccount(account, ownServerId, next);
+      return;
+    }
+    final next = change(_homeBase);
+    _deviceHome = next;
+    await _storageService!.saveHomeLayout(jsonEncode(next.toJson()), profileId: profileId);
+    safeNotifyListeners();
+  }
+
   /// The server-hidden keys among [libraries]. Plex's own `hidden` flag is not
   /// a user choice made in a Plex client, so it does not count.
   static Set<String> serverHiddenKeysOf(Iterable<MediaLibrary> libraries) => {
@@ -212,6 +291,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
         ? storage.getHiddenLibraries()
         : storage.getHiddenLibrariesForProfile(scopedProfileId);
     _off = storage.getOffLibraries(profileId: scopedProfileId);
+    _deviceHome = _decodeHome(storage.getHomeLayout(profileId: scopedProfileId));
     final cached = storage.getAccountLibraryLayout(profileId: scopedProfileId);
     if (cached != null && _layout == null) {
       try {
@@ -223,6 +303,15 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       } on FormatException {
         // A bad cache just means waiting for the server.
       }
+    }
+  }
+
+  static HomeLayout? _decodeHome(String? raw) {
+    if (raw == null) return null;
+    try {
+      return HomeLayout.tryFrom(jsonDecode(raw));
+    } on FormatException {
+      return null;
     }
   }
 

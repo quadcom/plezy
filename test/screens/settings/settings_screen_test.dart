@@ -791,6 +791,9 @@ class _FakeHiddenLibrariesStorage implements StorageService {
   String? getAccountLibraryLayout({String? profileId}) => null;
 
   @override
+  String? getHomeLayout({String? profileId}) => null;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

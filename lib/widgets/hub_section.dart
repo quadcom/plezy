@@ -571,13 +571,22 @@ class HubSectionState extends State<HubSection> with MountedSetStateMixin, Skele
                     final svc = SettingsService.instanceOrNull;
                     if (svc == null) return const SizedBox.shrink();
                     final density = svc.read(SettingsService.libraryDensity);
-                    final EpisodePosterMode episodePosterMode =
-                        widget.episodePosterModeOverride ?? svc.read(SettingsService.episodePosterMode);
+                    // A home row the user set to posters or screen grabs
+                    // overrides the episode poster setting (Adrian, 2026-10-09).
+                    final EpisodePosterMode episodePosterMode = widget.hub.cardPosterMode(
+                      widget.episodePosterModeOverride ?? svc.read(SettingsService.episodePosterMode),
+                    );
+                    final screenGrabs = widget.hub.forcesScreenGrabs;
 
-                    final hasEpisodes = widget.hub.items.any((item) => item.usesWideAspectRatio(episodePosterMode));
-                    final hasNonEpisodes = widget.hub.items.any((item) => !item.usesWideAspectRatio(episodePosterMode));
+                    final hasEpisodes = widget.hub.items.any(
+                      (item) => item.usesWideAspectRatio(episodePosterMode, mixedHubContext: screenGrabs),
+                    );
+                    final hasNonEpisodes = widget.hub.items.any(
+                      (item) => !item.usesWideAspectRatio(episodePosterMode, mixedHubContext: screenGrabs),
+                    );
 
-                    final isMixedHub = hasEpisodes && hasNonEpisodes;
+                    // Screen grabs draw films and shows wide, as a mixed row does.
+                    final isMixedHub = (hasEpisodes && hasNonEpisodes) || screenGrabs;
 
                     // 16:9 when every item is wide (episode thumbnails, clips,
                     // home videos), or for mixed hubs in episode-thumbnail

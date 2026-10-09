@@ -60,6 +60,7 @@ import 'logs_screen.dart';
 import 'playback_settings_screen.dart';
 import '../profile/profile_switch_screen.dart';
 import 'services_settings_screen.dart';
+import 'settings_search.dart';
 import 'settings_utils.dart';
 import 'tracker_service_info.dart';
 import '../../widgets/loading_indicator_box.dart';
@@ -94,6 +95,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
   late final FocusMemoryTracker _focusTracker;
 
   // Focus tracking keys
+  static const _kSearch = 'search';
   static const _kDonate = 'donate';
   static const _kGeneral = 'general';
   static const _kAppearance = 'appearance';
@@ -197,6 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
                 const SizedBox(height: 8),
                 SettingsGroup(
                   children: [
+                    _buildSearchTile(),
                     if (DonationService.isEnabled) _buildDonateTile(),
                     _buildGeneralTile(),
                     _buildAppearanceTile(),
@@ -249,6 +252,23 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           ],
         ),
       ),
+    );
+  }
+
+  /// Search over every setting (Adrian, 2026-10-09). A setting on this page
+  /// comes back here to be shown; the search opens other pages itself.
+  Widget _buildSearchTile() {
+    return SettingNavigationTile(
+      focusNode: _focusTracker.get(_kSearch),
+      icon: Symbols.search_rounded,
+      title: t.settings.searchSettings,
+      onTap: () async {
+        final entry = await Navigator.push<SettingsSearchEntry>(
+          context,
+          MaterialPageRoute(builder: (_) => const SettingsSearchScreen()),
+        );
+        if (entry != null && mounted) await revealSetting(context, entry.title);
+      },
     );
   }
 

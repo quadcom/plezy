@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'home_layout.dart';
 import 'media_backend.dart';
 import 'media_library.dart';
 
@@ -90,6 +91,14 @@ class LibraryLayout {
   /// `<library name>`".
   final Map<String, String> titles;
 
+  /// The home screen's sections; null means the default's, else all on in the
+  /// built-in order.
+  final HomeLayout? home;
+
+  /// Top-level keys this version does not know, kept on write so another
+  /// client's fields survive (PlezyFin, 2026-10-09).
+  final Map<String, dynamic> extra;
+
   const LibraryLayout({
     this.rev = 0,
     this.updated,
@@ -97,7 +106,11 @@ class LibraryLayout {
     this.state = const {},
     this.known = const {},
     this.titles = const {},
+    this.home,
+    this.extra = const {},
   });
+
+  static const _knownKeys = {'v', 'rev', 'updated', 'order', 'state', 'known', 'titles', 'home'};
 
   static const empty = LibraryLayout();
 
@@ -136,6 +149,11 @@ class LibraryLayout {
             if (entry.key is String && entry.value is String && (entry.value as String).trim().isNotEmpty)
               entry.key as String: _clampTitle((entry.value as String).trim()),
       },
+      home: HomeLayout.tryFrom(json['home']),
+      extra: {
+        for (final entry in json.entries)
+          if (!_knownKeys.contains(entry.key)) entry.key: entry.value,
+      },
     );
   }
 
@@ -154,6 +172,7 @@ class LibraryLayout {
   }
 
   Map<String, dynamic> toJson() => {
+    ...extra,
     'v': version,
     'rev': rev,
     if (updated != null) 'updated': updated,
@@ -161,7 +180,20 @@ class LibraryLayout {
     'state': {for (final entry in state.entries) entry.key: entry.value.wire},
     'known': known,
     if (titles.isNotEmpty) 'titles': titles,
+    if (home != null) 'home': home!.toJson(),
   };
+
+  /// The next record with the home sections replaced and everything else kept.
+  LibraryLayout withHome(HomeLayout home, {required DateTime now}) => LibraryLayout(
+    rev: rev + 1,
+    updated: now.toUtc().toIso8601String(),
+    order: order,
+    state: state,
+    known: known,
+    titles: titles,
+    home: home,
+    extra: extra,
+  );
 
   String encode() => jsonEncode(toJson());
 
@@ -225,6 +257,8 @@ class LibraryLayout {
       },
       known: known,
       titles: titles,
+      home: home,
+      extra: extra,
     );
   }
 
@@ -273,6 +307,8 @@ class LibraryLayout {
       },
       known: {...known, ...librariesByServer},
       titles: titles,
+      home: home,
+      extra: extra,
     );
   }
 

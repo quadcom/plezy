@@ -141,19 +141,26 @@ class TvBrowseRailLayout {
     // with the rest of the rail metrics (#2226).
     final itemGap = fullCardLayout ? fullCardItemGapForScale(scale) : gridSpacing.gridGap * scale;
     final isPersonHub = TvBrowseRailLayout.isPersonHub(hub);
+    // A home row the user set to posters or screen grabs overrides the
+    // episode poster setting (Adrian, 2026-10-09).
+    final posterMode = hub.cardPosterMode(episodePosterMode);
+    final screenGrabs = hub.forcesScreenGrabs;
     final emptyEpisodeThumbnailHub =
-        hub.items.isEmpty && hub.type == 'episode' && episodePosterMode == EpisodePosterMode.episodeThumbnail;
+        hub.items.isEmpty && hub.type == 'episode' && posterMode == EpisodePosterMode.episodeThumbnail;
     final hasWide =
         !isPersonHub &&
-        (emptyEpisodeThumbnailHub || hub.items.any((item) => item.usesWideAspectRatio(episodePosterMode)));
-    final hasTall = !isPersonHub && hub.items.any((item) => !item.usesWideAspectRatio(episodePosterMode));
-    final isMixedHub = hasWide && hasTall;
-    final useWideLayout = hasWide && (!hasTall || episodePosterMode == EpisodePosterMode.episodeThumbnail);
+        (emptyEpisodeThumbnailHub ||
+            hub.items.any((item) => item.usesWideAspectRatio(posterMode, mixedHubContext: screenGrabs)));
+    final hasTall =
+        !isPersonHub && hub.items.any((item) => !item.usesWideAspectRatio(posterMode, mixedHubContext: screenGrabs));
+    // Screen grabs draw films and shows wide, as a mixed row does.
+    final isMixedHub = (hasWide && hasTall) || (screenGrabs && !isPersonHub);
+    final useWideLayout = hasWide && (!hasTall || posterMode == EpisodePosterMode.episodeThumbnail);
     // Music hubs render square album/artist artwork (person hubs are already square).
     final isSquareHub =
         !isPersonHub &&
         hub.items.isNotEmpty &&
-        hub.items.every((item) => item.cardShape(episodePosterMode) == CardShape.square);
+        hub.items.every((item) => item.cardShape(posterMode) == CardShape.square);
     final baseCardWidth = cardWidthFor(
       availableWidth: availableWidth,
       density: density,
@@ -1148,7 +1155,10 @@ class TvBrowseRailState extends State<TvBrowseRail> with TickerProviderStateMixi
           final episodePosterMode = svc.read(SettingsService.episodePosterMode);
           final fullCardLayout = svc.read(SettingsService.tvFullCardLayout);
           final gridSpacing = svc.read(SettingsService.gridSpacing);
-          final modes = [for (final hub in widget.hubs) widget.episodePosterModeForHub?.call(hub) ?? episodePosterMode];
+          final modes = [
+            for (final hub in widget.hubs)
+              hub.cardPosterMode(widget.episodePosterModeForHub?.call(hub) ?? episodePosterMode),
+          ];
           final wideScales = [
             for (final hub in widget.hubs) widget.widePosterScaleForHub?.call(hub) ?? widget.widePosterScale,
           ];

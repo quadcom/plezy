@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../i18n/strings.g.dart';
 import '../../providers/catalog_sources_provider.dart';
+import '../../providers/hidden_libraries_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/settings_service.dart' hide ThemeMode;
 import '../../services/settings_service.dart' as settings show ThemeMode;
@@ -17,6 +18,7 @@ import '../../widgets/setting_tile.dart';
 import '../../widgets/settings_page.dart';
 import '../../widgets/settings_builder.dart';
 import '../../widgets/settings_section.dart';
+import 'home_sections_screen.dart';
 import 'settings_utils.dart';
 
 class AppearanceSettingsScreen extends StatelessWidget {
@@ -27,6 +29,10 @@ class AppearanceSettingsScreen extends StatelessWidget {
     // Nullable watch: hosts without the profile session scope (tests) simply
     // never show the Explore toggle, mirroring the tab's own visibility.
     final hasExplore = context.watch<CatalogSourcesProvider?>()?.hasAnySource ?? false;
+    // With a PlezyFin account the banner switch lives in Home sections, saved
+    // with the account (PlezyFin, 2026-10-09).
+    final accountHome = context.watch<HiddenLibrariesProvider?>()?.isAccountLayout ?? false;
+    final hasHomeSections = context.watch<HiddenLibrariesProvider?>() != null;
     return SettingsPage(
       title: Text(t.settings.appearance),
       children: [
@@ -104,7 +110,14 @@ class AppearanceSettingsScreen extends StatelessWidget {
         SettingsGroup(
           title: t.settings.homeScreen,
           children: [
-            if (!PlatformDetector.isTV())
+            if (hasHomeSections)
+              SettingNavigationTile(
+                icon: Symbols.view_agenda_rounded,
+                title: t.settings.homeSections,
+                subtitle: t.settings.homeSectionsDescription,
+                destinationBuilder: (_) => const HomeSectionsScreen(),
+              ),
+            if (!PlatformDetector.isTV() && !accountHome)
               SettingSwitchTile(
                 pref: SettingsService.showHeroSection,
                 icon: Symbols.featured_play_list_rounded,

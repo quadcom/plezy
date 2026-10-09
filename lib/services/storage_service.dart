@@ -21,6 +21,7 @@ class StorageService extends BaseSharedPreferencesService {
   static const String _keyHiddenLibraries = 'hidden_libraries';
   static const String _keyOffLibraries = 'off_libraries';
   static const String _keyAccountLibraryLayout = 'account_library_layout';
+  static const String _keyHomeLayout = 'home_layout';
   static const String _keyServersList = 'servers_list';
   static const String _keyServerOrder = 'server_order';
   static const String _keyActiveProfileId = 'active_app_profile_id';
@@ -42,6 +43,7 @@ class StorageService extends BaseSharedPreferencesService {
     _keyHiddenLibraries,
     _keyOffLibraries,
     _keyAccountLibraryLayout,
+    _keyHomeLayout,
   ];
 
   StorageService._();
@@ -383,6 +385,15 @@ class StorageService extends BaseSharedPreferencesService {
 
   String? getAccountLibraryLayout({String? profileId}) =>
       readNullableString('${_prefixFor(profileId)}$_keyAccountLibraryLayout');
+
+  // Home sections kept on this device when there is no PlezyFin account, in
+  // the record's `home` shape.
+  Future<void> saveHomeLayout(String? value, {String? profileId}) async {
+    final key = '${_prefixFor(profileId)}$_keyHomeLayout';
+    value == null ? await prefs.remove(key) : await prefs.setString(key, value);
+  }
+
+  String? getHomeLayout({String? profileId}) => readNullableString('${_prefixFor(profileId)}$_keyHomeLayout');
 
   Set<String> _decodeStringSet(String? jsonString) {
     if (jsonString == null) return {};

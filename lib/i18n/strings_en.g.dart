@@ -1247,6 +1247,69 @@ class Translations$settings$en {
 	/// en: 'Home Screen'
 	String get homeScreen => 'Home Screen';
 
+	/// en: 'Home Sections'
+	String get homeSections => 'Home Sections';
+
+	/// en: 'Turn home rows on or off, move them, and pick posters or screen grabs'
+	String get homeSectionsDescription => 'Turn home rows on or off, move them, and pick posters or screen grabs';
+
+	/// en: 'Saved with your account, so every device follows'
+	String get homeSectionsSavedAccount => 'Saved with your account, so every device follows';
+
+	/// en: 'Saved on this device'
+	String get homeSectionsSavedDevice => 'Saved on this device';
+
+	/// en: 'Rows'
+	String get homeSectionsRows => 'Rows';
+
+	/// en: 'Cards in Library Rows'
+	String get homeSectionsLibraryCards => 'Cards in Library Rows';
+
+	/// en: 'Banner'
+	String get homeSectionBanner => 'Banner';
+
+	/// en: 'Library rows'
+	String get homeSectionLibraries => 'Library rows';
+
+	/// en: 'On'
+	String get homeSectionOn => 'On';
+
+	/// en: 'Off'
+	String get homeSectionOff => 'Off';
+
+	/// en: 'Not shown on TV'
+	String get homeSectionNotOnTv => 'Not shown on TV';
+
+	/// en: 'Turn on'
+	String get homeSectionTurnOn => 'Turn on';
+
+	/// en: 'Turn off'
+	String get homeSectionTurnOff => 'Turn off';
+
+	/// en: 'Move up'
+	String get homeSectionMoveUp => 'Move up';
+
+	/// en: 'Move down'
+	String get homeSectionMoveDown => 'Move down';
+
+	/// en: 'Usual look'
+	String get cardsUsual => 'Usual look';
+
+	/// en: 'Posters'
+	String get cardsPosters => 'Posters';
+
+	/// en: 'Screen grabs'
+	String get cardsScreenGrabs => 'Screen grabs';
+
+	/// en: 'Search Settings'
+	String get searchSettings => 'Search Settings';
+
+	/// en: 'Type a setting's name'
+	String get searchSettingsHint => 'Type a setting\'s name';
+
+	/// en: 'No settings match'
+	String get searchSettingsNoResults => 'No settings match';
+
 	/// en: 'Navigation'
 	String get navigation => 'Navigation';
 
@@ -7748,6 +7811,27 @@ extension on Translations {
 			'settings.display' => 'Display',
 			'settings.libraryAndCards' => 'Library & Cards',
 			'settings.homeScreen' => 'Home Screen',
+			'settings.homeSections' => 'Home Sections',
+			'settings.homeSectionsDescription' => 'Turn home rows on or off, move them, and pick posters or screen grabs',
+			'settings.homeSectionsSavedAccount' => 'Saved with your account, so every device follows',
+			'settings.homeSectionsSavedDevice' => 'Saved on this device',
+			'settings.homeSectionsRows' => 'Rows',
+			'settings.homeSectionsLibraryCards' => 'Cards in Library Rows',
+			'settings.homeSectionBanner' => 'Banner',
+			'settings.homeSectionLibraries' => 'Library rows',
+			'settings.homeSectionOn' => 'On',
+			'settings.homeSectionOff' => 'Off',
+			'settings.homeSectionNotOnTv' => 'Not shown on TV',
+			'settings.homeSectionTurnOn' => 'Turn on',
+			'settings.homeSectionTurnOff' => 'Turn off',
+			'settings.homeSectionMoveUp' => 'Move up',
+			'settings.homeSectionMoveDown' => 'Move down',
+			'settings.cardsUsual' => 'Usual look',
+			'settings.cardsPosters' => 'Posters',
+			'settings.cardsScreenGrabs' => 'Screen grabs',
+			'settings.searchSettings' => 'Search Settings',
+			'settings.searchSettingsHint' => 'Type a setting\'s name',
+			'settings.searchSettingsNoResults' => 'No settings match',
 			'settings.navigation' => 'Navigation',
 			'settings.window' => 'Window',
 			'settings.liveTv' => 'Live TV',
@@ -7851,6 +7935,8 @@ extension on Translations {
 			'fileInfo.level' => 'Level',
 			'fileInfo.bitDepth' => 'Bit Depth',
 			'fileInfo.pixelFormat' => 'Pixel Format',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.colorSpace' => 'Color Space',
 			'fileInfo.colorRange' => 'Color Range',
 			'fileInfo.colorPrimaries' => 'Color Primaries',
@@ -7872,8 +7958,6 @@ extension on Translations {
 			'fileInfo.scalingMatrix' => 'Custom Scaling Matrix',
 			'fileInfo.streamIdentifier' => 'Stream Identifier',
 			'fileInfo.streamIndex' => 'Stream Index',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.streamId' => 'Stream ID',
 			'fileInfo.language' => 'Language',
 			'fileInfo.languageCode' => 'Language Code',
@@ -8365,6 +8449,8 @@ extension on Translations {
 			'errors.noClientAvailable' => 'No client available',
 			'errors.pleaseEnterToken' => 'Please enter a token',
 			'errors.invalidToken' => 'Invalid token',
+			_ => null,
+		} ?? switch (path) {
 			'errors.failedToVerifyToken' => ({required Object error}) => 'Failed to verify token: ${error}',
 			'errors.failedToSwitchProfile' => ({required Object displayName}) => 'Failed to switch to ${displayName}',
 			'errors.failedToDeleteProfile' => ({required Object displayName}) => 'Failed to delete ${displayName}',
@@ -8386,8 +8472,6 @@ extension on Translations {
 			'libraries.emptyTrash' => 'Empty Trash',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Emptying trash for "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Trash emptied for "${title}"',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Failed to empty trash: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyzing "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analysis started for "${title}"',
@@ -8879,6 +8963,8 @@ extension on Translations {
 			'watchTogether.hostControlsPlayback' => 'Host controls playback',
 			'watchTogether.anyoneCanControl' => 'Anyone can control playback',
 			'watchTogether.hostControls' => 'Host controls',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.anyoneControls' => 'Anyone controls',
 			'watchTogether.participants' => 'Participants',
 			'watchTogether.host' => 'Host',
@@ -8900,8 +8986,6 @@ extension on Translations {
 			'watchTogether.leaveSessionConfirm' => 'You will be removed from the session.',
 			'watchTogether.endSessionConfirmOverlay' => 'This will end the watch session for all participants.',
 			'watchTogether.leaveSessionConfirmOverlay' => 'You will be disconnected from the watch session.',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.end' => 'End',
 			'watchTogether.leave' => 'Leave',
 			'watchTogether.syncing' => 'Syncing...',
@@ -9393,6 +9477,8 @@ extension on Translations {
 			'services.deviceCode.instructions' => 'Scan the QR code, or visit the address below and enter this code:',
 			'services.deviceCode.openToActivate' => ({required Object service}) => 'Open ${service} to activate',
 			'services.deviceCode.copyCode' => 'Copy activation code',
+			_ => null,
+		} ?? switch (path) {
 			'services.deviceCode.waitingForAuthorization' => 'Waiting for authorization…',
 			'services.deviceCode.codeCopied' => 'Code copied',
 			'services.oauthProxy.title' => ({required Object service}) => 'Sign in to ${service}',
@@ -9414,8 +9500,6 @@ extension on Translations {
 			'services.libraryFilter.noLibraries' => 'No libraries available',
 			'addServer.addMediaBrowserTitle' => ({required Object product}) => 'Add ${product} server',
 			'addServer.serverUrls' => 'Server URLs',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.serverUrlsHelper' => 'Multiple URLs allowed, separated by commas.',
 			'addServer.findServer' => 'Find server',
 			'addServer.searchingLocalMediaBrowserServers' => ({required Object product}) => 'Looking for local ${product} servers...',

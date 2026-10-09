@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../media/home_layout.dart';
 import '../media/ids.dart';
 import '../media/media_hub.dart';
 import '../media/library_change_event.dart';
@@ -259,8 +260,44 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
   List<MediaItem> get onDeck => _onDeck;
 
+  /// Continue Watching: the [onDeck] items started and not finished. Next Up
+  /// holds the rest. Plezy showed both in one row until Adrian asked for two,
+  /// as on the web (2026-10-09).
+  List<MediaItem> get resumeItems => _splitOnDeck().resume;
+
+  /// Next Up: the [onDeck] items not started yet.
+  List<MediaItem> get nextUpItems => _splitOnDeck().nextUp;
+
+  List<MediaItem>? _splitSource;
+  ({List<MediaItem> resume, List<MediaItem> nextUp}) _split = (resume: const [], nextUp: const []);
+
+  ({List<MediaItem> resume, List<MediaItem> nextUp}) _splitOnDeck() {
+    if (!identical(_splitSource, _onDeck)) {
+      _splitSource = _onDeck;
+      _split = splitOnDeck(_onDeck);
+    }
+    return _split;
+  }
+
+  /// [items] split into started ones and the rest, each keeping its order.
+  static ({List<MediaItem> resume, List<MediaItem> nextUp}) splitOnDeck(List<MediaItem> items) => (
+    resume: List.unmodifiable(items.where((item) => item.hasActiveProgress)),
+    nextUp: List.unmodifiable(items.where((item) => !item.hasActiveProgress)),
+  );
+
+  /// The home sections in force (account, default or device).
+  HomeLayout get home => _hiddenLibraries.home;
+
+  /// Whether the home sections come from the PlezyFin account, whose banner
+  /// switch then wins over this device's Show hero setting.
+  bool get homeFromAccount => _hiddenLibraries.isAccountLayout;
+
+  /// The card style for the Continue Watching or Next Up row.
+  HomeCardStyle? sectionCardStyle(String section) => _hiddenLibraries.cardStyleFor(section);
+
   /// The home rows, each library's Recently Added row under the title the
-  /// PlezyFin account gives it (Adrian, 2026-10-09).
+  /// PlezyFin account gives it, and each library's rows in the card style the
+  /// user picked for that library (Adrian, 2026-10-09).
   List<MediaHub> get hubs {
     if (!identical(_titledSource, _hubs) || _titledRevision != _titlesRevision) {
       _titledSource = _hubs;
@@ -279,10 +316,30 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
   MediaHub _withRowTitle(MediaHub hub) {
     final serverId = hub.serverId;
+    if (serverId == null) return hub;
     final match = _libraryRowId.firstMatch(hub.identifier ?? hub.id);
-    if (serverId == null || match == null) return hub;
-    final title = _hiddenLibraries.rowTitleFor(serverId: serverId, libraryId: match.group(1)!);
-    return title == null || title == hub.title ? hub : hub.copyWith(title: title);
+    var presented = hub;
+    if (match != null) {
+      final title = _hiddenLibraries.rowTitleFor(serverId: serverId, libraryId: match.group(1)!);
+      if (title != null && title != hub.title) presented = presented.copyWith(title: title);
+    }
+    final libraryId = match?.group(1) ?? _rowLibraryId(hub);
+    final library = libraryId == null ? null : _hiddenLibraries.libraryFor(serverId: serverId, libraryId: libraryId);
+    return library == null ? presented : presented.withCardStyle(_hiddenLibraries.libraryCardStyle(library));
+  }
+
+  /// The library a Plex section row comes from: the one it was split for, or
+  /// the one all its items share. Null for a server-wide row.
+  static String? _rowLibraryId(MediaHub hub) {
+    final split = hub.libraryId;
+    if (split != null) return split;
+    String? shared;
+    for (final item in hub.items) {
+      final id = item.libraryId;
+      if (id == null || (shared != null && id != shared)) return null;
+      shared = id;
+    }
+    return shared;
   }
 
   bool get hasMoreContinueWatching => _hasMoreContinueWatching;
