@@ -83,7 +83,9 @@ Future<void> showLibraryManagementSheet(
     onLibraryMenuAction: (action, library) => _handleLibraryMenuAction(context, action, library),
   );
 
-  if (PlatformDetector.isTV()) {
+  // Desktop takes the TV's centred dialog too: it suits a big window better
+  // than the slide-in sheet.
+  if (PlatformDetector.isTV() || PlatformDetector.isDesktopOS()) {
     return showScopedDialog<void>(context: context, builder: (context) => buildSheet(isDialog: true));
   }
   // Use the host supplied by the calling screen when available while keeping
