@@ -455,7 +455,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     final showTitle = _show?.title;
     final overline = _season != null && showTitle != null && showTitle.isNotEmpty ? showTitle : null;
     final title = _season != null ? seasonLabel(_season!) : (_show?.title ?? subject.displayTitle);
-    final posterWidth = (size.width * 0.13).clamp(84.0, 200.0);
+    final posterWidth = wide ? (size.width * 0.13).clamp(84.0, 200.0) : (size.width * 0.36).clamp(110.0, 170.0);
     final totalMs = _hasMore ? 0 : _episodes.fold<int>(0, (sum, e) => sum + (e.durationMs ?? 0));
     final year = subject.year ?? _show?.year;
     final rating = _show?.contentRating;
@@ -511,12 +511,11 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
         ],
-        const SizedBox(height: 14),
-        _buildButtons(context),
+        if (wide) ...[const SizedBox(height: 14), _buildButtons(context)],
       ],
     );
 
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         SizedBox(
@@ -532,6 +531,12 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         SizedBox(width: wide ? 32 : 16),
         Expanded(child: info),
       ],
+    );
+    if (wide) return row;
+    // On a phone the buttons get the full width below, so the poster can grow.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [row, const SizedBox(height: 16), _buildButtons(context)],
     );
   }
 

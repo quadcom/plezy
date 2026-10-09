@@ -289,7 +289,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   Widget _buildHeader(BuildContext context, MediaServerClient? client, Size size, bool wide) {
     final theme = Theme.of(context);
     final title = splitCourseTitle(_course.title ?? '', instructors: _course.courseInstructors);
-    final posterWidth = (size.width * 0.13).clamp(84.0, 200.0);
+    final posterWidth = wide ? (size.width * 0.13).clamp(84.0, 200.0) : (size.width * 0.36).clamp(110.0, 170.0);
     final totalMs = _lessons.fold<int>(0, (sum, l) => sum + (l.durationMs ?? 0));
     final meta = [
       if (_course.year != null) '${_course.year}',
@@ -339,12 +339,11 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
         ],
-        const SizedBox(height: 14),
-        _buildButtons(context),
+        if (wide) ...[const SizedBox(height: 14), _buildButtons(context)],
       ],
     );
 
-    return Row(
+    final row = Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         SizedBox(
@@ -360,6 +359,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         SizedBox(width: wide ? 32 : 16),
         Expanded(child: info),
       ],
+    );
+    if (wide) return row;
+    // On a phone the buttons get the full width below, so the poster can grow.
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [row, const SizedBox(height: 16), _buildButtons(context)],
     );
   }
 
