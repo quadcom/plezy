@@ -286,6 +286,7 @@ Future<MediaNavigationResult> navigateToMediaItemDetails(
       initialSeasonIndex: target.initialSeasonIndex,
       initialSeasonId: target.initialSeasonId,
       initialEpisodeId: target.initialEpisodeId,
+      courseSource: mi,
     ),
   );
   if (result == true && context.mounted) {

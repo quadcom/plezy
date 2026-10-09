@@ -91,6 +91,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$seerr$en seerr = Translations$seerr$en.internal(_root);
 	late final Translations$services$en services = Translations$services$en.internal(_root);
 	late final Translations$addServer$en addServer = Translations$addServer$en.internal(_root);
+	late final Translations$course$en course = Translations$course$en.internal(_root);
 }
 
 // Path: app
@@ -5667,6 +5668,42 @@ class Translations$addServer$en {
 	String redirectUnsupportedEnterFinal({required Object product}) => 'The server redirected to an unsupported URL. Enter the final ${product} URL directly.';
 }
 
+// Path: course
+class Translations$course$en {
+	Translations$course$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Lessons'
+	String get lessons => 'Lessons';
+
+	/// en: '(one) {${n} lesson} (other) {${n} lessons}'
+	String lessonCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} lesson',
+		other: '${n} lessons',
+	);
+
+	/// en: '${watched} of ${total} lessons watched'
+	String lessonsWatched({required Object watched, required Object total}) => '${watched} of ${total} lessons watched';
+
+	/// en: 'Start course'
+	String get startCourse => 'Start course';
+
+	/// en: 'Resume: Lesson ${number} – ${title}'
+	String resumeLesson({required Object number, required Object title}) => 'Resume: Lesson ${number} – ${title}';
+
+	/// en: 'Start over'
+	String get startOver => 'Start over';
+
+	/// en: 'Lesson ${number}: ${title}'
+	String lessonHeading({required Object number, required Object title}) => 'Lesson ${number}: ${title}';
+
+	/// en: 'Could not load this course.'
+	String get loadFailed => 'Could not load this course.';
+}
+
 // Path: common.ratingSource
 class Translations$common$ratingSource$en {
 	Translations$common$ratingSource$en.internal(this._root);
@@ -7768,9 +7805,9 @@ extension on Translations {
 			'fileInfo.streamIndex' => 'Stream Index',
 			'fileInfo.streamId' => 'Stream ID',
 			'fileInfo.language' => 'Language',
-			'fileInfo.languageCode' => 'Language Code',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.languageCode' => 'Language Code',
 			'fileInfo.streamTitle' => 'Track Title',
 			'fileInfo.channels' => 'Channels',
 			'fileInfo.sampleRate' => 'Sample Rate',
@@ -8282,9 +8319,9 @@ extension on Translations {
 			'libraries.trashEmptied' => ({required Object title}) => 'Trash emptied for "${title}"',
 			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Failed to empty trash: ${error}',
 			'libraries.analyzing' => ({required Object title}) => 'Analyzing "${title}"...',
-			'libraries.analysisStarted' => ({required Object title}) => 'Analysis started for "${title}"',
 			_ => null,
 		} ?? switch (path) {
+			'libraries.analysisStarted' => ({required Object title}) => 'Analysis started for "${title}"',
 			'libraries.failedToAnalyze' => ({required Object error}) => 'Failed to analyze library: ${error}',
 			'libraries.noLibrariesFound' => 'No libraries found',
 			'libraries.allLibrariesHidden' => 'All libraries are hidden',
@@ -8796,9 +8833,9 @@ extension on Translations {
 			'watchTogether.pleaseEnterCode' => 'Please enter a session code',
 			'watchTogether.codeMustBe5Chars' => 'Session code must be 5 characters',
 			'watchTogether.joinInstructions' => 'Enter the host\'s session code to join.',
-			'watchTogether.failedToCreate' => 'Failed to create session',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.failedToCreate' => 'Failed to create session',
 			'watchTogether.failedToJoin' => 'Failed to join session',
 			'watchTogether.sessionCodeCopied' => 'Session code copied to clipboard',
 			'watchTogether.relayUnreachable' => 'Relay server unreachable. ISP blocking may prevent Watch Together.',
@@ -9310,9 +9347,9 @@ extension on Translations {
 			'addServer.signIn' => 'Sign in',
 			'addServer.change' => 'Change',
 			'addServer.required' => 'Required',
-			'addServer.couldNotReachServer' => ({required Object error}) => 'Could not reach the server: ${error}',
 			_ => null,
 		} ?? switch (path) {
+			'addServer.couldNotReachServer' => ({required Object error}) => 'Could not reach the server: ${error}',
 			'addServer.signInFailed' => ({required Object error}) => 'Sign-in failed: ${error}',
 			'addServer.quickConnectFailed' => ({required Object error}) => 'Quick Connect failed: ${error}',
 			'addServer.addPlexTitle' => 'Sign in with Plex',
@@ -9348,6 +9385,14 @@ extension on Translations {
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'The server redirected to a different host. Enter the final ${product} URL directly.',
 			'addServer.redirectInsecure' => 'The server redirected from HTTPS to an insecure URL',
 			'addServer.redirectUnsupportedEnterFinal' => ({required Object product}) => 'The server redirected to an unsupported URL. Enter the final ${product} URL directly.',
+			'course.lessons' => 'Lessons',
+			'course.lessonCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} lesson', other: '${n} lessons', ), 
+			'course.lessonsWatched' => ({required Object watched, required Object total}) => '${watched} of ${total} lessons watched',
+			'course.startCourse' => 'Start course',
+			'course.resumeLesson' => ({required Object number, required Object title}) => 'Resume: Lesson ${number} – ${title}',
+			'course.startOver' => 'Start over',
+			'course.lessonHeading' => ({required Object number, required Object title}) => 'Lesson ${number}: ${title}',
+			'course.loadFailed' => 'Could not load this course.',
 			_ => null,
 		};
 	}

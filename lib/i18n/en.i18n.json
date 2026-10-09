@@ -2296,5 +2296,18 @@
     "redirectDifferentHost": "The server redirected to a different host. Enter the final ${product} URL directly.",
     "redirectInsecure": "The server redirected from HTTPS to an insecure URL",
     "redirectUnsupportedEnterFinal": "The server redirected to an unsupported URL. Enter the final ${product} URL directly."
+  },
+  "course": {
+    "lessons": "Lessons",
+    "lessonCount": {
+      "one": "${n} lesson",
+      "other": "${n} lessons"
+    },
+    "lessonsWatched": "${watched} of ${total} lessons watched",
+    "startCourse": "Start course",
+    "resumeLesson": "Resume: Lesson ${number} – ${title}",
+    "startOver": "Start over",
+    "lessonHeading": "Lesson ${number}: ${title}",
+    "loadFailed": "Could not load this course."
   }
 }

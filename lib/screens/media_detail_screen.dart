@@ -33,6 +33,8 @@ import '../media/media_hub.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/plex_season_display.dart';
 import '../media/media_item.dart';
+import '../media/media_course.dart';
+import 'course/course_detail_screen.dart';
 import '../media/episode_collection.dart';
 import '../media/media_item_types.dart';
 import '../media/media_kind.dart';
@@ -287,14 +289,21 @@ PageRoute<bool> mediaDetailRoute({
   int? initialSeasonIndex,
   String? initialSeasonId,
   String? initialEpisodeId,
+  MediaItem? courseSource,
 }) {
-  final page = MediaDetailScreen(
-    metadata: metadata,
-    isOffline: isOffline,
-    initialSeasonIndex: initialSeasonIndex,
-    initialSeasonId: initialSeasonId,
-    initialEpisodeId: initialEpisodeId,
-  );
+  // Fork: Master Class courses get their own screen (local/plans/masterclass-course-screen.md).
+  // [courseSource] is the item the user opened, which carries the course guid
+  // when [metadata] is a stand-in built from a lesson.
+  final isCourse = !isOffline && (metadata.isCourse || (courseSource?.isCourse ?? false));
+  final Widget page = isCourse
+      ? CourseDetailScreen(metadata: metadata, initialLessonId: initialEpisodeId)
+      : MediaDetailScreen(
+          metadata: metadata,
+          isOffline: isOffline,
+          initialSeasonIndex: initialSeasonIndex,
+          initialSeasonId: initialSeasonId,
+          initialEpisodeId: initialEpisodeId,
+        );
   if (!PlatformDetector.isTV()) return MaterialPageRoute<bool>(builder: (_) => page);
 
   return PageRouteBuilder<bool>(
