@@ -2307,6 +2307,7 @@
     "startCourse": "Start course",
     "resumeLesson": "Resume: Lesson ${number} – ${title}",
     "startOver": "Start over",
+    "watchTrailer": "Watch trailer",
     "lessonHeading": "Lesson ${number}: ${title}",
     "loadFailed": "Could not load this course."
   }

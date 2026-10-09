@@ -29,11 +29,12 @@ PlexMediaItem _lesson(int n, String title, {int? viewCount, int? viewOffsetMs}) 
 );
 
 class _CourseClient implements MediaServerClient {
-  _CourseClient(this.course, this.lessons, {this.onDeck});
+  _CourseClient(this.course, this.lessons, {this.onDeck, this.extras = const []});
 
   final MediaItem course;
   final List<MediaItem> lessons;
   final MediaItem? onDeck;
+  final List<MediaItem> extras;
 
   @override
   final ServerId serverId = ServerId(_serverId);
@@ -50,6 +51,9 @@ class _CourseClient implements MediaServerClient {
   Future<List<MediaItem>> fetchPlayableDescendants(String parentId) async => lessons.reversed.toList();
 
   @override
+  Future<List<MediaItem>> fetchExtras(String id) async => extras;
+
+  @override
   void close() {}
 
   @override
@@ -59,7 +63,7 @@ class _CourseClient implements MediaServerClient {
 void main() {
   setUpAll(() => LocaleSettings.setLocaleSync(AppLocale.en));
 
-  Future<void> pumpCourse(WidgetTester tester) async {
+  Future<void> pumpCourse(WidgetTester tester, {List<MediaItem> extras = const []}) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -78,7 +82,9 @@ void main() {
       _lesson(2, 'Fire and Smoke', viewOffsetMs: 120000),
       _lesson(3, 'Smoke: Pork Butt'),
     ];
-    final servers = testMultiServer(clients: [_CourseClient(course, lessons, onDeck: lessons[1])]);
+    final servers = testMultiServer(
+      clients: [_CourseClient(course, lessons, onDeck: lessons[1], extras: extras)],
+    );
 
     await tester.pumpWidget(
       ChangeNotifierProvider<MultiServerProvider>.value(
@@ -128,5 +134,20 @@ void main() {
     expect(find.textContaining('Lesson 3: Smoke: Pork Butt'), findsOneWidget);
     expect(find.text('Notes for Smoke: Pork Butt.'), findsOneWidget);
     expect(find.text('Notes for Fire and Smoke.'), findsNothing);
+  });
+
+  testWidgets('has no Watch trailer button without a trailer', (tester) async {
+    await pumpCourse(tester);
+    expect(find.text('Watch trailer'), findsNothing);
+  });
+
+  testWidgets('shows Watch trailer when the course has a trailer', (tester) async {
+    await pumpCourse(
+      tester,
+      extras: const [
+        PlexMediaItem(id: 't1', kind: MediaKind.clip, subtype: 'trailer', title: 'Trailer', serverId: _serverId),
+      ],
+    );
+    expect(find.text('Watch trailer'), findsOneWidget);
   });
 }

@@ -50,6 +50,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   late MediaItem _course = widget.metadata;
   List<MediaItem> _lessons = const [];
   MediaItem? _onDeck;
+  MediaItem? _trailer;
   bool _loading = true;
   bool _failed = false;
   int _selected = 0;
@@ -90,9 +91,10 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
       return;
     }
     try {
-      final (detail, descendants) = await (
+      final (detail, descendants, extras) = await (
         client.fetchItemWithOnDeck(_courseId),
         client.fetchPlayableDescendants(_courseId),
+        _fetchExtras(client),
       ).wait;
       if (!mounted) return;
       final course = detail.item ?? _course;
@@ -105,10 +107,15 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             libraryTitle: lesson.libraryTitle ?? course.libraryTitle,
           ),
       ]..sort(_lessonOrder);
+      final trailer = courseTrailer(course, extras)?.copyWith(
+        serverId: course.serverId ?? widget.metadata.serverId,
+        serverName: course.serverName ?? widget.metadata.serverName,
+      );
       setState(() {
         _course = course;
         _lessons = lessons;
         _onDeck = detail.onDeckEpisode;
+        _trailer = trailer;
         _selected = _firstLoad
             ? _initialSelection(lessons)
             : _selected.clamp(0, lessons.isEmpty ? 0 : lessons.length - 1);
@@ -129,6 +136,17 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         _loading = false;
         _failed = _lessons.isEmpty;
       });
+    }
+  }
+
+  /// The course's extras, where PMB puts its trailer. A course without them
+  /// (or a server that fails to list them) just shows no trailer button.
+  Future<List<MediaItem>> _fetchExtras(MediaServerClient client) async {
+    try {
+      return await client.fetchExtras(_courseId);
+    } catch (e) {
+      appLogger.d('Course $_courseId extras failed to load', error: e);
+      return const [];
     }
   }
 
@@ -345,30 +363,33 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   }
 
   Widget _buildButtons(BuildContext context) {
-    if (_lessons.isEmpty) return const SizedBox.shrink();
+    final trailer = _trailer;
+    if (_lessons.isEmpty && trailer == null) return const SizedBox.shrink();
     final resume = _resumeIndex(_lessons, _onDeck);
     final started = _started;
-    final target = _lessons[resume ?? 0];
-    final label = started && resume != null
+    final target = _lessons.isEmpty ? null : _lessons[resume ?? 0];
+    final label = started && resume != null && target != null
         ? t.course.resumeLesson(number: target.index ?? resume + 1, title: target.title ?? '')
         : t.course.startCourse;
-    void playPrimary() => unawaited(_play(target));
+    void playPrimary() => unawaited(_play(target!));
     void startOver() => unawaited(_play(_lessons.first.copyWith(viewOffsetMs: 0)));
+    void playTrailer() => unawaited(navigateToVideoPlayer(context, metadata: trailer!, isLaunchCurrent: () => mounted));
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        FocusableButton(
-          focusNode: _primaryFocus,
-          useBackgroundFocus: true,
-          onPressed: playPrimary,
-          onNavigateDown: _focusSelectedLesson,
-          child: FilledButton.icon(
+        if (target != null)
+          FocusableButton(
+            focusNode: _primaryFocus,
+            useBackgroundFocus: true,
             onPressed: playPrimary,
-            icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1),
-            label: Text(label, overflow: TextOverflow.ellipsis),
+            onNavigateDown: _focusSelectedLesson,
+            child: FilledButton.icon(
+              onPressed: playPrimary,
+              icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1),
+              label: Text(label, overflow: TextOverflow.ellipsis),
+            ),
           ),
-        ),
         if (started)
           FocusableButton(
             useBackgroundFocus: true,
@@ -378,6 +399,18 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
               onPressed: startOver,
               icon: const AppIcon(Symbols.replay_rounded, fill: 1),
               label: Text(t.course.startOver),
+            ),
+          ),
+        if (trailer != null)
+          FocusableButton(
+            focusNode: target == null ? _primaryFocus : null,
+            useBackgroundFocus: true,
+            onPressed: playTrailer,
+            onNavigateDown: _focusSelectedLesson,
+            child: OutlinedButton.icon(
+              onPressed: playTrailer,
+              icon: const AppIcon(Symbols.theaters_rounded, fill: 1),
+              label: Text(t.course.watchTrailer),
             ),
           ),
       ],

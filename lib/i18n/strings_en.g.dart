@@ -5697,6 +5697,9 @@ class Translations$course$en {
 	/// en: 'Start over'
 	String get startOver => 'Start over';
 
+	/// en: 'Watch trailer'
+	String get watchTrailer => 'Watch trailer';
+
 	/// en: 'Lesson ${number}: ${title}'
 	String lessonHeading({required Object number, required Object title}) => 'Lesson ${number}: ${title}';
 
@@ -9391,6 +9394,7 @@ extension on Translations {
 			'course.startCourse' => 'Start course',
 			'course.resumeLesson' => ({required Object number, required Object title}) => 'Resume: Lesson ${number} – ${title}',
 			'course.startOver' => 'Start over',
+			'course.watchTrailer' => 'Watch trailer',
 			'course.lessonHeading' => ({required Object number, required Object title}) => 'Lesson ${number}: ${title}',
 			'course.loadFailed' => 'Could not load this course.',
 			_ => null,

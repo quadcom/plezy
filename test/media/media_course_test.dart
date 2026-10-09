@@ -126,4 +126,37 @@ void main() {
       expect(courseSummary(null), isNull);
     });
   });
+
+  group('courseTrailer', () {
+    const course = PlexMediaItem(id: 's', kind: MediaKind.show);
+
+    test('picks the extra marked as a trailer', () {
+      const extras = [
+        PlexMediaItem(id: 'a', kind: MediaKind.clip, subtype: 'behindTheScenes'),
+        PlexMediaItem(id: 'b', kind: MediaKind.clip, subtype: 'trailer'),
+      ];
+      expect(courseTrailer(course, extras)?.id, 'b');
+    });
+
+    test('prefers the primary extra Plex names', () {
+      const named = PlexMediaItem(id: 's', kind: MediaKind.show, trailerKey: '/library/metadata/c');
+      const extras = [
+        PlexMediaItem(id: 'b', kind: MediaKind.clip, subtype: 'trailer'),
+        PlexMediaItem(id: 'c', kind: MediaKind.clip, subtype: 'trailer'),
+      ];
+      expect(courseTrailer(named, extras)?.id, 'c');
+    });
+
+    test('reads the Jellyfin trailer type', () {
+      const extras = [
+        JellyfinMediaItem(id: 'j', kind: MediaKind.clip, raw: {'Type': 'Trailer', 'ExtraType': 'Trailer'}),
+      ];
+      expect(courseTrailer(course, extras)?.id, 'j');
+    });
+
+    test('is null without a trailer', () {
+      expect(courseTrailer(course, const []), isNull);
+      expect(courseTrailer(course, const [PlexMediaItem(id: 'a', kind: MediaKind.clip, subtype: 'interview')]), isNull);
+    });
+  });
 }
