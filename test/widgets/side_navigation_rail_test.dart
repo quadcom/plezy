@@ -72,12 +72,6 @@ Finder _homeItem() {
   return find.ancestor(of: find.byIcon(Symbols.home_rounded), matching: find.byType(NavigationRailItem));
 }
 
-/// The Libraries header's expand/collapse chevron, matched by the symbol that
-/// only the given state renders.
-Finder _librariesChevron(IconData icon) {
-  return find.descendant(of: find.widgetWithText(NavigationRailItem, 'Libraries'), matching: find.byIcon(icon));
-}
-
 Future<void> _pumpBasicRail(
   WidgetTester tester, {
   GlobalKey<SideNavigationRailState>? sideNavKey,
@@ -384,29 +378,16 @@ void main() {
     expect(find.widgetWithText(NavigationRailItem, 'Downloads'), findsOneWidget);
   });
 
-  testWidgets('collapsing the Libraries section survives a fresh rail', (tester) async {
+  testWidgets('an open rail lists libraries flat, with no Libraries header', (tester) async {
     final movies = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
 
     await _pumpBasicRail(tester, alwaysExpanded: true, libraries: [movies]);
-    expect(_librariesChevron(Symbols.expand_less_rounded), findsOneWidget);
-
-    await tester.tap(find.widgetWithText(NavigationRailItem, 'Libraries'));
-    await tester.pumpAndSettle();
-    expect(_librariesChevron(Symbols.expand_more_rounded), findsOneWidget);
-    expect(SettingsService.instance.read(SettingsService.librariesSectionExpanded), isFalse);
-
-    // Tear the rail down so the next pump builds a brand-new State — the app
-    // restart the session-only flag used to lose (#1896).
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-
-    await _pumpBasicRail(tester, alwaysExpanded: true, libraries: [movies]);
-    expect(_librariesChevron(Symbols.expand_more_rounded), findsOneWidget);
+    expect(find.widgetWithText(NavigationRailItem, 'Libraries'), findsNothing);
+    expect(find.text('Movies'), findsOneWidget);
   });
 
-  testWidgets('a collapsed Libraries section keeps its rows out of D-pad order', (tester) async {
+  testWidgets('library rows sit in D-pad order right after Home', (tester) async {
     await SettingsService.getInstance();
-    await SettingsService.instance.write(SettingsService.librariesSectionExpanded, false);
 
     final movies = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
 
@@ -423,7 +404,7 @@ void main() {
     addTearDown(multiServerProvider.dispose);
 
     final sideNavKey = GlobalKey<SideNavigationRailState>();
-    NavigationTabId? selectedTab;
+    String? selectedLibrary;
 
     await tester.pumpWidget(
       TranslationProvider(
@@ -441,8 +422,8 @@ void main() {
                 selectedTab: NavigationTabId.discover,
                 isSidebarFocused: true,
                 alwaysExpanded: true,
-                onDestinationSelected: (tab) => selectedTab = tab,
-                onLibrarySelected: (_) {},
+                onDestinationSelected: (_) {},
+                onLibrarySelected: (key) => selectedLibrary = key,
               ),
             ),
           ),
@@ -454,20 +435,17 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Downloads. The Movies row is skipped while collapsed.
-    await _press(tester, LogicalKeyboardKey.arrowDown);
+    // Home -> Movies: no Libraries header in between.
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.enter);
 
-    expect(selectedTab, NavigationTabId.downloads);
+    expect(selectedLibrary, movies.globalKey);
   });
 
-  testWidgets('collapsed rail with expanded Libraries skips focus-excluded library rows', (tester) async {
-    // The library rows render under ExcludeFocus while the rail is collapsed
-    // even though the Libraries section pref is expanded; targeting one used
-    // to swallow DOWN forever, cutting off everything below the header.
+  testWidgets('collapsed rail skips the library rows it does not show', (tester) async {
+    // A collapsed rail shows one Libraries icon instead of the rows; targeting
+    // a row there used to swallow DOWN forever, cutting off everything below.
     await SettingsService.getInstance();
-    await SettingsService.instance.write(SettingsService.librariesSectionExpanded, true);
 
     final movies = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
 
@@ -592,6 +570,9 @@ void main() {
     expect(tester.getSize(rail).width, SideNavigationRailState.expandedWidth);
 
     await gesture.moveTo(tester.getBottomRight(rail) + const Offset(100, -10));
+    // The rail closes on a short timer after the pointer leaves; pumpAndSettle
+    // alone returns before it fires when nothing else is animating.
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     expect(tester.getSize(rail).width, SideNavigationRailState.collapsedWidth);
@@ -622,6 +603,9 @@ void main() {
     expect(scrimReports.last, isTrue);
 
     await gesture.moveTo(tester.getBottomRight(rail) + const Offset(100, -10));
+    // The rail closes on a short timer after the pointer leaves; pumpAndSettle
+    // alone returns before it fires when nothing else is animating.
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
     expect(scrimReports.last, isFalse);
   });
@@ -652,6 +636,9 @@ void main() {
     expect(_railSurfaceOpacity(tester).opacity, 1.0);
 
     await gesture.moveTo(tester.getBottomRight(rail) + const Offset(100, -10));
+    // The rail closes on a short timer after the pointer leaves; pumpAndSettle
+    // alone returns before it fires when nothing else is animating.
+    await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
 
     expect(tester.getSize(rail).width, SideNavigationRailState.tvCollapsedWidth);
@@ -739,8 +726,7 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Settings. Downloads is hidden on Apple TV.
-    await _press(tester, LogicalKeyboardKey.arrowDown);
+    // Home -> Settings. Downloads is hidden on Apple TV.
     await _press(tester, LogicalKeyboardKey.arrowDown);
     await _press(tester, LogicalKeyboardKey.enter);
 
@@ -871,8 +857,8 @@ void main() {
     sideNavKey.currentState!.focusActiveItem();
     await tester.pumpAndSettle();
 
-    // Home -> Libraries -> Server A header -> visible A -> Server B header -> visible B -> Hidden Libraries.
-    for (var i = 0; i < 6; i++) {
+    // Home -> Server A header -> visible A -> Server B header -> visible B -> Hidden Libraries.
+    for (var i = 0; i < 5; i++) {
       await _press(tester, LogicalKeyboardKey.arrowDown);
     }
     await _press(tester, LogicalKeyboardKey.enter);
@@ -889,7 +875,12 @@ void main() {
     await SettingsService.getInstance();
 
     final visibleLibrary = _library(id: '1', title: 'Movies', serverId: ServerId('server-a'), serverName: 'Server A');
-    final hiddenLibrary = _library(id: '2', title: 'Old Movies', serverId: ServerId('server-a'), serverName: 'Server A');
+    final hiddenLibrary = _library(
+      id: '2',
+      title: 'Old Movies',
+      serverId: ServerId('server-a'),
+      serverName: 'Server A',
+    );
 
     final librariesProvider = LibrariesProvider();
     await librariesProvider.updateLibraryOrder([visibleLibrary, hiddenLibrary]);

@@ -429,11 +429,6 @@ class SideNavigationRail extends StatefulWidget {
 }
 
 class SideNavigationRailState extends State<SideNavigationRail> with MountedSetStateMixin {
-  /// Libraries section expansion, held in settings rather than widget state so
-  /// it survives relaunch, remount and layout switches (#1896). The rail's
-  /// [ListenableBuilder] below listens to the pref, so the toggle just writes.
-  bool get _librariesExpanded => SettingsService.instance.read(SettingsService.librariesSectionExpanded);
-
   bool _isHovered = false;
   bool _isTouchExpanded = false;
   bool _lastReportedFloatingPanel = false;
@@ -627,7 +622,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         return _kExplore;
       case NavigationTabId.libraries:
         final libKey = widget.selectedLibraryKey;
-        if (libKey != null && _librariesExpanded) {
+        if (libKey != null) {
           final visibleKey = '$_kLibraryItemPrefix:${_LibraryNavSection.visible.name}:$libKey';
           if (_mountedFocusNodeFor(visibleKey) != null) return visibleKey;
           if (_hiddenLibrariesExpanded) {
@@ -765,11 +760,12 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         _kSearch,
         _kHome,
         if (hasNowPlaying) _kNowPlaying,
-        _kLibraries,
-        // Library rows render inside ExcludeFocus(excluding: !_librariesExpanded
-        // || isCollapsed); keep the D-pad order in lockstep with that render
-        // condition so a collapsed rail never targets a focus-excluded row.
-        if (_librariesExpanded && !isCollapsed) ...[
+        // A collapsed rail shows one Libraries icon in place of the rows; keep
+        // the D-pad order in lockstep with that so it never targets a row that
+        // is not on screen.
+        if (isCollapsed)
+          _kLibraries
+        else ...[
           ..._focusKeysForLibraryRows(visibleRows),
           if (hasHiddenLibraries) ...[
             _kHiddenLibraries,
@@ -899,15 +895,13 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
 
     // Listen to fullscreen + the groupLibrariesByServer / showExploreTab /
     // enableDownloads
-    // settings so the rail rebuilds when they are toggled in Appearance, and to
-    // librariesSectionExpanded so the Libraries header toggle repaints.
+    // settings so the rail rebuilds when they are toggled in Appearance.
     return ListenableBuilder(
       listenable: Listenable.merge([
         FullscreenStateManager(),
         SettingsService.instance.listenable(SettingsService.groupLibrariesByServer),
         SettingsService.instance.listenable(SettingsService.showExploreTab),
         SettingsService.instance.listenable(SettingsService.enableDownloads),
-        SettingsService.instance.listenable(SettingsService.librariesSectionExpanded),
       ]),
       builder: (context, _) {
         final hasExplore = hasExploreSource && SettingsService.instance.read(SettingsService.showExploreTab);
@@ -1276,97 +1270,49 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     bool isCollapsed = false,
   }) {
     final librariesProvider = context.watch<LibrariesProvider>();
-    final isLoading = librariesProvider.isLoading;
     final isLibrariesTabSelected = widget.selectedTab == NavigationTabId.libraries;
-    final allEmpty = visibleRows.isEmpty && hiddenLibraryCount == 0;
-    final headerLabelColor = isLibrariesTabSelected ? t.text : t.textMuted;
 
-    Widget buildChevron(double opacity) {
-      return AppIcon(
-        _librariesExpanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
-        fill: 1,
-        size: 18,
-        color: t.textMuted.withValues(alpha: t.textMuted.a * opacity),
+    // The libraries are listed flat, with no header; a collapsed rail has no
+    // room for them, so one Libraries icon stands in until it opens.
+    if (isCollapsed) {
+      final label = Translations.of(context).navigation.libraries;
+      return NavigationRailItem(
+        icon: Symbols.video_library_rounded,
+        label: Text(label, style: const TextStyle(fontSize: 14), overflow: .ellipsis, maxLines: 1),
+        collapsedLabel: label,
+        isSelected: isLibrariesTabSelected,
+        isCollapsed: true,
+        onTap: () => widget.onDestinationSelected(NavigationTabId.libraries),
+        focusNode: _focusTracker.get(_kLibraries),
+        onNavigateRight: widget.onNavigateToContent,
       );
     }
 
+    if (librariesProvider.isLoading) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: t.textMuted)),
+        ),
+      );
+    }
+    if (visibleRows.isEmpty && hiddenLibraryCount == 0) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(
+          Translations.of(context).libraries.noLibrariesFound,
+          style: TextStyle(fontSize: 12, color: t.textMuted),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: .start,
       children: [
-        // A destination-sized row like Home/Search — same height, icon and
-        // label metrics — with the chevron as the expand affordance. The
-        // smaller header type is reserved for the nested sub-headers.
-        NavigationRailItem(
-          icon: Symbols.video_library_rounded,
-          label: Text(
-            Translations.of(context).navigation.libraries,
-            style: TextStyle(fontSize: 14, fontWeight: isLibrariesTabSelected ? FontWeight.w600 : FontWeight.w400),
-            overflow: .ellipsis,
-            maxLines: 1,
-          ),
-          labelColor: headerLabelColor,
-          collapsedLabel: Translations.of(context).navigation.libraries,
-          trailing: buildChevron(1),
-          trailingBuilder: buildChevron,
-          isSelected: isLibrariesTabSelected,
-          isCollapsed: isCollapsed,
-          onTap: () =>
-              unawaited(SettingsService.instance.write(SettingsService.librariesSectionExpanded, !_librariesExpanded)),
-          focusNode: _focusTracker.get(_kLibraries),
-          // A selected library owns the highlight; the header only shows it
-          // for the bare Libraries tab.
-          suppressSelectedBackground: widget.isSidebarFocused || widget.selectedLibraryKey != null,
-          focusAlpha: 0.08,
-          selectedFocusAlpha: 0.1,
-          onNavigateRight: widget.onNavigateToContent,
-        ),
-
-        TweenAnimationBuilder<double>(
-          tween: Tween(end: (_librariesExpanded && !isCollapsed) ? 1.0 : 0.0),
-          duration: expandDuration,
-          curve: expandCurve,
-          builder: (context, value, child) {
-            return ClipRect(
-              child: Align(alignment: .topCenter, heightFactor: value, child: child),
-            );
-          },
-          child: ExcludeFocus(
-            excluding: !_librariesExpanded || isCollapsed,
-            child: Column(
-              mainAxisSize: .min,
-              crossAxisAlignment: .start,
-              children: [
-                const SizedBox(height: 4),
-                if (isLoading)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(
-                      child: SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: t.textMuted),
-                      ),
-                    ),
-                  )
-                else if (allEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      Translations.of(context).libraries.noLibrariesFound,
-                      style: TextStyle(fontSize: 12, color: t.textMuted),
-                    ),
-                  )
-                else ...[
-                  if (visibleRows.isNotEmpty) _buildLibraryGroupedColumn(visibleRows, t),
-                  if (hiddenLibraryCount > 0) ...[
-                    _buildHiddenLibrariesHeader(hiddenLibraryCount, t),
-                    if (_hiddenLibrariesExpanded) _buildLibraryGroupedColumn(hiddenRows, t),
-                  ],
-                ],
-              ],
-            ),
-          ),
-        ),
+        if (visibleRows.isNotEmpty) _buildLibraryGroupedColumn(visibleRows, t),
+        if (hiddenLibraryCount > 0) ...[
+          _buildHiddenLibrariesHeader(hiddenLibraryCount, t),
+          if (_hiddenLibrariesExpanded) _buildLibraryGroupedColumn(hiddenRows, t),
+        ],
       ],
     );
   }

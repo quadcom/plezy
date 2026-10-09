@@ -725,9 +725,6 @@ class SettingsService extends BaseSharedPreferencesService {
   static const enableDownloads = BoolPref('enable_downloads', defaultValue: true);
   static const alwaysKeepSidebarOpen = BoolPref('always_keep_sidebar_open');
 
-  /// Sidebar Libraries section expansion. Persisted so a collapsed section
-  /// stays collapsed across launches instead of springing back open (#1896).
-  static const librariesSectionExpanded = BoolPref('libraries_section_expanded', defaultValue: true);
   static const showUnwatchedCount = BoolPref('show_unwatched_count', defaultValue: true);
 
   /// The corner checkmark on watched posters/thumbnails (#1998). Progress bars
@@ -1352,7 +1349,6 @@ class SettingsService extends BaseSharedPreferencesService {
     showExploreTab,
     enableDownloads,
     alwaysKeepSidebarOpen,
-    librariesSectionExpanded,
     showUnwatchedCount,
     showWatchedIndicators,
     showEpisodeNumberOnCards,
