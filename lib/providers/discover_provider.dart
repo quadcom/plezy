@@ -280,10 +280,16 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   }
 
   /// [items] split into started ones and the rest, each keeping its order.
+  ///
+  /// Any resume point counts as started, with or without a known length:
+  /// items Plex Media Bridge adds to Jellyfin carry a resume point but often
+  /// no run time, and they went to Next Up (Adrian, 2026-10-09).
   static ({List<MediaItem> resume, List<MediaItem> nextUp}) splitOnDeck(List<MediaItem> items) => (
-    resume: List.unmodifiable(items.where((item) => item.hasActiveProgress)),
-    nextUp: List.unmodifiable(items.where((item) => !item.hasActiveProgress)),
+    resume: List.unmodifiable(items.where(_isStarted)),
+    nextUp: List.unmodifiable(items.where((item) => !_isStarted(item))),
   );
+
+  static bool _isStarted(MediaItem item) => (item.viewOffsetMs ?? 0) > 0;
 
   /// The home sections in force (account, default or device).
   HomeLayout get home => _hiddenLibraries.home;
