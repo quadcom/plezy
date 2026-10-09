@@ -106,7 +106,7 @@ void main() {
       defaultHome: {
         'order': ['libraries', 'resume'],
         'off': ['hero'],
-        'cards': {'resume': 'poster', '$_own/movies': 'thumb'},
+        'cards': {'$_own/continuewatching': 'poster', '$_own/movies': 'thumb'},
       },
     );
     final provider = await connect(server);
@@ -114,8 +114,8 @@ void main() {
     // Sections the default leaves out follow, in the built-in order.
     expect(provider.home.sections, [HomeLayout.libraries, HomeLayout.resume, HomeLayout.hero, HomeLayout.nextUp]);
     expect(provider.home.isOn(HomeLayout.hero), isFalse);
-    expect(provider.cardStyleFor(HomeLayout.resume), HomeCardStyle.poster);
-    expect(provider.cardStyleFor(HomeLayout.nextUp), isNull);
+    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.resume)), HomeCardStyle.poster);
+    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.nextUp)), isNull);
     expect(provider.libraryCardStyle(_movies), HomeCardStyle.thumb);
     expect(provider.libraryCardStyle(_master), isNull);
   });
@@ -125,19 +125,19 @@ void main() {
       defaultHome: {
         'order': ['libraries', 'resume', 'nextup', 'hero'],
         'off': ['hero'],
-        'cards': {'resume': 'poster'},
+        'cards': {'$_own/continuewatching': 'poster'},
       },
     );
     final provider = await connect(server);
 
-    await provider.setCardStyle(HomeLayout.nextUp, HomeCardStyle.thumb);
+    await provider.setCardStyle(provider.sectionCardKey(HomeLayout.nextUp), HomeCardStyle.thumb);
 
     final home = server.stored['home'] as Map<String, dynamic>;
     expect(home['order'], ['libraries', 'resume', 'nextup', 'hero']);
     expect(home['off'], ['hero']);
-    expect(home['cards'], {'nextup': 'thumb'});
-    expect(provider.cardStyleFor(HomeLayout.nextUp), HomeCardStyle.thumb);
-    expect(provider.cardStyleFor(HomeLayout.resume), HomeCardStyle.poster);
+    expect(home['cards'], {'$_own/nextup': 'thumb'});
+    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.nextUp)), HomeCardStyle.thumb);
+    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.resume)), HomeCardStyle.poster);
   });
 
   test('home and layout writes keep each other and fields Plezy does not know', () async {
@@ -145,10 +145,10 @@ void main() {
       storedLayout: jsonEncode({
         'v': 1,
         'rev': 4,
-        'order': ['$_own/movies', '$_own/master', '$_own/favorites'],
+        'order': ['$_own/continuewatching', '$_own/nextup', '$_own/movies', '$_own/master', '$_own/favorites'],
         'state': {'$_own/master': 'folded'},
         'known': {
-          _own: ['movies', 'master', 'favorites'],
+          _own: ['movies', 'master', 'continuewatching', 'nextup', 'favorites'],
         },
         'home': {
           'order': ['resume', 'futureRow', 'nextup'],

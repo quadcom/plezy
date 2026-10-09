@@ -119,12 +119,14 @@ void main() {
     final stored = LibraryLayout.tryParse(server.storedLayout)!;
     // Every view is kept, Collections included, and the Favourites entry.
     expect(stored.known, {
-      _own: ['movies', 'master', 'collections', 'favorites'],
+      _own: ['movies', 'master', 'collections', 'continuewatching', 'nextup', 'favorites'],
       'plexmachine': ['1'],
     });
     expect(stored.state['plexmachine/1'], LibraryState.folded);
     expect(stored.state['$_own/collections'], LibraryState.folded);
     expect(stored.state['$_own/favorites'], LibraryState.shown);
+    // Continue Watching and Next Up start first, as home always showed them.
+    expect(stored.order.take(2), ['$_own/continuewatching', '$_own/nextup']);
     // Folded and off libraries of the PlezyFin server are mirrored for other apps.
     expect(server.postedConfiguration!['MyMediaExcludes'], ['master', 'collections']);
   });
@@ -140,10 +142,49 @@ void main() {
         (library: _master, state: LibraryState.shown),
         (library: _dadsPlex, state: LibraryState.shown),
       ],
-      favorites: (index: 1, state: LibraryState.folded),
+      entries: [(entry: LayoutEntry.favorites, index: 1, state: LibraryState.folded)],
     );
     expect(provider.favoritesState, LibraryState.folded);
     expect(provider.favoritesIndexIn(const [_movies, _master, _dadsPlex]), 1);
+  });
+
+  // Adrian, 2026-10-09: Continue Watching and Next Up are placed, folded and
+  // switched off like a library; their place among the libraries is their
+  // place on home.
+  test('Continue Watching and Next Up are arranged like libraries', () async {
+    final (provider, server) = await connect();
+    expect(provider.entryState(LayoutEntry.continueWatching), LibraryState.shown);
+    expect(provider.withEntries(const [_movies], LibraryState.shown), [
+      LayoutEntry.continueWatching,
+      LayoutEntry.nextUp,
+      _movies,
+      LayoutEntry.favorites,
+    ]);
+
+    await provider.saveArrangement(
+      [
+        (library: _movies, state: LibraryState.shown),
+        (library: _master, state: LibraryState.shown),
+        (library: _dadsPlex, state: LibraryState.folded),
+      ],
+      entries: [
+        (entry: LayoutEntry.nextUp, index: 1, state: LibraryState.shown),
+        (entry: LayoutEntry.continueWatching, index: 1, state: LibraryState.shown),
+        (entry: LayoutEntry.favorites, index: 3, state: LibraryState.folded),
+      ],
+    );
+
+    final stored = LibraryLayout.tryParse(server.storedLayout)!;
+    expect(stored.order.take(4), ['$_own/movies', '$_own/nextup', '$_own/continuewatching', '$_own/master']);
+    expect(provider.withEntries(const [_movies, _master], LibraryState.shown), [
+      _movies,
+      LayoutEntry.nextUp,
+      LayoutEntry.continueWatching,
+      _master,
+    ]);
+    expect(provider.entryRank(LayoutEntry.nextUp)! < provider.libraryRank(_master)!, isTrue);
+    expect(provider.withEntries(const [], LibraryState.folded), [LayoutEntry.favorites]);
+    expect(provider.sectionCardKey('resume'), '$_own/continuewatching');
   });
 
   test('row titles come from the record, then the default', () async {
@@ -181,7 +222,7 @@ void main() {
         'order': ['plexmachine/1', '$_own/movies', '$_own/master'],
         'state': {'plexmachine/1': 'shown', '$_own/master': 'off'},
         'known': {
-          _own: ['movies', 'master', 'favorites'],
+          _own: ['movies', 'master', 'continuewatching', 'nextup', 'favorites'],
           'plexmachine': ['1'],
         },
       });

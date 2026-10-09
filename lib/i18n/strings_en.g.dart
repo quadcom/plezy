@@ -1265,6 +1265,9 @@ class Translations$settings$en {
 	/// en: 'Cards in Library Rows'
 	String get homeSectionsLibraryCards => 'Cards in Library Rows';
 
+	/// en: 'Cards'
+	String get homeSectionsCards => 'Cards';
+
 	/// en: 'Banner'
 	String get homeSectionBanner => 'Banner';
 
@@ -7817,6 +7820,7 @@ extension on Translations {
 			'settings.homeSectionsSavedDevice' => 'Saved on this device',
 			'settings.homeSectionsRows' => 'Rows',
 			'settings.homeSectionsLibraryCards' => 'Cards in Library Rows',
+			'settings.homeSectionsCards' => 'Cards',
 			'settings.homeSectionBanner' => 'Banner',
 			'settings.homeSectionLibraries' => 'Library rows',
 			'settings.homeSectionOn' => 'On',
@@ -7934,9 +7938,9 @@ extension on Translations {
 			'fileInfo.profile' => 'Profile',
 			'fileInfo.level' => 'Level',
 			'fileInfo.bitDepth' => 'Bit Depth',
-			'fileInfo.pixelFormat' => 'Pixel Format',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.pixelFormat' => 'Pixel Format',
 			'fileInfo.colorSpace' => 'Color Space',
 			'fileInfo.colorRange' => 'Color Range',
 			'fileInfo.colorPrimaries' => 'Color Primaries',
@@ -8448,9 +8452,9 @@ extension on Translations {
 			'errors.unableToLoad' => ({required Object context}) => 'Unable to load ${context}. Please try again.',
 			'errors.noClientAvailable' => 'No client available',
 			'errors.pleaseEnterToken' => 'Please enter a token',
-			'errors.invalidToken' => 'Invalid token',
 			_ => null,
 		} ?? switch (path) {
+			'errors.invalidToken' => 'Invalid token',
 			'errors.failedToVerifyToken' => ({required Object error}) => 'Failed to verify token: ${error}',
 			'errors.failedToSwitchProfile' => ({required Object displayName}) => 'Failed to switch to ${displayName}',
 			'errors.failedToDeleteProfile' => ({required Object displayName}) => 'Failed to delete ${displayName}',
@@ -8962,9 +8966,9 @@ extension on Translations {
 			'watchTogether.copySessionCode' => 'Copy session code',
 			'watchTogether.hostControlsPlayback' => 'Host controls playback',
 			'watchTogether.anyoneCanControl' => 'Anyone can control playback',
-			'watchTogether.hostControls' => 'Host controls',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.hostControls' => 'Host controls',
 			'watchTogether.anyoneControls' => 'Anyone controls',
 			'watchTogether.participants' => 'Participants',
 			'watchTogether.host' => 'Host',
@@ -9476,9 +9480,9 @@ extension on Translations {
 			'services.deviceCode.title' => ({required Object service}) => 'Activate Plezy on ${service}',
 			'services.deviceCode.instructions' => 'Scan the QR code, or visit the address below and enter this code:',
 			'services.deviceCode.openToActivate' => ({required Object service}) => 'Open ${service} to activate',
-			'services.deviceCode.copyCode' => 'Copy activation code',
 			_ => null,
 		} ?? switch (path) {
+			'services.deviceCode.copyCode' => 'Copy activation code',
 			'services.deviceCode.waitingForAuthorization' => 'Waiting for authorization…',
 			'services.deviceCode.codeCopied' => 'Code copied',
 			'services.oauthProxy.title' => ({required Object service}) => 'Sign in to ${service}',

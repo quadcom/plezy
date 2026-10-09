@@ -409,6 +409,9 @@ void main() {
       expect(find.text('Movies'), findsOneWidget);
       expect(find.text(t.navigation.favorites), findsOneWidget);
       expect(find.text(t.libraries.hiddenLibrariesCount(count: 1)), findsOneWidget);
+      // Continue Watching and Next Up are listed like libraries too.
+      expect(find.text(t.discover.continueWatching), findsOneWidget);
+      expect(find.text(t.discover.nextUp), findsOneWidget);
     });
 
     testWidgets('a folded entry counts in the Hidden libraries row', (tester) async {

@@ -1,5 +1,6 @@
 import 'dart:async';
 import '../media/home_layout.dart';
+import '../media/library_layout.dart';
 import '../media/ids.dart';
 import 'dart:io' show Platform;
 import 'dart:math' as math;
@@ -194,26 +195,56 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       home,
       resumeStyle,
       nextUpStyle,
+      _discover.layoutRevision,
       t.discover.continueWatching,
     );
     if (key == _homeRowsCacheKey) return _homeRowsCache;
     final rows = <({MediaHub hub, GlobalKey<HubSectionState> key})>[];
+    void addResume() {
+      final items = _discover.resumeItems;
+      if (items.isEmpty) return;
+      rows.add((
+        hub: _onDeckHub(_continueWatchingHubId, t.discover.continueWatching, items, resumeStyle),
+        key: _continueWatchingHubKey!,
+      ));
+    }
+
+    void addNextUp() {
+      final items = _discover.nextUpItems;
+      if (items.isEmpty) return;
+      rows.add((hub: _onDeckHub(_nextUpHubId, t.discover.nextUp, items, nextUpStyle), key: _nextUpHubKey!));
+    }
+
+    // With a PlezyFin account, Continue Watching and Next Up are entries in
+    // the library layout: their place among the libraries is their place
+    // here, and a folded or switched-off one has no row (Adrian, 2026-10-09).
+    final accountOrder = _discover.accountHomeOrder;
+    if (accountOrder != null) {
+      final keyByHub = {
+        for (var i = 0; i < _hubs.length && i < _orderedHubKeys.length; i++) _hubs[i]: _orderedHubKeys[i],
+      };
+      for (final item in accountOrder) {
+        switch (item) {
+          case LayoutEntry.continueWatching:
+            addResume();
+          case LayoutEntry.nextUp:
+            addNextUp();
+          case MediaHub():
+            final hubKey = keyByHub[item];
+            if (hubKey != null) rows.add((hub: item, key: hubKey));
+        }
+      }
+      _homeRowsCache = rows;
+      _homeRowsCacheKey = key;
+      return rows;
+    }
     for (final section in home.sections) {
       if (!home.isOn(section)) continue;
       switch (section) {
         case HomeLayout.resume:
-          final items = _discover.resumeItems;
-          if (items.isNotEmpty) {
-            rows.add((
-              hub: _onDeckHub(_continueWatchingHubId, t.discover.continueWatching, items, resumeStyle),
-              key: _continueWatchingHubKey!,
-            ));
-          }
+          addResume();
         case HomeLayout.nextUp:
-          final items = _discover.nextUpItems;
-          if (items.isNotEmpty) {
-            rows.add((hub: _onDeckHub(_nextUpHubId, t.discover.nextUp, items, nextUpStyle), key: _nextUpHubKey!));
-          }
+          addNextUp();
         case HomeLayout.libraries:
           for (var i = 0; i < _hubs.length && i < _orderedHubKeys.length; i++) {
             rows.add((hub: _hubs[i], key: _orderedHubKeys[i]));
@@ -422,6 +453,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     _discover.homeFromAccount,
     _discover.sectionCardStyle(HomeLayout.resume),
     _discover.sectionCardStyle(HomeLayout.nextUp),
+    _discover.layoutRevision,
   );
 
   Object? _seenRenderSignature;

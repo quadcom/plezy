@@ -149,26 +149,90 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// reachable account.
   JellyfinClient? get accountClient => isAccountLayout ? _account : null;
 
-  /// The Favourites entry's key, when the account has one.
-  String? get _favoritesKey => isAccountLayout ? favoritesLayoutKey(_ownServerId!) : null;
+  /// [entry]'s layout key, when there is an account.
+  String? _entryKey(LayoutEntry entry) => isAccountLayout ? entry.keyFor(_ownServerId!) : null;
 
-  /// Where the Favourites entry sits: shown, folded or not shown. Null when
-  /// there is no PlezyFin account to show it from.
-  LibraryState? get favoritesState {
-    final key = _favoritesKey;
-    if (key == null || _account == null) return null;
+  /// Where an account entry sits: shown, folded or not shown. Null without a
+  /// PlezyFin account; Favourites also needs the server reachable, to list
+  /// them from.
+  LibraryState? entryState(LayoutEntry entry) {
+    final key = _entryKey(entry);
+    if (key == null || (entry == LayoutEntry.favorites && _account == null)) return null;
     return _layout!.stateOf(key, ownServerId: _ownServerId);
   }
 
-  /// Where the Favourites entry goes among [ordered] libraries: the number of
-  /// them the account places before it.
-  int favoritesIndexIn(List<MediaLibrary> ordered) {
-    final key = _favoritesKey;
+  /// Where the Favourites entry sits; see [entryState].
+  LibraryState? get favoritesState => entryState(LayoutEntry.favorites);
+
+  /// Every managed key in the account's order; Continue Watching and Next Up
+  /// go first when the record does not place them yet.
+  List<String> _arrangedKeys() => _layout!
+      .arrangeKeys(
+        _managedKeys(),
+        ownServerId: _ownServerId,
+        leading: [for (final entry in LayoutEntry.leading) entry.keyFor(_ownServerId!)],
+      )
+      .order;
+
+  /// Where an entry goes among [ordered] libraries: the number of them the
+  /// account places before it.
+  int entryIndexIn(LayoutEntry entry, List<MediaLibrary> ordered) {
+    final key = _entryKey(entry);
     if (key == null) return ordered.length;
-    final arranged = _layout!.arrangeKeys(_managedKeys(), ownServerId: _ownServerId).order;
-    final rank = {for (final (index, k) in arranged.indexed) k: index};
-    final favoritesRank = rank[key] ?? rank.length;
-    return ordered.where((library) => (rank[libraryLayoutKey(library)] ?? rank.length) < favoritesRank).length;
+    final rank = {for (final (index, k) in _arrangedKeys().indexed) k: index};
+    final entryRank = rank[key] ?? rank.length;
+    return ordered.where((library) => (rank[libraryLayoutKey(library)] ?? rank.length) < entryRank).length;
+  }
+
+  /// Where the Favourites entry goes among [ordered] libraries.
+  int favoritesIndexIn(List<MediaLibrary> ordered) => entryIndexIn(LayoutEntry.favorites, ordered);
+
+  /// [libraries] of one section, in the account's order, with the account
+  /// entries in [state] placed among them. Each item is a [MediaLibrary] or a
+  /// [LayoutEntry]. Without an account, just [libraries].
+  List<Object> withEntries(List<MediaLibrary> libraries, LibraryState state) {
+    if (!isAccountLayout) return libraries;
+    final rank = {for (final (index, k) in _arrangedKeys().indexed) k: index};
+    int rankOf(String key) => rank[key] ?? rank.length;
+    final entries = [
+      for (final entry in LayoutEntry.values)
+        if (entryState(entry) == state) entry,
+    ]..sort((a, b) => rankOf(_entryKey(a)!).compareTo(rankOf(_entryKey(b)!)));
+    final result = <Object>[];
+    var next = 0;
+    for (final library in libraries) {
+      final libraryRank = rankOf(libraryLayoutKey(library));
+      while (next < entries.length && rankOf(_entryKey(entries[next])!) < libraryRank) {
+        result.add(entries[next++]);
+      }
+      result.add(library);
+    }
+    result.addAll(entries.skip(next));
+    return result;
+  }
+
+  /// Account mode: where [key] sits in the account's order, for placing home
+  /// rows; null without an account or for a key the account does not manage.
+  int? homeRank(String key) {
+    if (!isAccountLayout) return null;
+    final index = _arrangedKeys().indexOf(key);
+    return index < 0 ? null : index;
+  }
+
+  /// Account mode: [entry]'s rank; see [homeRank].
+  int? entryRank(LayoutEntry entry) {
+    final key = _entryKey(entry);
+    return key == null ? null : homeRank(key);
+  }
+
+  /// Account mode: [library]'s rank; see [homeRank].
+  int? libraryRank(MediaLibrary library) => homeRank(libraryLayoutKey(library));
+
+  /// The card key of the Continue Watching or Next Up row: the entry's layout
+  /// key with an account (PlezyFin, 2026-10-09), else the section id.
+  String sectionCardKey(String section) {
+    final entry = section == HomeLayout.nextUp ? LayoutEntry.nextUp : LayoutEntry.continueWatching;
+    return _entryKey(entry) ?? section;
   }
 
   /// The home row title the account sets for a library, or null for "Recently
@@ -424,23 +488,30 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       }
     }
     final ownServerId = _ownServerId;
-    if (ownServerId != null) byServer.putIfAbsent(ownServerId, () => []).add('favorites');
+    if (ownServerId != null) {
+      final ids = byServer.putIfAbsent(ownServerId, () => []);
+      for (final entry in LayoutEntry.values) {
+        if (!ids.contains(entry.id)) ids.add(entry.id);
+      }
+    }
     return byServer;
   }
 
   /// Every key this device manages: the libraries in the list's order, then
-  /// the views Plezy does not list, then Favourites, which starts after the
-  /// libraries (PlezyFin, 2026-10-09).
+  /// the views Plezy does not list, then the account entries (Favourites
+  /// starts after the libraries; Continue Watching and Next Up are put first
+  /// by [_arrangedKeys]) (PlezyFin, 2026-10-09).
   List<String> _managedKeys() {
     final keys = [
       for (final library in _libraries)
         if (library.serverId != null) libraryLayoutKey(library),
     ];
     final byServer = _managedLibrariesByServer();
+    final entryIds = {for (final entry in LayoutEntry.values) entry.id};
     for (final pass in [false, true]) {
       for (final entry in byServer.entries) {
         for (final id in entry.value) {
-          if ((id == 'favorites') != pass) continue;
+          if (entryIds.contains(id) != pass) continue;
           final key = '${entry.key}/$id';
           if (!keys.contains(key)) keys.add(key);
         }
@@ -458,7 +529,11 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       throw StateError('The PlezyFin server is not reachable');
     }
     final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
-    final arranged = fresh.arrangeKeys(_managedKeys(), ownServerId: ownServerId);
+    final arranged = fresh.arrangeKeys(
+      _managedKeys(),
+      ownServerId: ownServerId,
+      leading: [for (final entry in LayoutEntry.leading) entry.keyFor(ownServerId)],
+    );
     // Entries the caller did not place (views Plezy does not list) keep their
     // place relative to each other, after the ones it did.
     final placed = order ?? arranged.order;
@@ -516,22 +591,34 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// of them, each with its state. Device mode saves only the states; the
   /// order goes through [LibrariesProvider] as before.
   ///
-  /// [favorites] places the Favourites entry: before the library at its index
-  /// in [ordered], in its state.
+  /// [entries] places the account entries, top to bottom: each before the
+  /// library at its index in [ordered], in its state.
   Future<void> saveArrangement(
     List<({MediaLibrary library, LibraryState state})> ordered, {
-    ({int index, LibraryState state})? favorites,
+    List<({LayoutEntry entry, int index, LibraryState state})> entries = const [],
   }) async {
     await ensureInitialized();
     if (isDisposed) return;
     if (isAccountLayout) {
-      final order = [for (final entry in ordered) libraryLayoutKey(entry.library)];
-      final states = {for (final entry in ordered) libraryLayoutKey(entry.library): entry.state};
-      final favoritesKey = _favoritesKey;
-      if (favorites != null && favoritesKey != null) {
-        order.insert(favorites.index.clamp(0, order.length), favoritesKey);
-        states[favoritesKey] = favorites.state;
+      final order = <String>[];
+      final states = <String, LibraryState>{};
+      var next = 0;
+      void addEntriesBefore(int index) {
+        while (next < entries.length && entries[next].index <= index) {
+          final key = _entryKey(entries[next].entry)!;
+          order.add(key);
+          states[key] = entries[next].state;
+          next++;
+        }
       }
+
+      for (final (index, item) in ordered.indexed) {
+        addEntriesBefore(index);
+        final key = libraryLayoutKey(item.library);
+        order.add(key);
+        states[key] = item.state;
+      }
+      addEntriesBefore(ordered.length);
       await _writeAccount(order: order, states: states);
       return;
     }

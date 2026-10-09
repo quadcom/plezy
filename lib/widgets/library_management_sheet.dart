@@ -17,6 +17,7 @@ import '../providers/libraries_provider.dart';
 import '../utils/app_logger.dart';
 import '../utils/content_utils.dart';
 import '../utils/dialogs.dart';
+import '../utils/layout_entry_ui.dart';
 import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/snackbar_helper.dart';
@@ -65,13 +66,13 @@ Future<void> showLibraryManagementSheet(
 
   Future<void> saveArrangement(
     List<({MediaLibrary library, LibraryState state})> arrangement,
-    ({int index, LibraryState state})? favorites,
+    List<({LayoutEntry entry, int index, LibraryState state})> entries,
   ) async {
     final before = {for (final library in allLibraries) library.globalKey: hiddenLibrariesProvider.stateOf(library)};
     unawaited(librariesProvider.updateLibraryOrder([for (final entry in arrangement) entry.library]));
     onOrderChanged?.call();
     try {
-      await hiddenLibrariesProvider.saveArrangement(arrangement, favorites: favorites);
+      await hiddenLibrariesProvider.saveArrangement(arrangement, entries: entries);
     } catch (e) {
       appLogger.w('Failed to save the library layout', error: e);
       if (context.mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
@@ -84,22 +85,18 @@ Future<void> showLibraryManagementSheet(
 
   // The rows outlive the page: opening a library's menu replaces the page, and
   // coming back builds it again from these.
-  // The PlezyFin account's Favourites entry sits among the libraries of its
-  // section, where the account places it.
-  final favoritesState = hiddenLibrariesProvider.favoritesState;
+  // The PlezyFin account's entries (Continue Watching, Next Up, Favourites)
+  // sit among the libraries of their section, where the account places them.
   final rows = <_ManageRow>[];
   for (final state in LibraryState.values) {
     final section = [
       for (final library in allLibraries)
         if (hiddenLibrariesProvider.stateOf(library) == state) library,
     ];
-    final sectionRows = <_ManageRow>[for (final library in section) _LibraryRow(library)];
-    if (favoritesState == state) {
-      sectionRows.insert(hiddenLibrariesProvider.favoritesIndexIn(section), const _FavoritesRow());
+    rows.add(_SectionRow(state));
+    for (final item in hiddenLibrariesProvider.withEntries(section, state)) {
+      rows.add(item is LayoutEntry ? _EntryRow(item) : _LibraryRow(item as MediaLibrary));
     }
-    rows
-      ..add(_SectionRow(state))
-      ..addAll(sectionRows);
   }
 
   Widget buildSheet({required bool isDialog}) => _LibraryManagementSheet(
@@ -302,9 +299,11 @@ class _LibraryRow extends _ManageRow {
   const _LibraryRow(this.library);
 }
 
-/// The PlezyFin account's Favourites entry, arranged like a library.
-class _FavoritesRow extends _ManageRow {
-  const _FavoritesRow();
+/// A PlezyFin account entry (Continue Watching, Next Up or Favourites),
+/// arranged like a library.
+class _EntryRow extends _ManageRow {
+  final LayoutEntry entry;
+  const _EntryRow(this.entry);
 }
 
 class _LibraryManagementSheet extends StatefulWidget {
@@ -314,7 +313,7 @@ class _LibraryManagementSheet extends StatefulWidget {
   final List<_ManageRow> rows;
   final Future<void> Function(
     List<({MediaLibrary library, LibraryState state})> arrangement,
-    ({int index, LibraryState state})? favorites,
+    List<({LayoutEntry entry, int index, LibraryState state})> entries,
   )
   onArrangementChanged;
   final List<ContextMenuItem> Function(MediaLibrary) getLibraryMenuItems;
@@ -381,8 +380,8 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
     switch (row) {
       case _LibraryRow():
         _showLibraryMenuBottomSheet(context, row.library);
-      case _FavoritesRow():
-        _showFavoritesMenu(context);
+      case _EntryRow(:final entry):
+        _showEntryMenu(context, entry);
       case _SectionRow():
         break;
     }
@@ -404,11 +403,14 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   }
 
   /// Every library with the section it sits in, top to bottom, and where the
-  /// Favourites entry sits among them.
-  ({List<({MediaLibrary library, LibraryState state})> libraries, ({int index, LibraryState state})? favorites})
+  /// account entries sit among them.
+  ({
+    List<({MediaLibrary library, LibraryState state})> libraries,
+    List<({LayoutEntry entry, int index, LibraryState state})> entries,
+  })
   get _arrangement {
     final libraries = <({MediaLibrary library, LibraryState state})>[];
-    ({int index, LibraryState state})? favorites;
+    final entries = <({LayoutEntry entry, int index, LibraryState state})>[];
     var state = LibraryState.shown;
     for (final row in _rows) {
       switch (row) {
@@ -416,16 +418,16 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
           state = row.state;
         case _LibraryRow():
           libraries.add((library: row.library, state: state));
-        case _FavoritesRow():
-          favorites = (index: libraries.length, state: state);
+        case _EntryRow():
+          entries.add((entry: row.entry, index: libraries.length, state: state));
       }
     }
-    return (libraries: libraries, favorites: favorites);
+    return (libraries: libraries, entries: entries);
   }
 
   void _save() {
     final arrangement = _arrangement;
-    unawaited(widget.onArrangementChanged(arrangement.libraries, arrangement.favorites));
+    unawaited(widget.onArrangementChanged(arrangement.libraries, arrangement.entries));
   }
 
   void _reorderRows(int oldIndex, int newIndex) {
@@ -501,13 +503,15 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
     );
   }
 
-  void _showFavoritesMenu(BuildContext outerContext) {
-    final index = _rows.indexWhere((row) => row is _FavoritesRow);
+  int _entryIndex(LayoutEntry entry) => _rows.indexWhere((row) => row is _EntryRow && row.entry == entry);
+
+  void _showEntryMenu(BuildContext outerContext, LayoutEntry entry) {
+    final index = _entryIndex(entry);
     final current = index < 0 ? LibraryState.shown : _stateAt(index);
     OverlaySheetController.pushAdaptive<String>(
       outerContext,
       builder: (menuContext) => AppMenuSheet<String>(
-        title: t.navigation.favorites,
+        title: layoutEntryTitle(entry),
         closeOnSelected: false,
         entries: [
           for (final state in LibraryState.values)
@@ -517,7 +521,7 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
         onSelected: (value) {
           final move = _moveActions.entries.where((entry) => entry.value == value).firstOrNull;
           OverlaySheetController.popAdaptive(menuContext);
-          if (move != null) _moveRowToSection(_rows.indexWhere((row) => row is _FavoritesRow), move.key);
+          if (move != null) _moveRowToSection(_entryIndex(entry), move.key);
         },
       ),
     );
@@ -627,7 +631,8 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
             isMoving: index == movingIndex,
             focusedColumn: isFocused ? focusedColumn : null,
           ),
-          _FavoritesRow() => _buildFavoritesTile(
+          _EntryRow(:final entry) => _buildEntryTile(
+            entry,
             index,
             _stateAt(index),
             isFocused: isFocused,
@@ -662,7 +667,8 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
     );
   }
 
-  Widget _buildFavoritesTile(
+  Widget _buildEntryTile(
+    LayoutEntry entry,
     int index,
     LibraryState state, {
     bool isFocused = false,
@@ -677,7 +683,7 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
       tileColor = colorScheme.surfaceContainerHighest;
     }
     return Opacity(
-      key: const ValueKey('favorites'),
+      key: ValueKey('entry:${entry.id}'),
       opacity: switch (state) {
         LibraryState.shown => 1.0,
         LibraryState.folded => 0.7,
@@ -697,10 +703,10 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
               ),
             ),
             const SizedBox(width: 8),
-            const AppIcon(Symbols.favorite_rounded, fill: 1),
+            AppIcon(layoutEntryIcon(entry), fill: 1),
           ],
         ),
-        title: Text(t.navigation.favorites),
+        title: Text(layoutEntryTitle(entry)),
         trailing: Container(
           decoration: FocusTheme.focusBackgroundDecoration(
             isFocused: isFocused && focusedColumn == 1,
@@ -709,7 +715,7 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
           child: IconButton(
             icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
             tooltip: t.libraries.libraryOptions,
-            onPressed: () => _showFavoritesMenu(context),
+            onPressed: () => _showEntryMenu(context, entry),
           ),
         ),
       ),

@@ -21,6 +21,7 @@ import '../providers/hidden_libraries_provider.dart';
 import '../media/library_layout.dart';
 import '../services/jellyfin_client.dart';
 import '../utils/favorites_navigation.dart';
+import '../utils/layout_entry_ui.dart';
 import '../providers/libraries_provider.dart';
 import '../services/device_performance.dart';
 import '../services/music/music_playback_service.dart';
@@ -60,11 +61,13 @@ final class _LibraryItemRow extends _LibraryNavRow {
   const _LibraryItemRow({required super.section, required this.library, this.showServerName = false});
 }
 
-/// The PlezyFin account's Favourites, placed and folded like a library.
-final class _FavoritesRow extends _LibraryNavRow {
-  final JellyfinClient client;
+/// A PlezyFin account entry (Continue Watching, Next Up or Favourites),
+/// placed and folded like a library.
+final class _EntryRow extends _LibraryNavRow {
+  final LayoutEntry entry;
+  final JellyfinClient? client;
 
-  const _FavoritesRow({required super.section, required this.client});
+  const _EntryRow({required super.section, required this.entry, this.client});
 }
 
 /// SELECT activates the rail row, RIGHT hands off to the content area.
@@ -669,7 +672,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   String _focusKeyForLibraryRow(_LibraryNavRow row) => switch (row) {
     _LibraryServerHeaderRow(:final section, :final serverId) => _serverHeaderFocusKey(section, ServerId(serverId)),
     _LibraryItemRow(:final section, :final library) => _libraryItemFocusKey(section, library),
-    _FavoritesRow(:final section) => '$_kLibraryItemPrefix:${section.name}:favorites',
+    _EntryRow(:final section, :final entry) => '$_kLibraryItemPrefix:${section.name}:${entry.id}',
   };
 
   Iterable<String> _focusKeysForLibraryRows(List<_LibraryNavRow> rows) => rows.map(_focusKeyForLibraryRow);
@@ -947,23 +950,42 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
           section: _LibraryNavSection.hidden,
           showServerHeaders: showHiddenServerHeaders,
         );
-        // Favourites sits where the account puts it: among the shown
-        // libraries, inside the fold with its server's libraries, or nowhere.
-        final favoritesClient = hiddenLibrariesProvider.accountClient;
-        final favoritesState = hiddenLibrariesProvider.favoritesState;
-        if (favoritesClient != null && favoritesState == LibraryState.shown) {
-          final index = hiddenLibrariesProvider.favoritesIndexIn(visibleLibraries).clamp(0, visibleRows.length);
-          visibleRows.insert(index, _FavoritesRow(section: _LibraryNavSection.visible, client: favoritesClient));
-        } else if (favoritesClient != null && favoritesState == LibraryState.folded) {
-          final lastOwn = hiddenRows.lastIndexWhere(
-            (row) => row is _LibraryItemRow && row.library.serverId == favoritesClient.serverId,
-          );
-          hiddenRows.insert(
-            lastOwn < 0 ? hiddenRows.length : lastOwn + 1,
-            _FavoritesRow(section: _LibraryNavSection.hidden, client: favoritesClient),
-          );
+        // The account entries (Continue Watching, Next Up, Favourites) sit
+        // where the account puts them: among the shown libraries, inside the
+        // fold with its server's libraries, or nowhere.
+        final accountClient = hiddenLibrariesProvider.accountClient;
+        final shownEntries = hiddenLibrariesProvider
+            .withEntries(visibleLibraries, LibraryState.shown)
+            .whereType<LayoutEntry>()
+            .toList();
+        for (final entry in shownEntries) {
+          final libraryIndex = hiddenLibrariesProvider.entryIndexIn(entry, visibleLibraries);
+          var seen = 0;
+          var at = visibleRows.length;
+          for (var i = 0; i < visibleRows.length; i++) {
+            if (visibleRows[i] is! _LibraryItemRow) continue;
+            if (seen++ == libraryIndex) {
+              at = i;
+              break;
+            }
+          }
+          visibleRows.insert(at, _EntryRow(section: _LibraryNavSection.visible, entry: entry, client: accountClient));
         }
-        final hiddenCount = hiddenLibraries.length + (favoritesState == LibraryState.folded ? 1 : 0);
+        final foldedEntries = hiddenLibrariesProvider
+            .withEntries(const [], LibraryState.folded)
+            .whereType<LayoutEntry>()
+            .toList();
+        if (foldedEntries.isNotEmpty) {
+          final ownServerId = accountClient?.serverId;
+          final lastOwn = ownServerId == null
+              ? -1
+              : hiddenRows.lastIndexWhere((row) => row is _LibraryItemRow && row.library.serverId == ownServerId);
+          var at = lastOwn < 0 ? hiddenRows.length : lastOwn + 1;
+          for (final entry in foldedEntries) {
+            hiddenRows.insert(at++, _EntryRow(section: _LibraryNavSection.hidden, entry: entry, client: accountClient));
+          }
+        }
+        final hiddenCount = hiddenLibraries.length + foldedEntries.length;
         _focusTracker.pruneExcept(
           _buildValidFocusKeys(
             visibleRows: visibleRows,
@@ -1386,7 +1408,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
             t,
             showServerName: showServerName,
           ),
-          _FavoritesRow() => _buildFavoritesItem(row, t),
+          _EntryRow() => _buildEntryItem(row, t),
         };
       }).toList(),
     );
@@ -1503,18 +1525,18 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     );
   }
 
-  Widget _buildFavoritesItem(_FavoritesRow row, dynamic t) {
-    final label = Translations.of(context).navigation.favorites;
+  Widget _buildEntryItem(_EntryRow row, dynamic t) {
+    final label = layoutEntryTitle(row.entry);
     return NavigationRailItem(
-      icon: Symbols.favorite_rounded,
-      selectedIcon: Symbols.favorite_rounded,
+      icon: layoutEntryIcon(row.entry),
+      selectedIcon: layoutEntryIcon(row.entry),
       label: Text(
         label,
         style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: t.textMuted),
         overflow: .ellipsis,
       ),
       isSelected: false,
-      onTap: () => openAccountFavorites(context, row.client),
+      onTap: () => openLayoutEntry(context, row.entry, client: row.client),
       focusNode: _focusTracker.get(_focusKeyForLibraryRow(row)),
       iconSize: 18,
       expandedHeight: 40,

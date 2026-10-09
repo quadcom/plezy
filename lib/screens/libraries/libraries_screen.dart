@@ -20,6 +20,7 @@ import '../../widgets/settings_builder.dart';
 import '../../media/library_layout.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/favorites_navigation.dart';
+import '../../utils/layout_entry_ui.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/content_utils.dart';
 import '../../widgets/app_menu.dart';
@@ -617,18 +618,19 @@ class _LibrariesScreenState extends State<LibrariesScreen>
   }
 
   void _showFoldedLibraries(List<MediaLibrary> foldedLibraries) {
-    final favoritesFolded = context.read<HiddenLibrariesProvider>().favoritesState == LibraryState.folded;
+    final foldedEntries = _foldedLayoutEntries();
     final entries = _buildGroupedLibraryMenuItems(foldedLibraries, groupByServer: true);
     unawaited(
       OverlaySheetController.showAdaptive<void>(
         context,
         showDragHandle: true,
         builder: (sheetContext) => AppMenuSheet<String>(
-          title: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length + (favoritesFolded ? 1 : 0)),
-          entries: [...entries, if (favoritesFolded) _favoritesMenuItem],
+          title: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length + foldedEntries.length),
+          entries: [...entries, for (final entry in foldedEntries) _entryMenuItem(entry)],
           onSelected: (libraryGlobalKey) {
-            if (libraryGlobalKey == _favoritesEntry) {
-              _openFavorites();
+            final entry = _layoutEntryFor(libraryGlobalKey);
+            if (entry != null) {
+              _openEntry(entry);
             } else {
               unawaited(_loadLibraryContent(libraryGlobalKey));
             }
@@ -637,6 +639,12 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       ),
     );
   }
+
+  List<LayoutEntry> _foldedLayoutEntries() => context
+      .read<HiddenLibrariesProvider>()
+      .withEntries(const [], LibraryState.folded)
+      .whereType<LayoutEntry>()
+      .toList();
 
   /// Build the app bar title - either dropdown on mobile or simple title on desktop
   Widget _buildAppBarTitle(
@@ -675,28 +683,41 @@ class _LibrariesScreenState extends State<LibrariesScreen>
   /// The hidden-libraries entry in the phone drop-down; no library key starts with `#`.
   static const _hiddenLibrariesEntry = '#hidden-libraries';
 
-  /// The account's Favourites entry in the phone drop-down.
-  static const _favoritesEntry = '#favorites';
+  /// An account entry (Continue Watching, Next Up, Favourites) in the phone
+  /// drop-down; no library key starts with `#`.
+  static String _entryValue(LayoutEntry entry) => '#entry:${entry.id}';
 
-  AppMenuItem<String> get _favoritesMenuItem =>
-      AppMenuItem<String>(value: _favoritesEntry, icon: Symbols.favorite_rounded, label: t.navigation.favorites);
+  static LayoutEntry? _layoutEntryFor(String value) =>
+      LayoutEntry.values.where((entry) => _entryValue(entry) == value).firstOrNull;
 
-  /// [entries] with the Favourites entry placed among their library items, so
-  /// that [libraryCountBefore] libraries come before it.
-  List<AppMenuEntry<String>> _withFavorites(List<AppMenuEntry<String>> entries, int libraryCountBefore) {
-    var seen = 0;
-    for (var i = 0; i < entries.length; i++) {
-      if (entries[i] is AppMenuItem<String>) {
-        if (seen == libraryCountBefore) return [...entries.sublist(0, i), _favoritesMenuItem, ...entries.sublist(i)];
-        seen++;
+  AppMenuItem<String> _entryMenuItem(LayoutEntry entry) =>
+      AppMenuItem<String>(value: _entryValue(entry), icon: layoutEntryIcon(entry), label: layoutEntryTitle(entry));
+
+  /// [entries] with the shown account entries placed among their library
+  /// items, where the account puts them.
+  List<AppMenuEntry<String>> _withEntries(List<AppMenuEntry<String>> entries, List<MediaLibrary> visibleLibraries) {
+    final layout = context.read<HiddenLibrariesProvider>();
+    var result = entries;
+    for (final entry in layout.withEntries(visibleLibraries, LibraryState.shown).whereType<LayoutEntry>()) {
+      final libraryCountBefore = layout.entryIndexIn(entry, visibleLibraries);
+      var seen = 0;
+      var at = result.length;
+      for (var i = 0; i < result.length; i++) {
+        final item = result[i];
+        if (item is AppMenuItem<String> && _layoutEntryFor(item.value) == null) {
+          if (seen++ == libraryCountBefore) {
+            at = i;
+            break;
+          }
+        }
       }
+      result = [...result.sublist(0, at), _entryMenuItem(entry), ...result.sublist(at)];
     }
-    return [...entries, _favoritesMenuItem];
+    return result;
   }
 
-  void _openFavorites() {
-    final client = context.read<HiddenLibrariesProvider>().accountClient;
-    if (client != null) openAccountFavorites(context, client);
+  void _openEntry(LayoutEntry entry) {
+    openLayoutEntry(context, entry, client: context.read<HiddenLibrariesProvider>().accountClient);
   }
 
   Widget _buildLibraryDropdownTitle(
@@ -719,8 +740,8 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       onSelected: (libraryGlobalKey) {
         if (libraryGlobalKey == _hiddenLibrariesEntry) {
           _showFoldedLibraries(foldedLibraries);
-        } else if (libraryGlobalKey == _favoritesEntry) {
-          _openFavorites();
+        } else if (_layoutEntryFor(libraryGlobalKey) case final entry?) {
+          _openEntry(entry);
         } else {
           _loadLibraryContent(libraryGlobalKey);
         }
@@ -728,14 +749,10 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       // Folded libraries sit behind one collapsed entry at the bottom, opened
       // as their own list grouped by server (Adrian, 2026-10-09).
       entriesBuilder: (context) {
-        final layout = context.read<HiddenLibrariesProvider>();
-        final favoritesState = layout.favoritesState;
         final shownEntries = _buildGroupedLibraryMenuItems(visibleLibraries, groupByServer: groupByServer);
-        final foldedCount = foldedLibraries.length + (favoritesState == LibraryState.folded ? 1 : 0);
+        final foldedCount = foldedLibraries.length + _foldedLayoutEntries().length;
         return [
-          ...favoritesState == LibraryState.shown
-              ? _withFavorites(shownEntries, layout.favoritesIndexIn(visibleLibraries))
-              : shownEntries,
+          ..._withEntries(shownEntries, visibleLibraries),
           if (foldedCount > 0) ...[
             const AppMenuDivider<String>(),
             AppMenuItem<String>(

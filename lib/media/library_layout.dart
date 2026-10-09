@@ -47,9 +47,31 @@ String libraryLayoutKey(MediaLibrary library) {
   return '${libraryLayoutServerId(library)}/$libraryId';
 }
 
+/// The account's entries that are not libraries but are placed, folded and
+/// switched off like one: Continue Watching and Next Up (their place among the
+/// libraries is their place on home), and Favourites (PlezyFin and Adrian,
+/// 2026-10-09).
+enum LayoutEntry {
+  continueWatching('continuewatching'),
+  nextUp('nextup'),
+  favorites('favorites');
+
+  const LayoutEntry(this.id);
+
+  /// The library id half of the entry's layout key.
+  final String id;
+
+  /// The entry's layout key on [serverId], the PlezyFin server.
+  String keyFor(String serverId) => '$serverId/$id';
+
+  /// The entries a record that lacks them places ahead of the libraries:
+  /// Continue Watching, then Next Up, as home always showed them.
+  static const leading = [continueWatching, nextUp];
+}
+
 /// The layout key of a server's Favourites entry, placed and hidden like a
 /// library (PlezyFin, 2026-10-09).
-String favoritesLayoutKey(String serverId) => '$serverId/favorites';
+String favoritesLayoutKey(String serverId) => LayoutEntry.favorites.keyFor(serverId);
 
 /// The longest home row title the record keeps.
 const libraryRowTitleMaxLength = 80;
@@ -218,7 +240,13 @@ class LibraryLayout {
 
   /// [arrange] for raw keys, which also covers entries that are not browsable
   /// libraries: collections and playlists views, and Favourites.
-  ({List<String> order, Map<String, LibraryState> state}) arrangeKeys(List<String> keys, {String? ownServerId}) {
+  ///
+  /// Keys in [leading] that this layout does not order go first instead.
+  ({List<String> order, Map<String, LibraryState> state}) arrangeKeys(
+    List<String> keys, {
+    String? ownServerId,
+    List<String> leading = const [],
+  }) {
     final rank = {for (final (index, key) in order.indexed) key: index};
     final ranked = [
       for (final key in keys)
@@ -226,9 +254,11 @@ class LibraryLayout {
     ]..sort((a, b) => rank[a]!.compareTo(rank[b]!));
     return (
       order: [
+        for (final key in leading)
+          if (keys.contains(key) && !rank.containsKey(key)) key,
         ...ranked,
         for (final key in keys)
-          if (!rank.containsKey(key)) key,
+          if (!rank.containsKey(key) && !leading.contains(key)) key,
       ],
       state: {for (final key in keys) key: stateOf(key, ownServerId: ownServerId)},
     );

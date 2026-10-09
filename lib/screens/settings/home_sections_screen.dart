@@ -11,6 +11,7 @@ import '../../providers/hidden_libraries_provider.dart';
 import '../../providers/libraries_provider.dart';
 import '../../services/settings_service.dart';
 import '../../utils/app_logger.dart';
+import '../../utils/content_utils.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_icon.dart';
@@ -35,7 +36,12 @@ class HomeSectionsScreen extends StatelessWidget {
     final layout = context.watch<HiddenLibrariesProvider>();
     final libraries = context.watch<LibrariesProvider>().libraries;
     final home = layout.home;
-    final sections = home.sections;
+    // With an account, Continue Watching and Next Up are placed and switched
+    // in Manage Libraries like a library, and the library rows sit at their
+    // libraries' places; only the banner keeps a switch here (Adrian,
+    // 2026-10-09).
+    final account = layout.isAccountLayout;
+    final sections = account ? const [HomeLayout.hero] : home.sections;
     final rowLibraries = [
       for (final library in libraries)
         if (_hasHomeRows(library) && layout.stateOf(library) == LibraryState.shown) library,
@@ -60,10 +66,24 @@ class HomeSectionsScreen extends StatelessWidget {
                 index: index,
                 count: sections.length,
                 on: _isOn(context, layout, section),
-                cardStyle: _hasCards(section) ? layout.cardStyleFor(section) : null,
+                cardStyle: _hasCards(section) ? layout.cardStyleFor(layout.sectionCardKey(section)) : null,
               ),
           ],
         ),
+        if (account)
+          SettingsGroup(
+            title: t.settings.homeSectionsCards,
+            children: [
+              for (final section in const [HomeLayout.resume, HomeLayout.nextUp])
+                FocusableListTile(
+                  key: ValueKey('cards:$section'),
+                  leading: AppIcon(_sectionIcon(section), fill: 1),
+                  title: Text(_sectionTitle(section)),
+                  subtitle: Text(_cardStyleLabel(layout.cardStyleFor(layout.sectionCardKey(section)))),
+                  onTap: () => _pickSectionCards(context, layout, section),
+                ),
+            ],
+          ),
         if (rowLibraries.isNotEmpty)
           SettingsGroup(
             title: t.settings.homeSectionsLibraryCards,
@@ -71,7 +91,7 @@ class HomeSectionsScreen extends StatelessWidget {
               for (final library in rowLibraries)
                 FocusableListTile(
                   key: ValueKey(library.globalKey),
-                  leading: const AppIcon(Symbols.video_library_rounded, fill: 1),
+                  leading: AppIcon(ContentTypeHelper.getLibraryIcon(library.kind.id), fill: 1),
                   title: Text(library.title),
                   subtitle: Text(_cardStyleLabel(layout.libraryCardStyle(library))),
                   onTap: () => _pickLibraryCards(context, layout, library),
@@ -82,6 +102,13 @@ class HomeSectionsScreen extends StatelessWidget {
     );
   }
 
+  static Future<void> _pickSectionCards(BuildContext context, HiddenLibrariesProvider layout, String section) async {
+    final key = layout.sectionCardKey(section);
+    final picked = await _pickCardStyle(context, _sectionTitle(section), layout.cardStyleFor(key));
+    if (picked == null || !context.mounted) return;
+    await _save(context, () => layout.setCardStyle(key, picked.value));
+  }
+
   static bool _hasHomeRows(MediaLibrary library) =>
       const {MediaKind.movie, MediaKind.show, MediaKind.clip, MediaKind.artist}.contains(library.kind);
 
@@ -90,20 +117,23 @@ class HomeSectionsScreen extends StatelessWidget {
     HiddenLibrariesProvider layout,
     MediaLibrary library,
   ) async {
-    final picked = await showSelectionDialog<HomeCardStyle?>(
+    final picked = await _pickCardStyle(context, library.title, layout.libraryCardStyle(library));
+    if (picked == null || !context.mounted) return;
+    await _save(context, () => layout.setLibraryCardStyle(library, picked.value));
+  }
+}
+
+Future<DialogOption<HomeCardStyle?>?> _pickCardStyle(BuildContext context, String title, HomeCardStyle? current) =>
+    showSelectionDialog<HomeCardStyle?>(
       context: context,
-      title: library.title,
+      title: title,
       options: [
         DialogOption(value: null, title: t.settings.cardsUsual),
         DialogOption(value: HomeCardStyle.poster, title: t.settings.cardsPosters),
         DialogOption(value: HomeCardStyle.thumb, title: t.settings.cardsScreenGrabs),
       ],
-      currentValue: layout.libraryCardStyle(library),
+      currentValue: current,
     );
-    if (picked == null || !context.mounted) return;
-    await _save(context, () => layout.setLibraryCardStyle(library, picked.value));
-  }
-}
 
 /// Whether [section] is on. Without an account the banner follows this
 /// device's Show hero setting, as it always did.
@@ -229,11 +259,11 @@ class _SectionTile extends StatelessWidget {
           ..insert(to, section);
         await layout.setHomeSections(sections);
       case _SectionAction.cardsUsual:
-        await layout.setCardStyle(section, null);
+        await layout.setCardStyle(layout.sectionCardKey(section), null);
       case _SectionAction.cardsPosters:
-        await layout.setCardStyle(section, HomeCardStyle.poster);
+        await layout.setCardStyle(layout.sectionCardKey(section), HomeCardStyle.poster);
       case _SectionAction.cardsScreenGrabs:
-        await layout.setCardStyle(section, HomeCardStyle.thumb);
+        await layout.setCardStyle(layout.sectionCardKey(section), HomeCardStyle.thumb);
     }
   }
 }

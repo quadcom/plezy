@@ -7,6 +7,8 @@ import '../media/ids.dart';
 import '../media/media_hub.dart';
 import '../media/library_change_event.dart';
 import '../media/media_item.dart';
+import '../media/media_library.dart';
+import '../media/library_layout.dart';
 import '../media/media_server_client.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
 import '../mixins/event_aware.dart';
@@ -299,7 +301,8 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   bool get homeFromAccount => _hiddenLibraries.isAccountLayout;
 
   /// The card style for the Continue Watching or Next Up row.
-  HomeCardStyle? sectionCardStyle(String section) => _hiddenLibraries.cardStyleFor(section);
+  HomeCardStyle? sectionCardStyle(String section) =>
+      _hiddenLibraries.cardStyleFor(_hiddenLibraries.sectionCardKey(section));
 
   /// The home rows, each library's Recently Added row under the title the
   /// PlezyFin account gives it, and each library's rows in the card style the
@@ -329,9 +332,51 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
       final title = _hiddenLibraries.rowTitleFor(serverId: serverId, libraryId: match.group(1)!);
       if (title != null && title != hub.title) presented = presented.copyWith(title: title);
     }
-    final libraryId = match?.group(1) ?? _rowLibraryId(hub);
-    final library = libraryId == null ? null : _hiddenLibraries.libraryFor(serverId: serverId, libraryId: libraryId);
-    return library == null ? presented : presented.withCardStyle(_hiddenLibraries.libraryCardStyle(library));
+    final library = _hubLibrary(hub);
+    return library == null
+        ? presented
+        : presented.forLibrary(style: _hiddenLibraries.libraryCardStyle(library), kind: library.kind);
+  }
+
+  /// The library a home row belongs to; null for a server-wide row.
+  MediaLibrary? _hubLibrary(MediaHub hub) {
+    final serverId = hub.serverId;
+    if (serverId == null) return null;
+    final libraryId = _libraryRowId.firstMatch(hub.identifier ?? hub.id)?.group(1) ?? _rowLibraryId(hub);
+    return libraryId == null ? null : _hiddenLibraries.libraryFor(serverId: serverId, libraryId: libraryId);
+  }
+
+  /// Bumped whenever the library layout changes: states, order, titles, card
+  /// styles or home sections.
+  int get layoutRevision => _titlesRevision;
+
+  /// With a PlezyFin account, the home rows in the account's order: the
+  /// library rows of [hubs], with Continue Watching and Next Up, when shown,
+  /// placed where the account puts them among the libraries (Adrian,
+  /// 2026-10-09). Each item is a [MediaHub] or a [LayoutEntry]. Null without
+  /// an account; the home sections order the rows then.
+  List<Object>? get accountHomeOrder {
+    final layout = _hiddenLibraries;
+    if (!layout.isAccountLayout) return null;
+    int rankOf(LayoutEntry entry) => layout.entryRank(entry) ?? -1;
+    final entries = [
+      for (final entry in LayoutEntry.leading)
+        if (layout.entryState(entry) == LibraryState.shown) entry,
+    ]..sort((a, b) => rankOf(a).compareTo(rankOf(b)));
+    final result = <Object>[];
+    var next = 0;
+    // A server-wide row keeps to the library row before it.
+    var rank = -1;
+    for (final hub in hubs) {
+      final library = _hubLibrary(hub);
+      rank = (library == null ? null : layout.libraryRank(library)) ?? rank;
+      while (next < entries.length && rankOf(entries[next]) < rank) {
+        result.add(entries[next++]);
+      }
+      result.add(hub);
+    }
+    result.addAll(entries.skip(next));
+    return result;
   }
 
   /// The library a Plex section row comes from: the one it was split for, or

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../media/media_hub.dart';
+import 'content_utils.dart';
 
 /// Leading icon for a hub row, shared by every surface that renders hubs from
 /// the same backend rows (Discover and a library's Recommended tab).
@@ -17,6 +18,10 @@ IconData hubIconFor(MediaHub hub) {
   if (hub.isContinueWatchingHub || title.contains('continue watching') || title.contains('on deck')) {
     return Symbols.play_circle_rounded;
   }
+  // A library's own rows show the library's icon, as in the menu (Adrian,
+  // 2026-10-09): every renamed row otherwise fell back to one icon.
+  final libraryKind = hub.libraryKind;
+  if (libraryKind != null) return ContentTypeHelper.getLibraryIcon(libraryKind.id);
   for (final (keywords, icon) in _titleKeywordIcons) {
     if (keywords.any(title.contains)) return icon;
   }

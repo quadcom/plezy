@@ -1,6 +1,7 @@
 import '../services/settings_service.dart' show EpisodePosterMode;
 import 'home_layout.dart';
 import 'media_item.dart';
+import 'media_kind.dart';
 
 /// A named, ordered list of items grouped on the home screen (Plex `Hub`,
 /// or a synthesized Jellyfin "Latest"/"Resume"/"NextUp" row).
@@ -37,6 +38,10 @@ class MediaHub {
   /// look.
   final HomeCardStyle? cardStyle;
 
+  /// The kind of library this row comes from, for its icon; null for rows that
+  /// are not one library's.
+  final MediaKind? libraryKind;
+
   const MediaHub({
     required this.id,
     required this.title,
@@ -49,6 +54,7 @@ class MediaHub {
     this.serverId,
     this.serverName,
     this.cardStyle,
+    this.libraryKind,
   });
 
   /// True for hubs that represent the user's resumable Continue Watching row.
@@ -77,8 +83,8 @@ class MediaHub {
   /// Whether every card in this row is a screen grab, films and shows too.
   bool get forcesScreenGrabs => cardStyle == HomeCardStyle.thumb;
 
-  /// This hub with [style] as its card style.
-  MediaHub withCardStyle(HomeCardStyle? style) => style == cardStyle
+  /// This hub as a row of a library of [kind], drawn in [style].
+  MediaHub forLibrary({HomeCardStyle? style, MediaKind? kind}) => style == cardStyle && kind == libraryKind
       ? this
       : MediaHub(
           id: id,
@@ -92,6 +98,7 @@ class MediaHub {
           serverId: serverId,
           serverName: serverName,
           cardStyle: style,
+          libraryKind: kind,
         );
 
   MediaHub copyWith({List<MediaItem>? items, int? size, String? title}) {
@@ -107,6 +114,7 @@ class MediaHub {
       serverId: serverId,
       serverName: serverName,
       cardStyle: cardStyle,
+      libraryKind: libraryKind,
     );
   }
 }
