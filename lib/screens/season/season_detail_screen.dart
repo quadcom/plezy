@@ -30,6 +30,15 @@ import '../../widgets/optimized_media_image.dart';
 /// than as tabs on the show screen.
 bool seasonPagesEnabled() => SettingsService.instanceOrNull?.read(SettingsService.seasonPages) ?? true;
 
+/// A season's own name ("Season 2", "Specials"), falling back to its number.
+/// Not [MediaItem.displayTitle], which names the show for a season.
+String seasonLabel(MediaItem season) {
+  final title = season.title?.trim();
+  if (title != null && title.isNotEmpty) return title;
+  final index = season.index;
+  return index != null ? t.common.seasonNumber(number: index) : season.displayTitle;
+}
+
 /// One season of a show laid out like the Master Class course screen: the
 /// season's header, its episodes in a rail, and the selected episode's
 /// description below. Fork-only; Adrian, 2026-10-09
@@ -445,7 +454,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     final subject = _subject;
     final showTitle = _show?.title;
     final overline = _season != null && showTitle != null && showTitle.isNotEmpty ? showTitle : null;
-    final title = _season != null ? (_season!.title ?? _season!.displayTitle) : (_show?.title ?? subject.displayTitle);
+    final title = _season != null ? seasonLabel(_season!) : (_show?.title ?? subject.displayTitle);
     final posterWidth = (size.width * 0.13).clamp(84.0, 200.0);
     final totalMs = _hasMore ? 0 : _episodes.fold<int>(0, (sum, e) => sum + (e.durationMs ?? 0));
     final year = subject.year ?? _show?.year;

@@ -10,6 +10,7 @@ import '../../providers/watch_state_store.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/media_context_menu.dart';
 import '../../widgets/optimized_media_image.dart';
+import 'season_detail_screen.dart';
 
 /// The show screen's seasons as a row of posters, in place of the season tabs
 /// and episode list when season pages are on. Opening one goes to its
@@ -117,7 +118,7 @@ class _SeasonTileState extends State<_SeasonTile> with ContextMenuTapMixin<_Seas
             onNavigateLeft: widget.onNavigateLeft ?? () {},
             onNavigateRight: widget.onNavigateRight ?? () {},
             onNavigateDown: widget.onNavigateDown,
-            semanticLabel: season.displayTitle,
+            semanticLabel: seasonLabel(season),
             child: MediaContextMenu(
               key: contextMenuKey,
               item: season,
@@ -168,7 +169,7 @@ class _SeasonTileState extends State<_SeasonTile> with ContextMenuTapMixin<_Seas
           ),
           const SizedBox(height: 8),
           Text(
-            season.displayTitle,
+            seasonLabel(season),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),

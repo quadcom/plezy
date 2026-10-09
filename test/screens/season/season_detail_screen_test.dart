@@ -9,6 +9,7 @@ import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/screens/media_detail_screen.dart';
 import 'package:plezy/screens/season/season_detail_screen.dart';
+import 'package:plezy/screens/season/season_poster_row.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/media_server_http_client.dart';
 import 'package:provider/provider.dart';
@@ -33,6 +34,7 @@ PlexMediaItem _season(int n) => PlexMediaItem(
   title: 'Season $n',
   index: n,
   parentId: 'show',
+  parentTitle: 'The Expanse',
   summary: 'Season $n summary.',
   serverId: _serverId,
 );
@@ -194,5 +196,28 @@ void main() {
 
     expect(find.byType(SeasonDetailScreen), findsOneWidget);
     expect(find.text('Season 1'), findsOneWidget);
+  });
+
+  testWidgets('season posters are labelled with the season, not the show', (tester) async {
+    await pump(
+      tester,
+      Scaffold(
+        body: SeasonPosterRow(
+          seasons: [
+            _season(1),
+            _season(2),
+            const PlexMediaItem(id: 's9', kind: MediaKind.season, index: 9),
+          ],
+          client: null,
+          focusNodes: const [],
+          onOpen: (_) {},
+        ),
+      ),
+    );
+
+    expect(find.text('Season 1'), findsOneWidget);
+    expect(find.text('Season 2'), findsOneWidget);
+    expect(find.text('Season 9'), findsOneWidget);
+    expect(find.text('The Expanse'), findsNothing);
   });
 }
