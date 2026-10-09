@@ -139,9 +139,9 @@ class _SearchScreenState extends State<SearchScreen>
     try {
       final result = await multiServerProvider.aggregationService.searchAcrossServers(
         query,
-        // Search still finds what is in a server-hidden library; only a
-        // device-hidden one is left out (Adrian, 2026-10-09).
-        hiddenLibraryKeys: hiddenLibraries.deviceHiddenLibraryKeys,
+        // Search still finds what is in a folded library; only a Not shown one
+        // is left out (Adrian, 2026-10-09).
+        hiddenLibraryKeys: hiddenLibraries.offLibraryKeys,
         abort: abort,
       );
       abort.throwIfAborted();

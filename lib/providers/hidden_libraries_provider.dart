@@ -1,19 +1,60 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
+
+import '../media/ids.dart';
+import '../media/library_layout.dart';
 import '../media/media_backend.dart';
 import '../media/media_library.dart';
+import '../media/media_server_client.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
+import '../services/jellyfin_client.dart';
 import '../services/storage_service.dart';
+import '../utils/app_logger.dart';
 
-/// Provider for managing hidden library state across the app.
-/// This ensures that when a library is hidden/unhidden in one screen,
-/// all other screens are automatically updated.
+/// Each library's place in the user's layout: shown, folded into the Hidden
+/// libraries section, or not shown at all (plan `local/plans/library-states.md`).
+///
+/// With a PlezyFin account (a connected Jellyfin server that reports
+/// `PlezyFinVersion`) the layout lives on that server and covers every server
+/// Plezy is connected to; every device follows it. Without one, the states are
+/// kept on this device, and a Jellyfin library hidden on its own server
+/// (`MyMediaExcludes`) reads as folded.
+///
+/// The class keeps its old name: most of the app only asks it which libraries
+/// to leave out.
 class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixin {
   StorageService? _storageService;
   final String? profileId;
-  Set<String> _hiddenLibraryKeys = {};
-  Set<String> _serverHiddenKeys = {};
+
+  /// Device mode: folded libraries (the old per-device hidden list).
+  Set<String> _folded = {};
+
+  /// Device mode: libraries set to Not shown.
+  Set<String> _off = {};
+
+  /// Libraries the user hid on their own Jellyfin/Emby server.
+  Set<String> _serverHidden = {};
+
+  List<MediaLibrary> _libraries = const [];
+
+  JellyfinClient? _account;
+  String? _ownServerId;
+  LibraryLayout? _layout;
+
   bool _isInitialized = false;
   late final Future<void> _initFuture;
+  Future<void>? _accountRefresh;
+  bool _accountRefreshQueued = false;
+  DateTime? _accountCheckedAt;
+
+  /// How stale the account layout may get before a library reload rereads it,
+  /// so a change made in the web client or on another device shows up.
+  static const _accountRecheck = Duration(minutes: 1);
+
+  MediaServerClient? Function(ServerId serverId)? _clientFor;
+  void Function(String globalKey, bool hidden)? _onServerHiddenChanged;
 
   HiddenLibrariesProvider({this._storageService, this.profileId}) {
     // Start initialization eagerly to reduce race conditions
@@ -27,17 +68,64 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// Check if the provider has completed initialization
   bool get isInitialized => _isInitialized;
 
-  /// Every library folded into the Hidden libraries row: those hidden on this
-  /// device plus those the user hid on their Jellyfin or Emby server.
-  Set<String> get hiddenLibraryKeys => Set.unmodifiable({..._hiddenLibraryKeys, ..._serverHiddenKeys});
+  /// Whether the layout comes from a PlezyFin account (live or cached).
+  bool get isAccountLayout => _layout != null && _ownServerId != null;
 
-  /// Libraries hidden on this device only. Their items also leave Continue
-  /// Watching and search. A server-hidden library's items stay in both
-  /// (Adrian, 2026-10-09), so those surfaces filter by this set alone.
-  Set<String> get deviceHiddenLibraryKeys => Set.unmodifiable(_hiddenLibraryKeys);
+  /// Connect the provider to the session's servers: [clientFor] finds a
+  /// server's client, and [onServerHiddenChanged] tells the library list when
+  /// a Jellyfin library's server-side hidden flag changed.
+  void bind({
+    required MediaServerClient? Function(ServerId serverId) clientFor,
+    required void Function(String globalKey, bool hidden) onServerHiddenChanged,
+  }) {
+    _clientFor = clientFor;
+    _onServerHiddenChanged = onServerHiddenChanged;
+  }
 
-  /// Libraries the user hid on their server (Jellyfin/Emby `MyMediaExcludes`).
-  Set<String> get serverHiddenLibraryKeys => Set.unmodifiable(_serverHiddenKeys);
+  /// [library]'s state.
+  LibraryState stateOf(MediaLibrary library) {
+    final layout = _layout;
+    if (layout != null && _ownServerId != null) {
+      return layout.stateOf(libraryLayoutKey(library), ownServerId: _ownServerId);
+    }
+    final key = library.globalKey;
+    if (_off.contains(key)) return LibraryState.off;
+    if (_folded.contains(key) || _serverHidden.contains(key)) return LibraryState.folded;
+    return LibraryState.shown;
+  }
+
+  Set<String> _keysIn(Set<LibraryState> states) => {
+    for (final library in _libraries)
+      if (states.contains(stateOf(library))) library.globalKey,
+  };
+
+  /// Libraries left out of the main list and home: folded and not shown.
+  Set<String> get hiddenLibraryKeys {
+    final loaded = _keysIn(const {LibraryState.folded, LibraryState.off});
+    // Before the libraries load, the device lists still say what to leave out.
+    return Set.unmodifiable(isAccountLayout ? loaded : {...loaded, ..._folded, ..._off, ..._serverHidden});
+  }
+
+  /// Libraries in the Hidden libraries fold.
+  Set<String> get foldedLibraryKeys => Set.unmodifiable(_keysIn(const {LibraryState.folded}));
+
+  /// Libraries shown nowhere. Their items also leave Continue Watching, Next
+  /// Up and search; a folded library's items stay (Adrian, 2026-10-09).
+  Set<String> get offLibraryKeys {
+    final loaded = _keysIn(const {LibraryState.off});
+    return Set.unmodifiable(isAccountLayout ? loaded : {...loaded, ..._off});
+  }
+
+  /// The account's library order as global keys, or null without an account.
+  List<String>? get accountOrder {
+    final layout = _layout;
+    if (layout == null || _ownServerId == null) return null;
+    final byKey = {for (final library in _libraries) libraryLayoutKey(library): library.globalKey};
+    return [
+      for (final key in layout.arrange(_libraries, ownServerId: _ownServerId).order)
+        if (byKey[key] != null) byKey[key]!,
+    ];
+  }
 
   /// The server-hidden keys among [libraries]. Plex's own `hidden` flag is not
   /// a user choice made in a Plex client, so it does not count.
@@ -46,12 +134,20 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       if (library.hidden && library.backend != MediaBackend.plex) library.globalKey,
   };
 
-  /// Follow the server-hidden flags of the loaded [libraries].
-  void syncServerHidden(Iterable<MediaLibrary> libraries) {
-    final next = serverHiddenKeysOf(libraries);
-    if (setEquals(next, _serverHiddenKeys)) return;
-    _serverHiddenKeys = next;
-    safeNotifyListeners();
+  /// Follow the loaded [libraries], and check the PlezyFin account for them.
+  void syncLibraries(Iterable<MediaLibrary> libraries) {
+    final next = List<MediaLibrary>.of(libraries);
+    final serverHidden = serverHiddenKeysOf(next);
+    final changed =
+        !setEquals(serverHidden, _serverHidden) ||
+        !listEquals([for (final l in next) l.globalKey], [for (final l in _libraries) l.globalKey]);
+    _libraries = next;
+    _serverHidden = serverHidden;
+    if (changed) safeNotifyListeners();
+    final checkedAt = _accountCheckedAt;
+    if (changed || checkedAt == null || DateTime.now().difference(checkedAt) > _accountRecheck) {
+      unawaited(refreshAccount());
+    }
   }
 
   /// Initialize the provider by loading hidden libraries from storage
@@ -64,42 +160,232 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   Future<void> _loadFromStorage() async {
     final storage = _storageService ??= await StorageService.getInstance();
     final scopedProfileId = profileId;
-    _hiddenLibraryKeys = scopedProfileId == null
+    _folded = scopedProfileId == null
         ? storage.getHiddenLibraries()
         : storage.getHiddenLibrariesForProfile(scopedProfileId);
+    _off = storage.getOffLibraries(profileId: scopedProfileId);
+    final cached = storage.getAccountLibraryLayout(profileId: scopedProfileId);
+    if (cached != null && _layout == null) {
+      try {
+        final json = jsonDecode(cached);
+        if (json is Map<String, dynamic> && json['own'] is String && json['layout'] is Map<String, dynamic>) {
+          _ownServerId = json['own'] as String;
+          _layout = LibraryLayout.fromJson(json['layout'] as Map<String, dynamic>);
+        }
+      } on FormatException {
+        // A bad cache just means waiting for the server.
+      }
+    }
   }
 
-  /// Hide a library by its key
-  /// Updates both in-memory state and persistent storage
+  /// Look for the PlezyFin account among the connected Jellyfin servers and
+  /// load its layout. New libraries are written back with their starting
+  /// state, and a user with no layout yet starts from the server's default.
+  Future<void> refreshAccount() async {
+    if (_accountRefresh != null) {
+      _accountRefreshQueued = true;
+      return _accountRefresh;
+    }
+    final run = _refreshAccountOnce();
+    _accountRefresh = run;
+    try {
+      await run;
+    } finally {
+      _accountRefresh = null;
+      if (_accountRefreshQueued && !isDisposed) {
+        _accountRefreshQueued = false;
+        unawaited(refreshAccount());
+      }
+    }
+  }
+
+  Future<void> _refreshAccountOnce() async {
+    await ensureInitialized();
+    final clientFor = _clientFor;
+    if (isDisposed || clientFor == null) return;
+    _accountCheckedAt = DateTime.now();
+    final account = await _findAccount(clientFor);
+    if (isDisposed) return;
+    if (account == null) {
+      // No PlezyFin among the servers that answered. A cached layout stays
+      // until a check finds none at all among the libraries' own servers.
+      if (_layout != null && !_libraries.any((l) => l.serverId != null && clientFor(ServerId(l.serverId!)) == null)) {
+        await _setAccount(null, null, null);
+      }
+      return;
+    }
+    try {
+      final ownServerId = account.layoutServerId;
+      var layout = await account.fetchLibraryLayout() ?? LibraryLayout.empty;
+      var seeded = false;
+      // The PlezyFin server's libraries start from the admin's default until
+      // the record knows them, even when another client wrote it first.
+      if (!layout.known.containsKey(ownServerId)) {
+        final defaults = await account.fetchLibraryLayoutDefaults();
+        if (defaults != null) layout = layout.seededFrom(defaults, ownServerId: ownServerId);
+        seeded = true;
+      }
+      if (isDisposed) return;
+      await _setAccount(account, ownServerId, layout);
+      if (seeded || layout.knownDiffers(_managedLibrariesByServer())) {
+        await _writeAccount();
+      }
+    } catch (e, st) {
+      appLogger.w('Library layout: could not read the PlezyFin layout', error: e, stackTrace: st);
+    }
+  }
+
+  Future<JellyfinClient?> _findAccount(MediaServerClient? Function(ServerId) clientFor) async {
+    final serverIds = {
+      for (final library in _libraries)
+        if (library.backend != MediaBackend.plex && library.serverId != null) library.serverId!,
+    };
+    for (final serverId in serverIds) {
+      final client = clientFor(ServerId(serverId));
+      if (client is JellyfinClient && await client.plezyFinVersion() != null) return client;
+    }
+    return null;
+  }
+
+  Future<void> _setAccount(JellyfinClient? account, String? ownServerId, LibraryLayout? layout) async {
+    _account = account;
+    _ownServerId = ownServerId;
+    _layout = layout;
+    final storage = _storageService;
+    if (storage != null) {
+      await storage.saveAccountLibraryLayout(
+        layout == null || ownServerId == null ? null : jsonEncode({'own': ownServerId, 'layout': layout.toJson()}),
+        profileId: profileId,
+      );
+    }
+    safeNotifyListeners();
+  }
+
+  /// The servers this device manages in the layout: every one it has
+  /// libraries from, with their layout ids.
+  Map<String, List<String>> _managedLibrariesByServer() {
+    final byServer = <String, List<String>>{};
+    for (final library in _libraries) {
+      if (library.serverId == null) continue;
+      final key = libraryLayoutKey(library);
+      byServer.putIfAbsent(libraryLayoutServerId(library), () => []).add(key.substring(key.indexOf('/') + 1));
+    }
+    return byServer;
+  }
+
+  /// Read the account's layout fresh, apply [order] and [states] to the
+  /// servers this device manages, and write it back.
+  Future<void> _writeAccount({List<String>? order, Map<String, LibraryState>? states}) async {
+    final account = _account;
+    final ownServerId = _ownServerId;
+    if (account == null || ownServerId == null) {
+      throw StateError('The PlezyFin server is not reachable');
+    }
+    final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
+    final arranged = fresh.arrange(_libraries, ownServerId: ownServerId);
+    final next = fresh.withManaged(
+      librariesByServer: _managedLibrariesByServer(),
+      managedOrder: order ?? arranged.order,
+      managedState: {...arranged.state, ...?states},
+      now: DateTime.now(),
+    );
+    await account.saveLibraryLayout(next);
+    if (isDisposed) return;
+    await _setAccount(account, ownServerId, next);
+  }
+
+  /// Put [library] in [state]. With a PlezyFin account this writes the
+  /// account; otherwise it stays on this device, and a Jellyfin library is also
+  /// hidden or shown on its own server so the web client agrees.
+  Future<void> setLibraryState(MediaLibrary library, LibraryState state, {void Function()? checkCurrent}) async {
+    await ensureInitialized();
+    if (isDisposed) return;
+    checkCurrent?.call();
+    if (isAccountLayout) {
+      await _writeAccount(states: {libraryLayoutKey(library): state});
+      return;
+    }
+    final key = library.globalKey;
+    if (library.backend != MediaBackend.plex) {
+      final client = _clientFor?.call(ServerId(library.serverId ?? ''));
+      if (client is! JellyfinClient) {
+        throw StateError('No Jellyfin or Emby client for $key');
+      }
+      final hidden = state != LibraryState.shown;
+      if (_serverHidden.contains(key) != hidden) {
+        await client.setLibraryHiddenOnServer(library.id, hidden: hidden);
+        checkCurrent?.call();
+        _serverHidden = hidden ? {..._serverHidden, key} : ({..._serverHidden}..remove(key));
+        _onServerHiddenChanged?.call(key, hidden);
+      }
+      await _saveDevice(folded: {..._folded}..remove(key), off: _withOff(key, state == LibraryState.off));
+    } else {
+      await _saveDevice(
+        folded: state == LibraryState.folded ? {..._folded, key} : ({..._folded}..remove(key)),
+        off: _withOff(key, state == LibraryState.off),
+      );
+    }
+    checkCurrent?.call();
+    safeNotifyListeners();
+  }
+
+  /// Save a whole arrangement from Manage Libraries: [ordered] libraries, all
+  /// of them, each with its state. Device mode saves only the states; the
+  /// order goes through [LibrariesProvider] as before.
+  Future<void> saveArrangement(List<({MediaLibrary library, LibraryState state})> ordered) async {
+    await ensureInitialized();
+    if (isDisposed) return;
+    if (isAccountLayout) {
+      await _writeAccount(
+        order: [for (final entry in ordered) libraryLayoutKey(entry.library)],
+        states: {for (final entry in ordered) libraryLayoutKey(entry.library): entry.state},
+      );
+      return;
+    }
+    for (final entry in ordered) {
+      if (stateOf(entry.library) != entry.state) await setLibraryState(entry.library, entry.state);
+    }
+  }
+
+  Set<String> _withOff(String key, bool off) => off ? {..._off, key} : ({..._off}..remove(key));
+
+  Future<void> _saveDevice({required Set<String> folded, required Set<String> off}) async {
+    final storage = _storageService!;
+    final scopedProfileId = profileId;
+    if (!setEquals(folded, _folded)) {
+      if (scopedProfileId == null) {
+        await storage.saveHiddenLibraries(folded);
+      } else {
+        await storage.saveHiddenLibrariesForProfile(scopedProfileId, folded);
+      }
+    }
+    if (!setEquals(off, _off)) await storage.saveOffLibraries(off, profileId: scopedProfileId);
+    _folded = folded;
+    _off = off;
+  }
+
+  /// Fold a library on this device (device mode).
   Future<void> hideLibrary(String libraryKey, {void Function()? checkCurrent}) =>
       setLibraryHidden(libraryKey, true, checkCurrent: checkCurrent);
 
   Future<void> unhideLibrary(String libraryKey, {void Function()? checkCurrent}) =>
       setLibraryHidden(libraryKey, false, checkCurrent: checkCurrent);
 
+  /// Fold or unfold [libraryKey] in the device list, by key alone.
   Future<void> setLibraryHidden(String libraryKey, bool hidden, {void Function()? checkCurrent}) async {
     await ensureInitialized();
     if (isDisposed) return;
     checkCurrent?.call();
-    if (_hiddenLibraryKeys.contains(libraryKey) == hidden) return;
-    final next = Set<String>.of(_hiddenLibraryKeys);
-    hidden ? next.add(libraryKey) : next.remove(libraryKey);
-    final storage = _storageService!;
-    final scopedProfileId = profileId;
-    if (scopedProfileId == null) {
-      await storage.saveHiddenLibraries(next);
-    } else {
-      await storage.saveHiddenLibrariesForProfile(scopedProfileId, next);
-    }
+    if (_folded.contains(libraryKey) == hidden) return;
+    await _saveDevice(folded: hidden ? {..._folded, libraryKey} : ({..._folded}..remove(libraryKey)), off: _off);
     if (isDisposed) return;
     checkCurrent?.call();
-    _hiddenLibraryKeys = next;
     safeNotifyListeners();
   }
 
   /// Check if a specific library is hidden
   @visibleForTesting
-  bool isLibraryHidden(String libraryKey) => _hiddenLibraryKeys.contains(libraryKey);
+  bool isLibraryHidden(String libraryKey) => _folded.contains(libraryKey);
 
   /// Refresh hidden libraries from storage
   /// Useful if storage was modified outside the provider

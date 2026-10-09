@@ -121,8 +121,13 @@ Future<void> _openScanConfirmation(WidgetTester tester) async {
 
   expect(find.text(t.libraries.scanLibraryFiles), findsOneWidget);
 
-  // The hosted menu focuses its first entry in keyboard mode. Selecting it
-  // must close the whole hosted sheet before presenting the confirmation.
+  // The hosted menu focuses its first entry in keyboard mode. The two "Move
+  // to" entries come first; past them, selecting Scan must close the whole
+  // hosted sheet before presenting the confirmation.
+  await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+  await tester.pump();
+  await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+  await tester.pump();
   await tester.sendKeyEvent(LogicalKeyboardKey.enter);
   await tester.pumpAndSettle();
 
@@ -253,6 +258,48 @@ void main() {
       expect(rect.top, greaterThanOrEqualTo(viewport.top), reason: 'focused row $index sits above the viewport');
       expect(rect.bottom, lessThanOrEqualTo(viewport.bottom), reason: 'focused row $index sits below the viewport');
     }
+  });
+
+  HiddenLibrariesProvider layoutOf(WidgetTester tester) =>
+      Provider.of<HiddenLibrariesProvider>(tester.element(find.text('Open library management')), listen: false);
+
+  testWidgets('the row menu moves a library to Not shown', (tester) async {
+    await _pumpLibraryManagementLauncher(tester);
+    await tester.tap(find.text('Open library management'));
+    await tester.pumpAndSettle();
+    expect(find.text('${t.libraries.sectionShown} (1)'), findsOneWidget);
+
+    await tester.tap(find.byTooltip(t.libraries.libraryOptions));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.libraries.moveToNotShown));
+    await tester.pumpAndSettle();
+
+    expect(layoutOf(tester).offLibraryKeys, {_qualifiedLibrary.globalKey});
+    expect(find.text('${t.libraries.sectionNotShown} (1)'), findsOneWidget);
+    expect(find.text('${t.libraries.sectionShown} (0)'), findsOneWidget);
+  });
+
+  testWidgets('on the TV a picked-up library moves past a header into the next section', (tester) async {
+    TvDetectionService.debugSetAppleTVOverride(true);
+    await _pumpLibraryManagementLauncher(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // The cursor starts on the first library: pick it up, move it below the
+    // Folded header, put it down.
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(find.text('${t.libraries.sectionFolded} (1)'), findsOneWidget);
+    expect(layoutOf(tester).hiddenLibraryKeys, {_qualifiedLibrary.globalKey});
+    expect(layoutOf(tester).offLibraryKeys, isEmpty);
   });
 
   for (final action in ['scan', 'empty_trash']) {

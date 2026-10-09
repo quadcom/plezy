@@ -341,7 +341,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
             serverId: serverId,
             serverName: serverName,
             dialect: dialect,
-            hidden: view['Id'] is String && excludes!.contains(_libraryIdKey(view['Id'] as String)),
+            hidden: view['Id'] is String && excludes!.contains(mediaBrowserIdKey(view['Id'] as String)),
           ),
         )
         .whereType<MediaLibrary>()

@@ -27,7 +27,7 @@ import '../providers/shader_provider.dart';
 import '../screens/libraries/libraries_screen.dart' show visibleLibraryTabs;
 import '../screens/libraries/library_browse_grouping.dart';
 import '../utils/global_key_utils.dart';
-import '../utils/library_visibility.dart';
+import '../media/library_layout.dart';
 import '../utils/video_player_navigation.dart';
 import 'agent_control_protocol.dart';
 import 'plex_client.dart';
@@ -626,8 +626,13 @@ class AgentScopedSettingsCommands {
         defaultValue: false,
         read: () => {'value': hidden.hiddenLibraryKeys.contains(globalKey)},
         normalize: _boolean,
-        write: (v, reset) =>
-            setLibraryHidden(guard.context.context, library, reset ? false : v as bool, checkCurrent: guard.check),
+        // `hidden` folds the library or shows it again; Not shown is set in
+        // Manage Libraries.
+        write: (v, reset) => hidden.setLibraryState(
+          library,
+          (reset ? false : v as bool) ? LibraryState.folded : LibraryState.shown,
+          checkCurrent: guard.check,
+        ),
       ),
     );
     entries.add(

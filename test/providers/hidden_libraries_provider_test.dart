@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/library_layout.dart';
 import 'package:plezy/media/media_backend.dart';
 import 'package:plezy/media/media_library.dart';
 import 'package:plezy/providers/hidden_libraries_provider.dart';
@@ -11,7 +12,7 @@ void main() {
   setUp(resetSharedPreferencesForTest);
 
   group('HiddenLibrariesProvider', () {
-    test('server-hidden libraries fold in but stay apart from the device list', () async {
+    test('device mode: folded and Not shown are kept apart, server-hidden reads as folded', () async {
       final p = HiddenLibrariesProvider();
       await p.ensureInitialized();
       await p.hideLibrary('srv-plex:1');
@@ -24,18 +25,31 @@ void main() {
         // Plex's own hidden flag is not a choice made in a client.
         MediaLibrary(id: '2', backend: MediaBackend.plex, title: 'Plex', hidden: true, serverId: 'srv-plex'),
       ];
-      p.syncServerHidden(libraries);
+      p.syncLibraries(libraries);
       final kids = libraries.first.globalKey;
 
-      expect(p.serverHiddenLibraryKeys, {kids});
+      expect(p.stateOf(libraries.first), LibraryState.folded);
+      expect(p.stateOf(libraries.last), LibraryState.shown);
+      expect(p.foldedLibraryKeys, {kids});
       expect(p.hiddenLibraryKeys, {'srv-plex:1', kids});
-      expect(p.deviceHiddenLibraryKeys, {'srv-plex:1'});
+      expect(p.offLibraryKeys, isEmpty);
       expect(notified, 1);
 
-      p.syncServerHidden(libraries);
+      p.syncLibraries(libraries);
       expect(notified, 1);
+
+      await p.setLibraryState(libraries.last, LibraryState.off);
+      expect(p.offLibraryKeys, {libraries.last.globalKey});
+      expect(p.hiddenLibraryKeys, contains(libraries.last.globalKey));
+      expect(p.foldedLibraryKeys, {kids});
+
+      final again = HiddenLibrariesProvider();
+      await again.ensureInitialized();
+      again.syncLibraries(libraries);
+      expect(again.stateOf(libraries.last), LibraryState.off);
 
       p.dispose();
+      again.dispose();
     });
 
     test('starts uninitialized and exposes empty set', () async {

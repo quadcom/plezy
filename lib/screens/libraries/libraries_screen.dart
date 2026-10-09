@@ -17,12 +17,12 @@ import '../../providers/libraries_provider.dart';
 import '../../providers/multi_server_provider.dart';
 import '../../services/settings_service.dart';
 import '../../widgets/settings_builder.dart';
+import '../../media/library_layout.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/content_utils.dart';
-import '../../utils/library_visibility.dart';
-import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_menu.dart';
+import '../../widgets/overlay_sheet.dart';
 import '../../widgets/desktop_app_bar.dart';
 import '../../widgets/focusable_tab_chip.dart';
 import '../../widgets/library_management_sheet.dart';
@@ -436,6 +436,8 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     // sidebar's "Hidden libraries" section.
     final selectedLibrary = allLibraries.where((lib) => lib.globalKey == libraryGlobalKey).firstOrNull;
     if (selectedLibrary == null) return;
+    // Not shown means not reachable from anywhere.
+    if (context.read<HiddenLibrariesProvider>().offLibraryKeys.contains(libraryGlobalKey)) return;
 
     final isLibraryChange = _selectedLibraryGlobalKey != libraryGlobalKey;
 
@@ -545,43 +547,24 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     _initializeWithLibraries();
   }
 
-  Future<void> _toggleLibraryVisibility(MediaLibrary library) async {
-    if (!mounted) return;
-    final librariesProvider = context.read<LibrariesProvider>();
-    final hiddenLibrariesProvider = Provider.of<HiddenLibrariesProvider>(context, listen: false);
-    final isHidden = hiddenLibrariesProvider.hiddenLibraryKeys.contains(library.globalKey);
-
-    try {
-      await setLibraryHidden(context, library, !isHidden);
-    } catch (e) {
-      appLogger.w('Failed to change library visibility', error: e);
-      if (mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
-      return;
-    }
-    if (!mounted) return;
-    if (!isHidden) {
-      final isCurrentlySelected = _selectedLibraryGlobalKey == library.globalKey;
-
-      // If we just hid the selected library, select the first visible one
-      if (isCurrentlySelected) {
-        // Compute visible libraries after hiding
-        final allLibraries = librariesProvider.libraries;
-        final visibleLibraries = allLibraries
-            .where((lib) => !hiddenLibrariesProvider.hiddenLibraryKeys.contains(lib.globalKey))
-            .toList();
-
-        if (visibleLibraries.isNotEmpty) {
-          unawaited(_loadLibraryContent(visibleLibraries.first.globalKey));
-        }
-      }
-    }
+  /// After Manage Libraries moved [library] to [state]: a Not shown library
+  /// can't stay open, so the first shown one opens instead.
+  void _onLibraryStateChanged(MediaLibrary library, LibraryState state) {
+    if (!mounted || state != LibraryState.off || _selectedLibraryGlobalKey != library.globalKey) return;
+    final hiddenKeys = context.read<HiddenLibrariesProvider>().hiddenLibraryKeys;
+    final firstShown = context
+        .read<LibrariesProvider>()
+        .libraries
+        .where((lib) => !hiddenKeys.contains(lib.globalKey))
+        .firstOrNull;
+    if (firstShown != null) unawaited(_loadLibraryContent(firstShown.globalKey));
   }
 
   void _showLibraryManagementSheet() {
     showLibraryManagementSheet(
       context,
       onOrderChanged: _notifyLibraryOrderChanged,
-      onToggleVisibility: _toggleLibraryVisibility,
+      onStateChanged: _onLibraryStateChanged,
     );
   }
 
@@ -632,9 +615,24 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     );
   }
 
+  void _showFoldedLibraries(List<MediaLibrary> foldedLibraries) {
+    unawaited(
+      OverlaySheetController.showAdaptive<void>(
+        context,
+        showDragHandle: true,
+        builder: (sheetContext) => AppMenuSheet<String>(
+          title: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length),
+          entries: _buildGroupedLibraryMenuItems(foldedLibraries, groupByServer: true),
+          onSelected: (libraryGlobalKey) => unawaited(_loadLibraryContent(libraryGlobalKey)),
+        ),
+      ),
+    );
+  }
+
   /// Build the app bar title - either dropdown on mobile or simple title on desktop
   Widget _buildAppBarTitle(
     List<MediaLibrary> visibleLibraries,
+    List<MediaLibrary> foldedLibraries,
     MediaLibrary? selectedLibrary, {
     required bool groupByServer,
   }) {
@@ -662,12 +660,22 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     }
 
     // On mobile, show the dropdown
-    return _buildLibraryDropdownTitle(visibleLibraries, groupByServer: groupByServer);
+    return _buildLibraryDropdownTitle(visibleLibraries, foldedLibraries, groupByServer: groupByServer);
   }
 
-  Widget _buildLibraryDropdownTitle(List<MediaLibrary> visibleLibraries, {required bool groupByServer}) {
+  /// The hidden-libraries entry in the phone drop-down; no library key starts with `#`.
+  static const _hiddenLibrariesEntry = '#hidden-libraries';
+
+  Widget _buildLibraryDropdownTitle(
+    List<MediaLibrary> visibleLibraries,
+    List<MediaLibrary> foldedLibraries, {
+    required bool groupByServer,
+  }) {
     final selectedLibrary =
-        visibleLibraries.where((lib) => lib.globalKey == _selectedLibraryGlobalKey).firstOrNull ??
+        [
+          ...visibleLibraries,
+          ...foldedLibraries,
+        ].where((lib) => lib.globalKey == _selectedLibraryGlobalKey).firstOrNull ??
         visibleLibraries.firstOrNull;
     if (selectedLibrary == null) return Text(t.libraries.title);
 
@@ -676,9 +684,26 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       tooltip: t.libraries.selectLibrary,
       adaptiveSheet: true,
       onSelected: (libraryGlobalKey) {
-        _loadLibraryContent(libraryGlobalKey);
+        if (libraryGlobalKey == _hiddenLibrariesEntry) {
+          _showFoldedLibraries(foldedLibraries);
+        } else {
+          _loadLibraryContent(libraryGlobalKey);
+        }
       },
-      entriesBuilder: (context) => _buildGroupedLibraryMenuItems(visibleLibraries, groupByServer: groupByServer),
+      // Folded libraries sit behind one collapsed entry at the bottom, opened
+      // as their own list grouped by server (Adrian, 2026-10-09).
+      entriesBuilder: (context) => [
+        ..._buildGroupedLibraryMenuItems(visibleLibraries, groupByServer: groupByServer),
+        if (foldedLibraries.isNotEmpty) ...[
+          const AppMenuDivider<String>(),
+          AppMenuItem<String>(
+            value: _hiddenLibrariesEntry,
+            icon: Symbols.visibility_off_rounded,
+            label: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length),
+            trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+          ),
+        ],
+      ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(
@@ -727,13 +752,20 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     // Watch for hidden libraries changes to trigger rebuild
     final hiddenLibrariesProvider = context.watch<HiddenLibrariesProvider>();
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
+    final offKeys = hiddenLibrariesProvider.offLibraryKeys;
 
     // Compute visible libraries (filtered from all libraries)
     final visibleLibraries = allLibraries.where((lib) => !hiddenKeys.contains(lib.globalKey)).toList();
+    final foldedLibraries = allLibraries
+        .where((lib) => hiddenKeys.contains(lib.globalKey) && !offKeys.contains(lib.globalKey))
+        .toList();
 
-    // Resolve selected library defensively — may be null if server temporarily dropped during refresh
+    // Resolve selected library defensively — may be null if server temporarily dropped during refresh.
+    // A Not shown library can't be open at all.
     final selectedLibrary = _selectedLibraryGlobalKey != null
-        ? allLibraries.where((lib) => lib.globalKey == _selectedLibraryGlobalKey).firstOrNull
+        ? allLibraries
+              .where((lib) => lib.globalKey == _selectedLibraryGlobalKey && !offKeys.contains(lib.globalKey))
+              .firstOrNull
         : null;
 
     final useSideNavigation = PlatformDetector.shouldUseSideNavigation(context);
@@ -793,7 +825,7 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     ];
 
     Widget appBar({required bool floating}) => DesktopSliverAppBar(
-      title: _buildAppBarTitle(visibleLibraries, selectedLibrary, groupByServer: groupByServerSetting),
+      title: _buildAppBarTitle(visibleLibraries, foldedLibraries, selectedLibrary, groupByServer: groupByServerSetting),
       // When showing the tab content, let the app bar float away with the
       // content. Otherwise (loading / empty / error states) keep it pinned so
       // it stays visible over the centered state widget.
@@ -834,7 +866,12 @@ class _LibrariesScreenState extends State<LibrariesScreen>
           shadowColor: Colors.transparent,
           elevation: 0,
           scrolledUnderElevation: 0,
-          title: _buildAppBarTitle(visibleLibraries, selectedLibrary, groupByServer: groupByServerSetting),
+          title: _buildAppBarTitle(
+            visibleLibraries,
+            foldedLibraries,
+            selectedLibrary,
+            groupByServer: groupByServerSetting,
+          ),
           actions: [
             FocusableActionBar(
               key: _actionBarKey,

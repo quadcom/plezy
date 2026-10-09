@@ -19,6 +19,8 @@ class StorageService extends BaseSharedPreferencesService {
   static const String _keyLibraryOrder = 'library_order';
   static const String _keyCurrentUserUUID = 'current_user_uuid';
   static const String _keyHiddenLibraries = 'hidden_libraries';
+  static const String _keyOffLibraries = 'off_libraries';
+  static const String _keyAccountLibraryLayout = 'account_library_layout';
   static const String _keyServersList = 'servers_list';
   static const String _keyServerOrder = 'server_order';
   static const String _keyActiveProfileId = 'active_app_profile_id';
@@ -34,7 +36,13 @@ class StorageService extends BaseSharedPreferencesService {
   // Key groups for bulk clearing
   static const List<String> _credentialKeys = [_keyPlexToken, _keyClientId, _keyCurrentUserUUID];
 
-  static const List<String> _libraryPreferenceKeys = [_keyLibraryFilters, _keyLibraryOrder, _keyHiddenLibraries];
+  static const List<String> _libraryPreferenceKeys = [
+    _keyLibraryFilters,
+    _keyLibraryOrder,
+    _keyHiddenLibraries,
+    _keyOffLibraries,
+    _keyAccountLibraryLayout,
+  ];
 
   StorageService._();
 
@@ -357,6 +365,24 @@ class StorageService extends BaseSharedPreferencesService {
       allowLegacyAdoption: getActiveProfileId() == profileId,
     ),
   );
+
+  // Libraries set to Not shown on this device (no PlezyFin account).
+  Future<void> saveOffLibraries(Set<String> libraryKeys, {String? profileId}) =>
+      _setStringList('${_prefixFor(profileId)}$_keyOffLibraries', libraryKeys.toList());
+
+  Set<String> getOffLibraries({String? profileId}) =>
+      _decodeStringSet(readNullableString('${_prefixFor(profileId)}$_keyOffLibraries'));
+
+  // The last library layout read from the PlezyFin account, as
+  // `{"own": <serverId>, "layout": <record>}`, so a cold start shows it before
+  // the server answers.
+  Future<void> saveAccountLibraryLayout(String? value, {String? profileId}) async {
+    final key = '${_prefixFor(profileId)}$_keyAccountLibraryLayout';
+    value == null ? await prefs.remove(key) : await prefs.setString(key, value);
+  }
+
+  String? getAccountLibraryLayout({String? profileId}) =>
+      readNullableString('${_prefixFor(profileId)}$_keyAccountLibraryLayout');
 
   Set<String> _decodeStringSet(String? jsonString) {
     if (jsonString == null) return {};

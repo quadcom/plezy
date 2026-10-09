@@ -10,11 +10,8 @@ Map<String, dynamic>? _accountConfiguration(Object? userDto) {
   throw const FormatException('MediaBrowser user Configuration is not an object');
 }
 
-/// MediaBrowser ids come back with and without dashes, in either case.
-String _libraryIdKey(String id) => id.replaceAll('-', '').toLowerCase();
-
 /// The user's server-side hidden libraries (`Configuration.MyMediaExcludes`),
-/// as [_libraryIdKey]s, or `null` when [response] cannot say.
+/// as [mediaBrowserIdKey]s, or `null` when [response] cannot say.
 Set<String>? _myMediaExcludes(MediaServerResponse? response) {
   if (response == null || response.statusCode < 200 || response.statusCode >= 300) return null;
   try {
@@ -22,7 +19,7 @@ Set<String>? _myMediaExcludes(MediaServerResponse? response) {
     if (excludes is! List) return const {};
     return {
       for (final id in excludes)
-        if (id is String) _libraryIdKey(id),
+        if (id is String) mediaBrowserIdKey(id),
     };
   } on FormatException {
     return null;
@@ -114,12 +111,12 @@ mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
     if (configuration == null) {
       throw const FormatException('MediaBrowser current-user response omitted Configuration');
     }
-    final target = _libraryIdKey(libraryId);
+    final target = mediaBrowserIdKey(libraryId);
     final current = configuration['MyMediaExcludes'];
     final excludes = [
       if (current is List)
         for (final id in current)
-          if (id is String && _libraryIdKey(id) != target) id,
+          if (id is String && mediaBrowserIdKey(id) != target) id,
       if (hidden) libraryId,
     ];
     final writeResponse = await _http.post(

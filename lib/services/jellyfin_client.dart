@@ -11,6 +11,7 @@ import '../media/account_preferences.dart';
 import '../media/artist_discography.dart';
 import '../media/episode_collection.dart';
 import '../media/library_filter_result.dart';
+import '../media/library_layout.dart';
 import '../media/library_query.dart';
 import 'favorite_channels_repository.dart';
 import 'live_session_tracker.dart';
@@ -85,6 +86,7 @@ import '../utils/codec_utils.dart';
 
 part 'jellyfin_client/parts/account_preferences.dart';
 part 'jellyfin_client/parts/browse.dart';
+part 'jellyfin_client/parts/library_layout.dart';
 part 'jellyfin_client/parts/music.dart';
 part 'jellyfin_client/parts/playback.dart';
 part 'jellyfin_client/parts/watch_state.dart';
@@ -260,7 +262,8 @@ class JellyfinClient
         _JellyfinFileInfoMethods,
         _JellyfinLiveTvMethods,
         _JellyfinImageDownloadMethods,
-        _JellyfinMetadataEditMethods
+        _JellyfinMetadataEditMethods,
+        _JellyfinLibraryLayoutMethods
     implements
         MediaServerClient,
         SeasonEpisodePagingClient,

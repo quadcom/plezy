@@ -3192,6 +3192,24 @@ class Translations$libraries$en {
 	/// en: 'Hidden libraries (${count})'
 	String hiddenLibrariesCount({required Object count}) => 'Hidden libraries (${count})';
 
+	/// en: 'Shown'
+	String get sectionShown => 'Shown';
+
+	/// en: 'Folded'
+	String get sectionFolded => 'Folded';
+
+	/// en: 'Not shown'
+	String get sectionNotShown => 'Not shown';
+
+	/// en: 'Move to Shown'
+	String get moveToShown => 'Move to Shown';
+
+	/// en: 'Move to Folded'
+	String get moveToFolded => 'Move to Folded';
+
+	/// en: 'Move to Not shown'
+	String get moveToNotShown => 'Move to Not shown';
+
 	/// en: 'This library is empty'
 	String get thisLibraryIsEmpty => 'This library is empty';
 
@@ -8374,6 +8392,12 @@ extension on Translations {
 			'libraries.noLibrariesFound' => 'No libraries found',
 			'libraries.allLibrariesHidden' => 'All libraries are hidden',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Hidden libraries (${count})',
+			'libraries.sectionShown' => 'Shown',
+			'libraries.sectionFolded' => 'Folded',
+			'libraries.sectionNotShown' => 'Not shown',
+			'libraries.moveToShown' => 'Move to Shown',
+			'libraries.moveToFolded' => 'Move to Folded',
+			'libraries.moveToNotShown' => 'Move to Not shown',
 			'libraries.thisLibraryIsEmpty' => 'This library is empty',
 			'libraries.noItemsMatchFilters' => 'No items match the active filters',
 			'libraries.resetFilters' => 'Reset filters',
@@ -8873,14 +8897,14 @@ extension on Translations {
 			'watchTogether.endSessionConfirmOverlay' => 'This will end the watch session for all participants.',
 			'watchTogether.leaveSessionConfirmOverlay' => 'You will be disconnected from the watch session.',
 			'watchTogether.end' => 'End',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.leave' => 'Leave',
 			'watchTogether.syncing' => 'Syncing...',
 			'watchTogether.joinWatchSession' => 'Join Watch Session',
 			'watchTogether.enterCodeHint' => 'Enter 5-character code',
 			'watchTogether.pasteFromClipboard' => 'Paste from clipboard',
 			'watchTogether.pleaseEnterCode' => 'Please enter a session code',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.codeMustBe5Chars' => 'Session code must be 5 characters',
 			'watchTogether.joinInstructions' => 'Enter the host\'s session code to join.',
 			'watchTogether.failedToCreate' => 'Failed to create session',
@@ -9387,14 +9411,14 @@ extension on Translations {
 			'addServer.addMediaBrowserTitle' => ({required Object product}) => 'Add ${product} server',
 			'addServer.serverUrls' => 'Server URLs',
 			'addServer.serverUrlsHelper' => 'Multiple URLs allowed, separated by commas.',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.findServer' => 'Find server',
 			'addServer.searchingLocalMediaBrowserServers' => ({required Object product}) => 'Looking for local ${product} servers...',
 			'addServer.localMediaBrowserServers' => ({required Object product}) => 'Local ${product} servers',
 			'addServer.username' => 'Username',
 			'addServer.password' => 'Password',
 			'addServer.signIn' => 'Sign in',
-			_ => null,
-		} ?? switch (path) {
 			'addServer.change' => 'Change',
 			'addServer.required' => 'Required',
 			'addServer.couldNotReachServer' => ({required Object error}) => 'Could not reach the server: ${error}',

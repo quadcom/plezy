@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/library_layout.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:plezy/exceptions/media_server_exceptions.dart';
 import 'package:plezy/focus/dpad_navigator.dart';
@@ -36,6 +37,10 @@ import 'package:provider/provider.dart';
 import '../test_helpers/prefs.dart';
 import '../test_helpers/media_items.dart';
 import '../test_helpers/multi_server_fixtures.dart';
+
+/// The library behind 'Movie 2' (`server_1:2`). Only Not shown takes a
+/// library's items out of search; a folded one stays searchable.
+const _libraryTwo = MediaLibrary(id: '2', backend: MediaBackend.plex, title: 'Library 2', serverId: 'server_1');
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -235,11 +240,11 @@ void main() {
     expect(find.text(t.messages.searchPartialResults), findsOneWidget);
   });
 
-  testWidgets('results from a hidden library never reach the list', (tester) async {
+  testWidgets('results from a Not shown library never reach the list', (tester) async {
     final hiddenLibraries = HiddenLibrariesProvider();
     addTearDown(hiddenLibraries.dispose);
     await hiddenLibraries.ensureInitialized();
-    await hiddenLibraries.hideLibrary('server_1:2');
+    await hiddenLibraries.setLibraryState(_libraryTwo, LibraryState.off);
 
     final (client, key) = await _pumpTvSearchScreen(
       tester,
@@ -258,7 +263,7 @@ void main() {
     expect(find.text('Movie 2'), findsNothing);
   });
 
-  testWidgets('hiding a library while results are shown re-runs the query', (tester) async {
+  testWidgets('setting a library to Not shown while results are shown re-runs the query', (tester) async {
     final hiddenLibraries = HiddenLibrariesProvider();
     addTearDown(hiddenLibraries.dispose);
 
@@ -274,7 +279,7 @@ void main() {
     expect(client.queries, ['movie']);
     expect(find.text('Movie 2'), findsOneWidget);
 
-    await hiddenLibraries.hideLibrary('server_1:2');
+    await hiddenLibraries.setLibraryState(_libraryTwo, LibraryState.off);
     await tester.pumpAndSettle();
 
     expect(client.queries, ['movie', 'movie']);

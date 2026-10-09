@@ -733,14 +733,15 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     List<MediaLibrary> visibleLibraries,
     List<MediaLibrary> hiddenLibraries, {
     required bool showServerHeaders,
+    required bool showHiddenServerHeaders,
   }) {
-    if (!showServerHeaders) return {};
-
     return {
-      for (final lib in visibleLibraries)
-        if (lib.serverId != null) _serverGroupStateKey(_LibraryNavSection.visible, ServerId(lib.serverId!)),
-      for (final lib in hiddenLibraries)
-        if (lib.serverId != null) _serverGroupStateKey(_LibraryNavSection.hidden, ServerId(lib.serverId!)),
+      if (showServerHeaders)
+        for (final lib in visibleLibraries)
+          if (lib.serverId != null) _serverGroupStateKey(_LibraryNavSection.visible, ServerId(lib.serverId!)),
+      if (showHiddenServerHeaders)
+        for (final lib in hiddenLibraries)
+          if (lib.serverId != null) _serverGroupStateKey(_LibraryNavSection.hidden, ServerId(lib.serverId!)),
     };
   }
 
@@ -865,12 +866,15 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     final librariesProvider = context.watch<LibrariesProvider>();
     final hiddenLibrariesProvider = context.watch<HiddenLibrariesProvider>();
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
+    final offKeys = hiddenLibrariesProvider.offLibraryKeys;
 
     final allLibraries = librariesProvider.libraries;
     final visibleLibraries = <MediaLibrary>[];
     final hiddenLibraries = <MediaLibrary>[];
     final serverIds = <String>{};
     for (final lib in allLibraries) {
+      // Not shown libraries appear nowhere, the fold included.
+      if (offKeys.contains(lib.globalKey)) continue;
       if (lib.serverId != null) serverIds.add(lib.serverId!);
       if (hiddenKeys.contains(lib.globalKey)) {
         hiddenLibraries.add(lib);
@@ -906,10 +910,20 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
       builder: (context, _) {
         final hasExplore = hasExploreSource && SettingsService.instance.read(SettingsService.showExploreTab);
         // Server grouping: only when multi-server AND the user-facing toggle is on.
+        // A PlezyFin account's shown libraries are one mixed list in its own
+        // order; the fold is always grouped by server (Adrian, 2026-10-09).
         final groupByServerSetting = SettingsService.instance.read(SettingsService.groupLibrariesByServer);
-        final showServerHeaders = serverIds.length > 1 && groupByServerSetting;
+        final multiServer = serverIds.length > 1;
+        final showServerHeaders = multiServer && groupByServerSetting && !hiddenLibrariesProvider.isAccountLayout;
+        final showHiddenServerHeaders =
+            multiServer && (groupByServerSetting || hiddenLibrariesProvider.isAccountLayout);
         _collapsedServerGroupKeys.retainAll(
-          _buildServerGroupStateKeys(visibleLibraries, hiddenLibraries, showServerHeaders: showServerHeaders),
+          _buildServerGroupStateKeys(
+            visibleLibraries,
+            hiddenLibraries,
+            showServerHeaders: showServerHeaders,
+            showHiddenServerHeaders: showHiddenServerHeaders,
+          ),
         );
         final visibleRows = _buildLibraryRows(
           visibleLibraries,
@@ -919,7 +933,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         final hiddenRows = _buildLibraryRows(
           hiddenLibraries,
           section: _LibraryNavSection.hidden,
-          showServerHeaders: showServerHeaders,
+          showServerHeaders: showHiddenServerHeaders,
         );
         _focusTracker.pruneExcept(
           _buildValidFocusKeys(

@@ -48,6 +48,10 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
   StorageService? _storageService;
   DataAggregationService? _aggregationService;
   List<MediaLibrary> _libraries = [];
+
+  /// The PlezyFin account's order, when the user has one; it replaces the
+  /// device's saved order.
+  List<String>? _accountOrder;
   LibrariesLoadState _loadState = LibrariesLoadState.initial;
   String? _errorMessage;
 
@@ -260,7 +264,7 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
         if (isDisposed) return;
         _storageService = storage;
       }
-      _libraries = _applyLibraryOrder(merged, storage.getLibraryOrder());
+      _libraries = _applyLibraryOrder(merged, _accountOrder ?? storage.getLibraryOrder());
       // Union *succeeded* ids only, so a server whose fetch failed is retried
       // on the next status emission instead of being cached as loaded.
       _loadedServerIds = {..._loadedServerIds, ...succeeded};
@@ -352,7 +356,7 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
         }
       }
 
-      _libraries = _applyLibraryOrder(libraries, savedOrder);
+      _libraries = _applyLibraryOrder(libraries, _accountOrder ?? savedOrder);
       // Track which servers actually responded so [syncToOnlineServers] can tell
       // a genuinely new server from one already covered. Keyed on fetch success
       // (not on which servers returned libraries) so a zero-library server still
@@ -417,6 +421,18 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
         : _applyLibraryOrder(_libraries, libraryKeys);
     safeNotifyListeners();
     appLogger.d('LibrariesProvider: Updated library order');
+  }
+
+  /// Follow the PlezyFin account's library order ([keys] as global keys), or
+  /// go back to the device's saved order when [keys] is null.
+  void applyAccountOrder(List<String>? keys) {
+    if (isDisposed || listEquals(keys, _accountOrder)) return;
+    _accountOrder = keys;
+    final order = keys ?? _storageService?.getLibraryOrder();
+    final next = _applyLibraryOrder(_libraries, order);
+    if (listEquals([for (final l in next) l.globalKey], [for (final l in _libraries) l.globalKey])) return;
+    _libraries = next;
+    safeNotifyListeners();
   }
 
   /// Set one library's server-hidden flag once the server has accepted the

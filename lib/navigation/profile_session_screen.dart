@@ -229,10 +229,17 @@ class _ProfileSessionScreenState extends State<ProfileSessionScreen> {
                     multiServer: context.read<MultiServerProvider>(),
                     isProfileBinding: () => activeProfile.isBinding,
                   );
-                  // Libraries hidden on a Jellyfin/Emby server fold into the
-                  // Hidden libraries row alongside the device-hidden ones.
+                  // The library layout (shown / folded / not shown, and the
+                  // PlezyFin account's order) follows the loaded libraries,
+                  // and the list follows the account's order.
                   final hidden = context.read<HiddenLibrariesProvider>();
-                  libraries.addListener(() => hidden.syncServerHidden(libraries.libraries));
+                  final multiServer = context.read<MultiServerProvider>();
+                  hidden.bind(
+                    clientFor: multiServer.getClientForServer,
+                    onServerHiddenChanged: libraries.markServerHidden,
+                  );
+                  libraries.addListener(() => hidden.syncLibraries(libraries.libraries));
+                  hidden.addListener(() => libraries.applyAccountOrder(hidden.accountOrder));
                   return libraries;
                 },
               ),

@@ -8,6 +8,7 @@ import '../focus/dpad_reorder_mixin.dart';
 import '../focus/focus_theme.dart';
 import '../focus/input_mode_tracker.dart';
 import '../i18n/strings.g.dart';
+import '../media/library_layout.dart';
 import '../media/media_backend.dart';
 import '../media/media_library.dart';
 import '../media/media_server_client.dart';
@@ -16,7 +17,6 @@ import '../providers/libraries_provider.dart';
 import '../utils/app_logger.dart';
 import '../utils/content_utils.dart';
 import '../utils/dialogs.dart';
-import '../utils/library_visibility.dart';
 import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/snackbar_helper.dart';
@@ -45,42 +45,54 @@ class ContextMenuItem {
   });
 }
 
-/// Shows the manage/reorder-libraries sheet (dialog on TV, overlay sheet
-/// otherwise). Reorder and hide/unhide are provider-backed, so any screen can
-/// open it.
+/// Shows the manage-libraries sheet (dialog on TV and desktop, overlay sheet
+/// otherwise): every library in three sections, Shown, Folded and Not shown,
+/// arranged by drag or by D-pad pick-up-and-move (Adrian, 2026-10-09). The
+/// layout is provider-backed, so any screen can open it.
 ///
 /// [onOrderChanged] runs after the new order is written to
 /// [LibrariesProvider] (the libraries screen uses it to poke MainScreen's
-/// side nav). [onToggleVisibility] overrides the default plain hide/unhide
-/// (the libraries screen adds "re-select first visible library" logic).
+/// side nav). [onStateChanged] runs after a library changes section (the
+/// libraries screen moves off a library that is no longer reachable).
 Future<void> showLibraryManagementSheet(
   BuildContext context, {
   VoidCallback? onOrderChanged,
-  Future<void> Function(MediaLibrary library)? onToggleVisibility,
+  void Function(MediaLibrary library, LibraryState state)? onStateChanged,
 }) {
   final librariesProvider = context.read<LibrariesProvider>();
   final hiddenLibrariesProvider = context.read<HiddenLibrariesProvider>();
   final allLibraries = librariesProvider.libraries;
 
-  Future<void> defaultToggleVisibility(MediaLibrary library) async {
-    final isHidden = hiddenLibrariesProvider.hiddenLibraryKeys.contains(library.globalKey);
+  Future<void> saveArrangement(List<({MediaLibrary library, LibraryState state})> arrangement) async {
+    final before = {for (final library in allLibraries) library.globalKey: hiddenLibrariesProvider.stateOf(library)};
+    unawaited(librariesProvider.updateLibraryOrder([for (final entry in arrangement) entry.library]));
+    onOrderChanged?.call();
     try {
-      await setLibraryHidden(context, library, !isHidden);
+      await hiddenLibrariesProvider.saveArrangement(arrangement);
     } catch (e) {
-      appLogger.w('Failed to change library visibility', error: e);
+      appLogger.w('Failed to save the library layout', error: e);
       if (context.mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
+      return;
+    }
+    for (final entry in arrangement) {
+      if (before[entry.library.globalKey] != entry.state) onStateChanged?.call(entry.library, entry.state);
     }
   }
 
+  // The rows outlive the page: opening a library's menu replaces the page, and
+  // coming back builds it again from these.
+  final rows = <_ManageRow>[
+    for (final state in LibraryState.values) ...[
+      _SectionRow(state),
+      for (final library in allLibraries)
+        if (hiddenLibrariesProvider.stateOf(library) == state) _LibraryRow(library),
+    ],
+  ];
+
   Widget buildSheet({required bool isDialog}) => _LibraryManagementSheet(
     isDialog: isDialog,
-    allLibraries: List.from(allLibraries),
-    hiddenLibraryKeys: hiddenLibrariesProvider.hiddenLibraryKeys,
-    onReorder: (reorderedLibraries) {
-      librariesProvider.updateLibraryOrder(reorderedLibraries);
-      onOrderChanged?.call();
-    },
-    onToggleVisibility: onToggleVisibility ?? defaultToggleVisibility,
+    rows: rows,
+    onArrangementChanged: saveArrangement,
     getLibraryMenuItems: _getLibraryMenuItems,
     onLibraryMenuAction: (action, library) => _handleLibraryMenuAction(context, action, library),
   );
@@ -261,21 +273,35 @@ Future<void> _analyzeLibrary(BuildContext context, MediaLibrary library) {
   );
 }
 
+sealed class _ManageRow {
+  const _ManageRow();
+}
+
+/// A section header; every library below it, down to the next header, is in
+/// [state].
+class _SectionRow extends _ManageRow {
+  final LibraryState state;
+  const _SectionRow(this.state);
+}
+
+class _LibraryRow extends _ManageRow {
+  final MediaLibrary library;
+  const _LibraryRow(this.library);
+}
+
 class _LibraryManagementSheet extends StatefulWidget {
   final bool isDialog;
-  final List<MediaLibrary> allLibraries;
-  final Set<String> hiddenLibraryKeys;
-  final Function(List<MediaLibrary>) onReorder;
-  final Function(MediaLibrary) onToggleVisibility;
+
+  /// Section headers with the libraries between them; changed in place.
+  final List<_ManageRow> rows;
+  final Future<void> Function(List<({MediaLibrary library, LibraryState state})> arrangement) onArrangementChanged;
   final List<ContextMenuItem> Function(MediaLibrary) getLibraryMenuItems;
   final void Function(String action, MediaLibrary library) onLibraryMenuAction;
 
   const _LibraryManagementSheet({
     this.isDialog = false,
-    required this.allLibraries,
-    required this.hiddenLibraryKeys,
-    required this.onReorder,
-    required this.onToggleVisibility,
+    required this.rows,
+    required this.onArrangementChanged,
     required this.getLibraryMenuItems,
     required this.onLibraryMenuAction,
   });
@@ -285,21 +311,38 @@ class _LibraryManagementSheet extends StatefulWidget {
 }
 
 class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
-    with DpadReorderListMixin<MediaLibrary, _LibraryManagementSheet> {
-  late List<MediaLibrary> _tempLibraries;
+    with DpadReorderListMixin<_ManageRow, _LibraryManagementSheet> {
+  List<_ManageRow> get _rows => widget.rows;
 
   final FocusNode _listFocusNode = FocusNode();
   final ScrollController _dialogScrollController = ScrollController();
   final ScrollController _sheetScrollController = ScrollController();
 
-  @override
-  List<MediaLibrary> get reorderItems => _tempLibraries;
+  static const _moveActions = {
+    LibraryState.shown: 'move:shown',
+    LibraryState.folded: 'move:folded',
+    LibraryState.off: 'move:off',
+  };
 
   @override
-  set reorderItems(List<MediaLibrary> value) => _tempLibraries = value;
+  List<_ManageRow> get reorderItems => _rows;
 
   @override
-  int get lastReorderColumn => 2;
+  set reorderItems(List<_ManageRow> value) => _rows
+    ..clear()
+    ..addAll(value);
+
+  @override
+  int get lastReorderColumn => 1;
+
+  @override
+  int lastReorderColumnAt(int index) => _rows[index] is _LibraryRow ? 1 : 0;
+
+  @override
+  bool canMoveReorderItem(int index) => _rows[index] is _LibraryRow;
+
+  @override
+  int get firstReorderMoveIndex => 1;
 
   /// Both layouts scroll the focused row into view: the TV dialog is the D-pad
   /// surface, and the sheet still shows the same cursor to a keyboard user.
@@ -307,22 +350,19 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   ScrollController? get reorderScrollController => widget.isDialog ? _dialogScrollController : _sheetScrollController;
 
   @override
-  void onReorderMoveConfirmed() => widget.onReorder(_tempLibraries);
+  void onReorderMoveConfirmed() => _save();
 
   @override
   void onReorderColumnActivated(int column, int index) {
-    final library = _tempLibraries[index];
-    if (column == 1) {
-      widget.onToggleVisibility(library);
-    } else if (column == 2) {
-      _showLibraryMenuBottomSheet(context, library);
-    }
+    final row = _rows[index];
+    if (column == 1 && row is _LibraryRow) _showLibraryMenuBottomSheet(context, row.library);
   }
 
   @override
   void initState() {
     super.initState();
-    _tempLibraries = List.from(widget.allLibraries);
+    // Start on the first library, not on the Shown header.
+    focusedIndex = 1;
   }
 
   @override
@@ -333,42 +373,121 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
     super.dispose();
   }
 
-  void _reorderLibraries(int oldIndex, int newIndex) {
+  /// Every library with the section it sits in, top to bottom.
+  List<({MediaLibrary library, LibraryState state})> get _arrangement {
+    final arrangement = <({MediaLibrary library, LibraryState state})>[];
+    var state = LibraryState.shown;
+    for (final row in _rows) {
+      switch (row) {
+        case _SectionRow():
+          state = row.state;
+        case _LibraryRow():
+          arrangement.add((library: row.library, state: state));
+      }
+    }
+    return arrangement;
+  }
+
+  void _save() => unawaited(widget.onArrangementChanged(_arrangement));
+
+  void _reorderRows(int oldIndex, int newIndex) {
+    if (_rows[oldIndex] is! _LibraryRow) return;
     setState(() {
-      final library = _tempLibraries.removeAt(oldIndex);
-      _tempLibraries.insert(newIndex, library);
+      final row = _rows.removeAt(oldIndex);
+      // Nothing goes above the first header.
+      _rows.insert(newIndex.clamp(firstReorderMoveIndex, _rows.length), row);
     });
-    // Apply immediately
-    widget.onReorder(_tempLibraries);
+    _save();
+  }
+
+  /// Move [library] to the end of [state]'s section. The menu that asks for
+  /// it has replaced this page by then, so the shared rows change and the page
+  /// built on return shows them.
+  void _moveToSection(MediaLibrary library, LibraryState state) {
+    final index = _rows.indexWhere((row) => row is _LibraryRow && row.library.globalKey == library.globalKey);
+    if (index < 0) return;
+    final row = _rows.removeAt(index);
+    final nextHeader = _rows.indexWhere((r) => r is _SectionRow && r.state.index > state.index);
+    _rows.insert(nextHeader < 0 ? _rows.length : nextHeader, row);
+    if (mounted) {
+      setState(() {
+        focusedIndex = _rows.indexOf(row);
+        focusedColumn = 0;
+      });
+    }
+    _save();
+  }
+
+  LibraryState _stateAt(int index) {
+    for (var i = index; i >= 0; i--) {
+      final row = _rows[i];
+      if (row is _SectionRow) return row.state;
+    }
+    return LibraryState.shown;
   }
 
   void _showLibraryMenuBottomSheet(BuildContext outerContext, MediaLibrary library) {
+    final index = _rows.indexWhere((row) => row is _LibraryRow && row.library.globalKey == library.globalKey);
+    final current = index < 0 ? LibraryState.shown : _stateAt(index);
     final menuItems = widget.getLibraryMenuItems(library);
     OverlaySheetController.pushAdaptive<String>(
       outerContext,
-      builder: (context) => AppMenuSheet<String>(
+      builder: (menuContext) => AppMenuSheet<String>(
         title: library.title,
+        // A move pops only this menu, back to the sections; a library action
+        // closes the whole sheet before its confirmation, as before.
+        closeOnSelected: false,
         entries: [
+          for (final state in LibraryState.values)
+            if (state != current)
+              AppMenuItem<String>(value: _moveActions[state]!, icon: _sectionIcon(state), label: _moveLabel(state)),
+          if (menuItems.isNotEmpty) const AppMenuDivider<String>(),
           for (final item in menuItems)
             AppMenuItem<String>(value: item.value, icon: item.icon, label: item.label, destructive: item.isDestructive),
         ],
-        onSelected: (value) => widget.onLibraryMenuAction(value, library),
+        onSelected: (value) {
+          final move = _moveActions.entries.where((entry) => entry.value == value).firstOrNull;
+          if (move != null) {
+            OverlaySheetController.popAdaptive(menuContext);
+            _moveToSection(library, move.key);
+          } else {
+            OverlaySheetController.closeAdaptive(menuContext, value);
+            widget.onLibraryMenuAction(value, library);
+          }
+        },
       ),
     );
   }
 
+  static IconData _sectionIcon(LibraryState state) => switch (state) {
+    LibraryState.shown => Symbols.visibility_rounded,
+    LibraryState.folded => Symbols.visibility_off_rounded,
+    LibraryState.off => Symbols.block_rounded,
+  };
+
+  static String _sectionLabel(LibraryState state) => switch (state) {
+    LibraryState.shown => t.libraries.sectionShown,
+    LibraryState.folded => t.libraries.sectionFolded,
+    LibraryState.off => t.libraries.sectionNotShown,
+  };
+
+  static String _moveLabel(LibraryState state) => switch (state) {
+    LibraryState.shown => t.libraries.moveToShown,
+    LibraryState.folded => t.libraries.moveToFolded,
+    LibraryState.off => t.libraries.moveToNotShown,
+  };
+
   /// Whether the libraries span more than one connected server.
   bool _hasMultipleServers() {
-    final serverIds = _tempLibraries.where((lib) => lib.serverId != null).map((lib) => lib.serverId).toSet();
+    final serverIds = {
+      for (final row in _rows)
+        if (row is _LibraryRow && row.library.serverId != null) row.library.serverId,
+    };
     return serverIds.length > 1;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Watch provider to rebuild when hidden libraries change
-    final hiddenLibrariesProvider = context.watch<HiddenLibrariesProvider>();
-    final hiddenLibraryKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
-
     if (widget.isDialog) {
       return Dialog(
         child: PopScope(
@@ -397,7 +516,7 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
               descendantsAreFocusable: false,
               autofocus: InputModeTracker.isKeyboardMode(context),
               onKeyEvent: handleReorderKeyEvent,
-              child: _buildFlatLibraryList(_dialogScrollController, hiddenLibraryKeys, shrinkWrap: false),
+              child: _buildRowList(_dialogScrollController, shrinkWrap: false),
             ),
           ),
         ),
@@ -412,44 +531,63 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
         descendantsAreFocusable: false,
         autofocus: InputModeTracker.isKeyboardMode(context),
         onKeyEvent: handleReorderKeyEvent,
-        child: _buildFlatLibraryList(_sheetScrollController, hiddenLibraryKeys, shrinkWrap: true),
+        child: _buildRowList(_sheetScrollController, shrinkWrap: true),
       ),
     );
   }
 
-  /// Build flat library list with a server subtitle when multiple servers are
-  /// connected. Each layout passes its own controller, which is also what
+  /// One reorderable list: three section headers with the libraries between
+  /// them. Each layout passes its own controller, which is also what
   /// [reorderScrollController] scrolls when the keyboard cursor moves.
-  Widget _buildFlatLibraryList(
-    ScrollController scrollController,
-    Set<String> hiddenLibraryKeys, {
-    required bool shrinkWrap,
-  }) {
+  Widget _buildRowList(ScrollController scrollController, {required bool shrinkWrap}) {
     final showServerNames = _hasMultipleServers();
     final isKeyboardMode = InputModeTracker.isKeyboardMode(context);
 
     return ReorderableListView.builder(
       scrollController: scrollController,
       shrinkWrap: shrinkWrap,
-      onReorderItem: _reorderLibraries,
-      itemCount: _tempLibraries.length,
+      onReorderItem: _reorderRows,
+      itemCount: _rows.length,
       padding: const EdgeInsets.symmetric(vertical: 8),
       buildDefaultDragHandles: false,
       itemBuilder: (context, index) {
-        final library = _tempLibraries[index];
-        final showServerName = showServerNames && library.serverName != null;
         final isFocused = isKeyboardMode && index == focusedIndex;
-        final isMoving = index == movingIndex;
-        return _buildLibraryTile(
-          library,
-          index,
-          hiddenLibraryKeys,
-          showServerName: showServerName,
-          isFocused: isFocused,
-          isMoving: isMoving,
-          focusedColumn: isFocused ? focusedColumn : null,
-        );
+        return switch (_rows[index]) {
+          _SectionRow(:final state) => _buildSectionHeader(state, index, isFocused: isFocused),
+          _LibraryRow(:final library) => _buildLibraryTile(
+            library,
+            index,
+            _stateAt(index),
+            showServerName: showServerNames && library.serverName != null,
+            isFocused: isFocused,
+            isMoving: index == movingIndex,
+            focusedColumn: isFocused ? focusedColumn : null,
+          ),
+        };
       },
+    );
+  }
+
+  Widget _buildSectionHeader(LibraryState state, int index, {required bool isFocused}) {
+    final theme = Theme.of(context);
+    var count = 0;
+    for (var i = index + 1; i < _rows.length && _rows[i] is _LibraryRow; i++) {
+      count++;
+    }
+    return Container(
+      key: ValueKey('section:${state.wire}'),
+      color: isFocused ? theme.colorScheme.surfaceContainerHighest : null,
+      padding: EdgeInsets.fromLTRB(16, index == 0 ? 4 : 16, 16, 4),
+      child: Row(
+        children: [
+          AppIcon(_sectionIcon(state), fill: 1, size: 18, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            '${_sectionLabel(state)} ($count)',
+            style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
+          ),
+        ],
+      ),
     );
   }
 
@@ -457,13 +595,12 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   Widget _buildLibraryTile(
     MediaLibrary library,
     int index,
-    Set<String> hiddenLibraryKeys, {
+    LibraryState state, {
     bool showServerName = false,
     bool isFocused = false,
     bool isMoving = false,
     int? focusedColumn,
   }) {
-    final isHidden = hiddenLibraryKeys.contains(library.globalKey);
     final colorScheme = Theme.of(context).colorScheme;
 
     Color? tileColor;
@@ -473,12 +610,15 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
       tileColor = colorScheme.surfaceContainerHighest;
     }
 
-    final isVisibilityButtonFocused = isFocused && focusedColumn == 1;
-    final isOptionsButtonFocused = isFocused && focusedColumn == 2;
+    final isOptionsButtonFocused = isFocused && focusedColumn == 1;
 
     return Opacity(
       key: ValueKey(library.globalKey),
-      opacity: isHidden ? 0.5 : 1.0,
+      opacity: switch (state) {
+        LibraryState.shown => 1.0,
+        LibraryState.folded => 0.7,
+        LibraryState.off => 0.45,
+      },
       child: ListTile(
         tileColor: tileColor,
         leading: Row(
@@ -506,26 +646,13 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
                 ),
               )
             : null,
-        trailing: Row(
-          mainAxisSize: .min,
-          children: [
-            Container(
-              decoration: FocusTheme.focusBackgroundDecoration(isFocused: isVisibilityButtonFocused, borderRadius: 20),
-              child: IconButton(
-                icon: AppIcon(isHidden ? Symbols.visibility_off_rounded : Symbols.visibility_rounded, fill: 1),
-                tooltip: isHidden ? t.libraries.showLibrary : t.libraries.hideLibrary,
-                onPressed: () => widget.onToggleVisibility(library),
-              ),
-            ),
-            Container(
-              decoration: FocusTheme.focusBackgroundDecoration(isFocused: isOptionsButtonFocused, borderRadius: 20),
-              child: IconButton(
-                icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
-                tooltip: t.libraries.libraryOptions,
-                onPressed: () => _showLibraryMenuBottomSheet(context, library),
-              ),
-            ),
-          ],
+        trailing: Container(
+          decoration: FocusTheme.focusBackgroundDecoration(isFocused: isOptionsButtonFocused, borderRadius: 20),
+          child: IconButton(
+            icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
+            tooltip: t.libraries.libraryOptions,
+            onPressed: () => _showLibraryMenuBottomSheet(context, library),
+          ),
         ),
       ),
     );

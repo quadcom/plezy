@@ -439,7 +439,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
       observation = _beginObservation();
       final onDeckFuture = aggregation.getOnDeckFromAllServers(
         limit: _continueWatchingProbeLimit,
-        hiddenLibraryKeys: _hiddenLibraries.deviceHiddenLibraryKeys,
+        hiddenLibraryKeys: _hiddenLibraries.offLibraryKeys,
       );
       final hubsFuture = aggregation.getHubsFromAllServers(
         hiddenLibraryKeys: _hiddenLibraries.hiddenLibraryKeys,
@@ -552,7 +552,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
       if (_commitRevision == expectedCommitRevision) {
         _replaceOnDeck(
-          _withoutHiddenLibraries(previousOnDeck, _hiddenLibraries.deviceHiddenLibraryKeys),
+          _withoutHiddenLibraries(previousOnDeck, _hiddenLibraries.offLibraryKeys),
           hasMore: previousHasMoreContinueWatching,
         );
         _replaceHubs(_hubsWithoutHiddenLibraries(previousHubs, _hiddenLibraries.hiddenLibraryKeys));
@@ -622,7 +622,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
           ? Future<OnDeckAggregationResult?>.value()
           : aggregation.getOnDeckFromAllServers(
               limit: _continueWatchingProbeLimit,
-              hiddenLibraryKeys: _hiddenLibraries.deviceHiddenLibraryKeys,
+              hiddenLibraryKeys: _hiddenLibraries.offLibraryKeys,
               serverIds: onDeckIds,
             );
       final Future<HubAggregationResult?> hubsFuture = hubIds.isEmpty
@@ -762,9 +762,9 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
   void _filterCurrentContentForHiddenLibraries() {
     final hiddenLibraryKeys = _hiddenLibraries.hiddenLibraryKeys;
-    // Continue Watching keeps a server-hidden library's items; only a
-    // device-hidden one takes them out (Adrian, 2026-10-09).
-    final filteredOnDeck = _withoutHiddenLibraries(_onDeck, _hiddenLibraries.deviceHiddenLibraryKeys);
+    // Continue Watching keeps a folded library's items; only a Not shown one
+    // takes them out (Adrian, 2026-10-09).
+    final filteredOnDeck = _withoutHiddenLibraries(_onDeck, _hiddenLibraries.offLibraryKeys);
     if (filteredOnDeck.length != _onDeck.length) {
       _replaceOnDeck(filteredOnDeck, hasMore: _hasMoreContinueWatching);
     }
@@ -803,7 +803,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     try {
       if (!_multiServer.hasConnectedServers) return;
       final revision = _contentRevision;
-      final hiddenKeys = Set<String>.of(_hiddenLibraries.deviceHiddenLibraryKeys);
+      final hiddenKeys = Set<String>.of(_hiddenLibraries.offLibraryKeys);
       final observation = _beginObservation();
       final fetched = await _multiServer.aggregationService.getOnDeckFromAllServers(
         limit: _continueWatchingProbeLimit,
@@ -842,7 +842,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     if (isDisposed) return const [];
     final observation = _beginObservation();
     final fetched = await _multiServer.aggregationService.getOnDeckFromAllServers(
-      hiddenLibraryKeys: _hiddenLibraries.deviceHiddenLibraryKeys,
+      hiddenLibraryKeys: _hiddenLibraries.offLibraryKeys,
     );
     // "View All" renders through the same overlay as the row it expands, so
     // it has to reconcile too or the stale patch simply reappears there.

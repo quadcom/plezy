@@ -51,6 +51,17 @@ mixin DpadReorderListMixin<E, W extends StatefulWidget> on State<W> {
   /// Right-most focusable column index (0 when the row has no action buttons).
   int get lastReorderColumn;
 
+  /// Right-most focusable column on the row at [index]; rows without action
+  /// buttons (section headers) return 0.
+  int lastReorderColumnAt(int index) => lastReorderColumn;
+
+  /// Whether SELECT may pick up the row at [index]. Section headers stay put.
+  bool canMoveReorderItem(int index) => true;
+
+  /// Lowest index a moving row may reach, so nothing moves above a list's
+  /// first section header.
+  int get firstReorderMoveIndex => 0;
+
   /// Scrollable holding the rows, or null when the host does not scroll the
   /// focused row into view.
   ScrollController? get reorderScrollController;
@@ -111,7 +122,7 @@ mixin DpadReorderListMixin<E, W extends StatefulWidget> on State<W> {
     final int? moving = movingIndex;
     if (moving != null) {
       // Move mode - arrows reorder the item
-      if (key.isUpKey && moving > 0) {
+      if (key.isUpKey && moving > firstReorderMoveIndex) {
         _swapMovingItem(moving, moving - 1);
         return KeyEventResult.handled;
       }
@@ -151,12 +162,13 @@ mixin DpadReorderListMixin<E, W extends StatefulWidget> on State<W> {
         setState(() => focusedColumn--);
         return KeyEventResult.handled;
       }
-      if (key.isRightKey && focusedColumn < lastReorderColumn) {
+      if (key.isRightKey && focusedColumn < lastReorderColumnAt(focusedIndex)) {
         setState(() => focusedColumn++);
         return KeyEventResult.handled;
       }
       if (key.isSelectKey) {
         if (focusedColumn == 0) {
+          if (!canMoveReorderItem(focusedIndex)) return KeyEventResult.handled;
           // Enter move mode
           setState(() {
             movingIndex = focusedIndex;
