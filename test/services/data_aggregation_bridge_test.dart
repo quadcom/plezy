@@ -1045,6 +1045,7 @@ void main() {
               ],
             });
           }
+          if (req.url.path == '/Users/Me') return _json({'Configuration': <String, dynamic>{}});
           if (req.url.path == '/Users/user-1/Items/Latest') {
             final parentId = req.url.queryParameters['ParentId'];
             return switch (parentId) {

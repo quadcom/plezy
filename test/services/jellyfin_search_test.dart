@@ -53,6 +53,7 @@ void main() {
         captured.add(request.url);
         final path = request.url.path;
         if (path.endsWith('/Views')) return jsonResponse({'Items': views});
+        if (path == '/Users/Me') return jsonResponse({'Configuration': <String, dynamic>{}});
         if (path == '/Items') {
           final parent = request.url.queryParameters['ParentId'];
           // Search is always library-scoped: an unscoped query can neither

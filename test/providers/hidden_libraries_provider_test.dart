@@ -1,4 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/media_backend.dart';
+import 'package:plezy/media/media_library.dart';
 import 'package:plezy/providers/hidden_libraries_provider.dart';
 import 'package:plezy/services/base_shared_preferences_service.dart';
 import 'package:plezy/services/storage_service.dart';
@@ -9,6 +11,33 @@ void main() {
   setUp(resetSharedPreferencesForTest);
 
   group('HiddenLibrariesProvider', () {
+    test('server-hidden libraries fold in but stay apart from the device list', () async {
+      final p = HiddenLibrariesProvider();
+      await p.ensureInitialized();
+      await p.hideLibrary('srv-plex:1');
+
+      var notified = 0;
+      p.addListener(() => notified++);
+      const libraries = [
+        MediaLibrary(id: 'kids', backend: MediaBackend.jellyfin, title: 'Kids', hidden: true, serverId: 'srv-jf'),
+        MediaLibrary(id: 'movies', backend: MediaBackend.jellyfin, title: 'Movies', serverId: 'srv-jf'),
+        // Plex's own hidden flag is not a choice made in a client.
+        MediaLibrary(id: '2', backend: MediaBackend.plex, title: 'Plex', hidden: true, serverId: 'srv-plex'),
+      ];
+      p.syncServerHidden(libraries);
+      final kids = libraries.first.globalKey;
+
+      expect(p.serverHiddenLibraryKeys, {kids});
+      expect(p.hiddenLibraryKeys, {'srv-plex:1', kids});
+      expect(p.deviceHiddenLibraryKeys, {'srv-plex:1'});
+      expect(notified, 1);
+
+      p.syncServerHidden(libraries);
+      expect(notified, 1);
+
+      p.dispose();
+    });
+
     test('starts uninitialized and exposes empty set', () async {
       final p = HiddenLibrariesProvider();
       expect(p.isInitialized, isFalse);

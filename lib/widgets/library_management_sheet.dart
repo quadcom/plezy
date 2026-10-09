@@ -16,6 +16,7 @@ import '../providers/libraries_provider.dart';
 import '../utils/app_logger.dart';
 import '../utils/content_utils.dart';
 import '../utils/dialogs.dart';
+import '../utils/library_visibility.dart';
 import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/snackbar_helper.dart';
@@ -63,10 +64,11 @@ Future<void> showLibraryManagementSheet(
 
   Future<void> defaultToggleVisibility(MediaLibrary library) async {
     final isHidden = hiddenLibrariesProvider.hiddenLibraryKeys.contains(library.globalKey);
-    if (isHidden) {
-      await hiddenLibrariesProvider.unhideLibrary(library.globalKey);
-    } else {
-      await hiddenLibrariesProvider.hideLibrary(library.globalKey);
+    try {
+      await setLibraryHidden(context, library, !isHidden);
+    } catch (e) {
+      appLogger.w('Failed to change library visibility', error: e);
+      if (context.mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
     }
   }
 

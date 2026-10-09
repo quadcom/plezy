@@ -52,4 +52,20 @@ class MediaLibrary {
   });
 
   String get globalKey => serverId != null ? buildGlobalKey(ServerId(serverId!), id) : id;
+
+  /// This library with [hidden] set.
+  MediaLibrary withHidden(bool hidden) => MediaLibrary(
+    id: id,
+    backend: backend,
+    title: title,
+    kind: kind,
+    defaultBrowseKinds: defaultBrowseKinds,
+    language: language,
+    updatedAt: updatedAt,
+    createdAt: createdAt,
+    hidden: hidden,
+    isShared: isShared,
+    serverId: serverId,
+    serverName: serverName,
+  );
 }

@@ -302,9 +302,29 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   /// [abort] tears the view fetch down with the pass that owns it — a
   /// superseded search must not leave `/Views` running.
   Future<List<MediaLibrary>> _fetchLibraries({AbortController? abort}) async {
-    final response = await _http.get('/Users/${_segment(connection.userId)}/Views', abort: abort);
+    // includeHidden brings back the libraries the user hid on the server; the
+    // user record's MyMediaExcludes says which those are, and they fold into
+    // the Hidden libraries row instead of vanishing.
+    final viewsPath = '/Users/${_segment(connection.userId)}/Views';
+    final responses = await Future.wait([
+      _http.get(viewsPath, queryParameters: const {'includeHidden': 'true'}, abort: abort),
+      _http
+          .get(paths.currentUser, abort: abort)
+          .then<MediaServerResponse?>((response) => response, onError: (Object _) => null),
+    ]);
     abort?.throwIfAborted();
+    var response = responses.first!;
     throwIfHttpError(response);
+    var excludes = _myMediaExcludes(responses[1]);
+    if (excludes == null) {
+      // Without the user's hidden list every library would read as shown, so
+      // fall back to the server's own filtering.
+      appLogger.w('Jellyfin: could not read the hidden-library list; listing shown libraries only');
+      response = await _http.get(viewsPath, abort: abort);
+      abort?.throwIfAborted();
+      throwIfHttpError(response);
+      excludes = const {};
+    }
     final items = _itemsArray(response.data);
     // Both MediaBrowser dialects surface collection (BoxSet) and playlist roots as
     // top-level views. We expose those as per-library tabs instead of
@@ -315,7 +335,15 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
           final ct = (view['CollectionType'] as String?)?.toLowerCase();
           return ct != 'boxsets' && ct != 'playlists';
         })
-        .map((view) => JellyfinMappers.library(view, serverId: serverId, serverName: serverName, dialect: dialect))
+        .map(
+          (view) => JellyfinMappers.library(
+            view,
+            serverId: serverId,
+            serverName: serverName,
+            dialect: dialect,
+            hidden: view['Id'] is String && excludes!.contains(_libraryIdKey(view['Id'] as String)),
+          ),
+        )
         .whereType<MediaLibrary>()
         .toList();
   }

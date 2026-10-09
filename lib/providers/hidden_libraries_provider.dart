@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../media/media_backend.dart';
+import '../media/media_library.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
 import '../services/storage_service.dart';
 
@@ -9,6 +11,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   StorageService? _storageService;
   final String? profileId;
   Set<String> _hiddenLibraryKeys = {};
+  Set<String> _serverHiddenKeys = {};
   bool _isInitialized = false;
   late final Future<void> _initFuture;
 
@@ -24,7 +27,32 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// Check if the provider has completed initialization
   bool get isInitialized => _isInitialized;
 
-  Set<String> get hiddenLibraryKeys => Set.unmodifiable(_hiddenLibraryKeys);
+  /// Every library folded into the Hidden libraries row: those hidden on this
+  /// device plus those the user hid on their Jellyfin or Emby server.
+  Set<String> get hiddenLibraryKeys => Set.unmodifiable({..._hiddenLibraryKeys, ..._serverHiddenKeys});
+
+  /// Libraries hidden on this device only. Their items also leave Continue
+  /// Watching and search. A server-hidden library's items stay in both
+  /// (Adrian, 2026-10-09), so those surfaces filter by this set alone.
+  Set<String> get deviceHiddenLibraryKeys => Set.unmodifiable(_hiddenLibraryKeys);
+
+  /// Libraries the user hid on their server (Jellyfin/Emby `MyMediaExcludes`).
+  Set<String> get serverHiddenLibraryKeys => Set.unmodifiable(_serverHiddenKeys);
+
+  /// The server-hidden keys among [libraries]. Plex's own `hidden` flag is not
+  /// a user choice made in a Plex client, so it does not count.
+  static Set<String> serverHiddenKeysOf(Iterable<MediaLibrary> libraries) => {
+    for (final library in libraries)
+      if (library.hidden && library.backend != MediaBackend.plex) library.globalKey,
+  };
+
+  /// Follow the server-hidden flags of the loaded [libraries].
+  void syncServerHidden(Iterable<MediaLibrary> libraries) {
+    final next = serverHiddenKeysOf(libraries);
+    if (setEquals(next, _serverHiddenKeys)) return;
+    _serverHiddenKeys = next;
+    safeNotifyListeners();
+  }
 
   /// Initialize the provider by loading hidden libraries from storage
   Future<void> _initialize() async {

@@ -409,11 +409,24 @@ class LibrariesProvider extends ChangeNotifier with DisposableChangeNotifierMixi
 
     if (isDisposed) return;
     checkCurrent?.call();
+    // Keep each library's current flags: the caller's list can predate a
+    // server-side hide made from the same Manage Libraries sheet.
+    final current = {for (final lib in _libraries) lib.globalKey: lib};
     _libraries = identical(_libraries, previousLibraries)
-        ? List.from(orderedLibraries)
+        ? [for (final lib in orderedLibraries) current[lib.globalKey] ?? lib]
         : _applyLibraryOrder(_libraries, libraryKeys);
     safeNotifyListeners();
     appLogger.d('LibrariesProvider: Updated library order');
+  }
+
+  /// Set one library's server-hidden flag once the server has accepted the
+  /// change, so the menu follows without a reload.
+  void markServerHidden(String globalKey, bool hidden) {
+    if (isDisposed) return;
+    final index = _libraries.indexWhere((lib) => lib.globalKey == globalKey);
+    if (index < 0 || _libraries[index].hidden == hidden) return;
+    _libraries = List.of(_libraries)..[index] = _libraries[index].withHidden(hidden);
+    safeNotifyListeners();
   }
 
   /// Clear all library data (for profile switch or logout).

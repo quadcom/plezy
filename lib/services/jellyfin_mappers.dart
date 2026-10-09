@@ -311,6 +311,7 @@ class JellyfinMappers {
     required ServerId serverId,
     String? serverName,
     MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
+    bool hidden = false,
   }) {
     final id = view['Id'] as String?;
     if (id == null || id.isEmpty) return null;
@@ -324,7 +325,7 @@ class JellyfinMappers {
       defaultBrowseKinds: _defaultBrowseKindsFromCollectionType(collectionType, type),
       updatedAt: jellyfinIsoToEpochSeconds(view['DateLastSaved'] as String? ?? view['DateModified'] as String?),
       createdAt: jellyfinIsoToEpochSeconds(view['DateCreated'] as String?),
-      hidden: false,
+      hidden: hidden,
       isShared: false,
       serverId: serverId,
       serverName: serverName,

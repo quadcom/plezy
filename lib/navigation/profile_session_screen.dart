@@ -224,11 +224,16 @@ class _ProfileSessionScreenState extends State<ProfileSessionScreen> {
               ChangeNotifierProvider(
                 create: (context) {
                   final activeProfile = context.read<ActiveProfileProvider>();
-                  return LibrariesProvider(
+                  final libraries = LibrariesProvider(
                     storageService: context.read<StorageService>(),
                     multiServer: context.read<MultiServerProvider>(),
                     isProfileBinding: () => activeProfile.isBinding,
                   );
+                  // Libraries hidden on a Jellyfin/Emby server fold into the
+                  // Hidden libraries row alongside the device-hidden ones.
+                  final hidden = context.read<HiddenLibrariesProvider>();
+                  libraries.addListener(() => hidden.syncServerHidden(libraries.libraries));
+                  return libraries;
                 },
               ),
               ChangeNotifierProvider(

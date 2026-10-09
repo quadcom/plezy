@@ -20,6 +20,8 @@ import '../../widgets/settings_builder.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/content_utils.dart';
+import '../../utils/library_visibility.dart';
+import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_menu.dart';
 import '../../widgets/desktop_app_bar.dart';
 import '../../widgets/focusable_tab_chip.dart';
@@ -549,12 +551,16 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     final hiddenLibrariesProvider = Provider.of<HiddenLibrariesProvider>(context, listen: false);
     final isHidden = hiddenLibrariesProvider.hiddenLibraryKeys.contains(library.globalKey);
 
-    if (isHidden) {
-      await hiddenLibrariesProvider.unhideLibrary(library.globalKey);
-    } else {
+    try {
+      await setLibraryHidden(context, library, !isHidden);
+    } catch (e) {
+      appLogger.w('Failed to change library visibility', error: e);
+      if (mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
+      return;
+    }
+    if (!mounted) return;
+    if (!isHidden) {
       final isCurrentlySelected = _selectedLibraryGlobalKey == library.globalKey;
-
-      await hiddenLibrariesProvider.hideLibrary(library.globalKey);
 
       // If we just hid the selected library, select the first visible one
       if (isCurrentlySelected) {

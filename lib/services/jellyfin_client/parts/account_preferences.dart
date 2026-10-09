@@ -10,6 +10,25 @@ Map<String, dynamic>? _accountConfiguration(Object? userDto) {
   throw const FormatException('MediaBrowser user Configuration is not an object');
 }
 
+/// MediaBrowser ids come back with and without dashes, in either case.
+String _libraryIdKey(String id) => id.replaceAll('-', '').toLowerCase();
+
+/// The user's server-side hidden libraries (`Configuration.MyMediaExcludes`),
+/// as [_libraryIdKey]s, or `null` when [response] cannot say.
+Set<String>? _myMediaExcludes(MediaServerResponse? response) {
+  if (response == null || response.statusCode < 200 || response.statusCode >= 300) return null;
+  try {
+    final excludes = _accountConfiguration(response.data)?['MyMediaExcludes'];
+    if (excludes is! List) return const {};
+    return {
+      for (final id in excludes)
+        if (id is String) _libraryIdKey(id),
+    };
+  } on FormatException {
+    return null;
+  }
+}
+
 /// Account preferences span two server stores: `UserConfiguration` for the
 /// language, subtitle and library fields, and the account's
 /// `DisplayPreferences` row for [AccountPreferenceKey.rewatchingInNextUp],
@@ -82,6 +101,32 @@ mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
     throwIfHttpError(writeResponse);
     checkCurrent?.call();
     return fetchAccountPreferences(checkCurrent: checkCurrent);
+  }
+
+  /// Hide or show [libraryId] for this user on the server, as the web
+  /// client's hide does: its id goes into or out of
+  /// `Configuration.MyMediaExcludes`. The POST replaces the whole
+  /// configuration, so it travels back with only that list changed.
+  Future<void> setLibraryHiddenOnServer(String libraryId, {required bool hidden}) async {
+    final readResponse = await _http.get(paths.currentUser);
+    throwIfHttpError(readResponse);
+    final configuration = _accountConfiguration(readResponse.data);
+    if (configuration == null) {
+      throw const FormatException('MediaBrowser current-user response omitted Configuration');
+    }
+    final target = _libraryIdKey(libraryId);
+    final current = configuration['MyMediaExcludes'];
+    final excludes = [
+      if (current is List)
+        for (final id in current)
+          if (id is String && _libraryIdKey(id) != target) id,
+      if (hidden) libraryId,
+    ];
+    final writeResponse = await _http.post(
+      paths.userConfiguration,
+      body: {...configuration, 'MyMediaExcludes': excludes},
+    );
+    throwIfHttpError(writeResponse);
   }
 
   /// Read-modify-write the `DisplayPreferences` row: the `POST` replaces it, so
