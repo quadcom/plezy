@@ -43,6 +43,9 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   String? _ownServerId;
   LibraryLayout? _layout;
 
+  /// The admin's default layout, for row titles the user has not set.
+  LibraryLayout? _defaults;
+
   bool _isInitialized = false;
   late final Future<void> _initFuture;
   Future<void>? _accountRefresh;
@@ -125,6 +128,42 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       for (final key in layout.arrange(_libraries, ownServerId: _ownServerId).order)
         if (byKey[key] != null) byKey[key]!,
     ];
+  }
+
+  /// The PlezyFin server's client, for its Favourites entry; null without a
+  /// reachable account.
+  JellyfinClient? get accountClient => isAccountLayout ? _account : null;
+
+  /// The Favourites entry's key, when the account has one.
+  String? get _favoritesKey => isAccountLayout ? favoritesLayoutKey(_ownServerId!) : null;
+
+  /// Where the Favourites entry sits: shown, folded or not shown. Null when
+  /// there is no PlezyFin account to show it from.
+  LibraryState? get favoritesState {
+    final key = _favoritesKey;
+    if (key == null || _account == null) return null;
+    return _layout!.stateOf(key, ownServerId: _ownServerId);
+  }
+
+  /// Where the Favourites entry goes among [ordered] libraries: the number of
+  /// them the account places before it.
+  int favoritesIndexIn(List<MediaLibrary> ordered) {
+    final key = _favoritesKey;
+    if (key == null) return ordered.length;
+    final arranged = _layout!.arrangeKeys(_managedKeys(), ownServerId: _ownServerId).order;
+    final rank = {for (final (index, k) in arranged.indexed) k: index};
+    final favoritesRank = rank[key] ?? rank.length;
+    return ordered.where((library) => (rank[libraryLayoutKey(library)] ?? rank.length) < favoritesRank).length;
+  }
+
+  /// The home row title the account sets for a library, or null for "Recently
+  /// Added in `<library name>`".
+  String? rowTitleFor({required String serverId, required String libraryId}) {
+    final layout = _layout;
+    if (layout == null) return null;
+    final library = _libraries.where((l) => l.serverId == serverId && l.id == libraryId).firstOrNull;
+    if (library == null) return null;
+    return layout.titleFor(libraryLayoutKey(library), defaults: _defaults);
   }
 
   /// The server-hidden keys among [libraries]. Plex's own `hidden` flag is not
@@ -217,11 +256,13 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     try {
       final ownServerId = account.layoutServerId;
       var layout = await account.fetchLibraryLayout() ?? LibraryLayout.empty;
+      // Read every time: the default also carries the admin's row titles.
+      final defaults = await account.fetchLibraryLayoutDefaults();
+      _defaults = defaults;
       var seeded = false;
       // The PlezyFin server's libraries start from the admin's default until
       // the record knows them, even when another client wrote it first.
       if (!layout.known.containsKey(ownServerId)) {
-        final defaults = await account.fetchLibraryLayoutDefaults();
         if (defaults != null) layout = layout.seededFrom(defaults, ownServerId: ownServerId);
         seeded = true;
       }
@@ -265,12 +306,49 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// libraries from, with their layout ids.
   Map<String, List<String>> _managedLibrariesByServer() {
     final byServer = <String, List<String>>{};
+    final jellyfinServers = <String, String>{};
     for (final library in _libraries) {
       if (library.serverId == null) continue;
       final key = libraryLayoutKey(library);
-      byServer.putIfAbsent(libraryLayoutServerId(library), () => []).add(key.substring(key.indexOf('/') + 1));
+      final serverId = libraryLayoutServerId(library);
+      byServer.putIfAbsent(serverId, () => []).add(key.substring(key.indexOf('/') + 1));
+      if (library.backend != MediaBackend.plex) jellyfinServers[serverId] = library.serverId!;
     }
+    // Collections and playlists views are not browsable libraries in Plezy,
+    // but the layout keeps every view so no client takes one for a new
+    // library (PlezyFin, 2026-10-09).
+    for (final entry in jellyfinServers.entries) {
+      final client = _clientFor?.call(ServerId(entry.value));
+      if (client is! JellyfinClient) continue;
+      final ids = byServer[entry.key]!;
+      for (final id in client.allViewIds) {
+        if (!ids.contains(id)) ids.add(id);
+      }
+    }
+    final ownServerId = _ownServerId;
+    if (ownServerId != null) byServer.putIfAbsent(ownServerId, () => []).add('favorites');
     return byServer;
+  }
+
+  /// Every key this device manages: the libraries in the list's order, then
+  /// the views Plezy does not list, then Favourites, which starts after the
+  /// libraries (PlezyFin, 2026-10-09).
+  List<String> _managedKeys() {
+    final keys = [
+      for (final library in _libraries)
+        if (library.serverId != null) libraryLayoutKey(library),
+    ];
+    final byServer = _managedLibrariesByServer();
+    for (final pass in [false, true]) {
+      for (final entry in byServer.entries) {
+        for (final id in entry.value) {
+          if ((id == 'favorites') != pass) continue;
+          final key = '${entry.key}/$id';
+          if (!keys.contains(key)) keys.add(key);
+        }
+      }
+    }
+    return keys;
   }
 
   /// Read the account's layout fresh, apply [order] and [states] to the
@@ -282,10 +360,17 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       throw StateError('The PlezyFin server is not reachable');
     }
     final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
-    final arranged = fresh.arrange(_libraries, ownServerId: ownServerId);
+    final arranged = fresh.arrangeKeys(_managedKeys(), ownServerId: ownServerId);
+    // Entries the caller did not place (views Plezy does not list) keep their
+    // place relative to each other, after the ones it did.
+    final placed = order ?? arranged.order;
     final next = fresh.withManaged(
       librariesByServer: _managedLibrariesByServer(),
-      managedOrder: order ?? arranged.order,
+      managedOrder: [
+        ...placed,
+        for (final key in arranged.order)
+          if (!placed.contains(key)) key,
+      ],
       managedState: {...arranged.state, ...?states},
       now: DateTime.now(),
     );
@@ -332,14 +417,24 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// Save a whole arrangement from Manage Libraries: [ordered] libraries, all
   /// of them, each with its state. Device mode saves only the states; the
   /// order goes through [LibrariesProvider] as before.
-  Future<void> saveArrangement(List<({MediaLibrary library, LibraryState state})> ordered) async {
+  ///
+  /// [favorites] places the Favourites entry: before the library at its index
+  /// in [ordered], in its state.
+  Future<void> saveArrangement(
+    List<({MediaLibrary library, LibraryState state})> ordered, {
+    ({int index, LibraryState state})? favorites,
+  }) async {
     await ensureInitialized();
     if (isDisposed) return;
     if (isAccountLayout) {
-      await _writeAccount(
-        order: [for (final entry in ordered) libraryLayoutKey(entry.library)],
-        states: {for (final entry in ordered) libraryLayoutKey(entry.library): entry.state},
-      );
+      final order = [for (final entry in ordered) libraryLayoutKey(entry.library)];
+      final states = {for (final entry in ordered) libraryLayoutKey(entry.library): entry.state};
+      final favoritesKey = _favoritesKey;
+      if (favorites != null && favoritesKey != null) {
+        order.insert(favorites.index.clamp(0, order.length), favoritesKey);
+        states[favoritesKey] = favorites.state;
+      }
+      await _writeAccount(order: order, states: states);
       return;
     }
     for (final entry in ordered) {

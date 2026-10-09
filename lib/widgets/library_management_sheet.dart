@@ -63,12 +63,15 @@ Future<void> showLibraryManagementSheet(
   final hiddenLibrariesProvider = context.read<HiddenLibrariesProvider>();
   final allLibraries = librariesProvider.libraries;
 
-  Future<void> saveArrangement(List<({MediaLibrary library, LibraryState state})> arrangement) async {
+  Future<void> saveArrangement(
+    List<({MediaLibrary library, LibraryState state})> arrangement,
+    ({int index, LibraryState state})? favorites,
+  ) async {
     final before = {for (final library in allLibraries) library.globalKey: hiddenLibrariesProvider.stateOf(library)};
     unawaited(librariesProvider.updateLibraryOrder([for (final entry in arrangement) entry.library]));
     onOrderChanged?.call();
     try {
-      await hiddenLibrariesProvider.saveArrangement(arrangement);
+      await hiddenLibrariesProvider.saveArrangement(arrangement, favorites: favorites);
     } catch (e) {
       appLogger.w('Failed to save the library layout', error: e);
       if (context.mounted) showErrorSnackBar(context, t.messages.errorLoading(error: e.toString()));
@@ -81,13 +84,23 @@ Future<void> showLibraryManagementSheet(
 
   // The rows outlive the page: opening a library's menu replaces the page, and
   // coming back builds it again from these.
-  final rows = <_ManageRow>[
-    for (final state in LibraryState.values) ...[
-      _SectionRow(state),
+  // The PlezyFin account's Favourites entry sits among the libraries of its
+  // section, where the account places it.
+  final favoritesState = hiddenLibrariesProvider.favoritesState;
+  final rows = <_ManageRow>[];
+  for (final state in LibraryState.values) {
+    final section = [
       for (final library in allLibraries)
-        if (hiddenLibrariesProvider.stateOf(library) == state) _LibraryRow(library),
-    ],
-  ];
+        if (hiddenLibrariesProvider.stateOf(library) == state) library,
+    ];
+    final sectionRows = <_ManageRow>[for (final library in section) _LibraryRow(library)];
+    if (favoritesState == state) {
+      sectionRows.insert(hiddenLibrariesProvider.favoritesIndexIn(section), const _FavoritesRow());
+    }
+    rows
+      ..add(_SectionRow(state))
+      ..addAll(sectionRows);
+  }
 
   Widget buildSheet({required bool isDialog}) => _LibraryManagementSheet(
     isDialog: isDialog,
@@ -289,12 +302,21 @@ class _LibraryRow extends _ManageRow {
   const _LibraryRow(this.library);
 }
 
+/// The PlezyFin account's Favourites entry, arranged like a library.
+class _FavoritesRow extends _ManageRow {
+  const _FavoritesRow();
+}
+
 class _LibraryManagementSheet extends StatefulWidget {
   final bool isDialog;
 
   /// Section headers with the libraries between them; changed in place.
   final List<_ManageRow> rows;
-  final Future<void> Function(List<({MediaLibrary library, LibraryState state})> arrangement) onArrangementChanged;
+  final Future<void> Function(
+    List<({MediaLibrary library, LibraryState state})> arrangement,
+    ({int index, LibraryState state})? favorites,
+  )
+  onArrangementChanged;
   final List<ContextMenuItem> Function(MediaLibrary) getLibraryMenuItems;
   final void Function(String action, MediaLibrary library) onLibraryMenuAction;
 
@@ -336,10 +358,10 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   int get lastReorderColumn => 1;
 
   @override
-  int lastReorderColumnAt(int index) => _rows[index] is _LibraryRow ? 1 : 0;
+  int lastReorderColumnAt(int index) => _rows[index] is _SectionRow ? 0 : 1;
 
   @override
-  bool canMoveReorderItem(int index) => _rows[index] is _LibraryRow;
+  bool canMoveReorderItem(int index) => _rows[index] is! _SectionRow;
 
   @override
   int get firstReorderMoveIndex => 1;
@@ -355,7 +377,15 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   @override
   void onReorderColumnActivated(int column, int index) {
     final row = _rows[index];
-    if (column == 1 && row is _LibraryRow) _showLibraryMenuBottomSheet(context, row.library);
+    if (column != 1) return;
+    switch (row) {
+      case _LibraryRow():
+        _showLibraryMenuBottomSheet(context, row.library);
+      case _FavoritesRow():
+        _showFavoritesMenu(context);
+      case _SectionRow():
+        break;
+    }
   }
 
   @override
@@ -373,25 +403,33 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
     super.dispose();
   }
 
-  /// Every library with the section it sits in, top to bottom.
-  List<({MediaLibrary library, LibraryState state})> get _arrangement {
-    final arrangement = <({MediaLibrary library, LibraryState state})>[];
+  /// Every library with the section it sits in, top to bottom, and where the
+  /// Favourites entry sits among them.
+  ({List<({MediaLibrary library, LibraryState state})> libraries, ({int index, LibraryState state})? favorites})
+  get _arrangement {
+    final libraries = <({MediaLibrary library, LibraryState state})>[];
+    ({int index, LibraryState state})? favorites;
     var state = LibraryState.shown;
     for (final row in _rows) {
       switch (row) {
         case _SectionRow():
           state = row.state;
         case _LibraryRow():
-          arrangement.add((library: row.library, state: state));
+          libraries.add((library: row.library, state: state));
+        case _FavoritesRow():
+          favorites = (index: libraries.length, state: state);
       }
     }
-    return arrangement;
+    return (libraries: libraries, favorites: favorites);
   }
 
-  void _save() => unawaited(widget.onArrangementChanged(_arrangement));
+  void _save() {
+    final arrangement = _arrangement;
+    unawaited(widget.onArrangementChanged(arrangement.libraries, arrangement.favorites));
+  }
 
   void _reorderRows(int oldIndex, int newIndex) {
-    if (_rows[oldIndex] is! _LibraryRow) return;
+    if (_rows[oldIndex] is _SectionRow) return;
     setState(() {
       final row = _rows.removeAt(oldIndex);
       // Nothing goes above the first header.
@@ -403,8 +441,12 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   /// Move [library] to the end of [state]'s section. The menu that asks for
   /// it has replaced this page by then, so the shared rows change and the page
   /// built on return shows them.
-  void _moveToSection(MediaLibrary library, LibraryState state) {
-    final index = _rows.indexWhere((row) => row is _LibraryRow && row.library.globalKey == library.globalKey);
+  void _moveToSection(MediaLibrary library, LibraryState state) => _moveRowToSection(
+    _rows.indexWhere((row) => row is _LibraryRow && row.library.globalKey == library.globalKey),
+    state,
+  );
+
+  void _moveRowToSection(int index, LibraryState state) {
     if (index < 0) return;
     final row = _rows.removeAt(index);
     final nextHeader = _rows.indexWhere((r) => r is _SectionRow && r.state.index > state.index);
@@ -454,6 +496,28 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
             OverlaySheetController.closeAdaptive(menuContext, value);
             widget.onLibraryMenuAction(value, library);
           }
+        },
+      ),
+    );
+  }
+
+  void _showFavoritesMenu(BuildContext outerContext) {
+    final index = _rows.indexWhere((row) => row is _FavoritesRow);
+    final current = index < 0 ? LibraryState.shown : _stateAt(index);
+    OverlaySheetController.pushAdaptive<String>(
+      outerContext,
+      builder: (menuContext) => AppMenuSheet<String>(
+        title: t.navigation.favorites,
+        closeOnSelected: false,
+        entries: [
+          for (final state in LibraryState.values)
+            if (state != current)
+              AppMenuItem<String>(value: _moveActions[state]!, icon: _sectionIcon(state), label: _moveLabel(state)),
+        ],
+        onSelected: (value) {
+          final move = _moveActions.entries.where((entry) => entry.value == value).firstOrNull;
+          OverlaySheetController.popAdaptive(menuContext);
+          if (move != null) _moveRowToSection(_rows.indexWhere((row) => row is _FavoritesRow), move.key);
         },
       ),
     );
@@ -563,6 +627,13 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
             isMoving: index == movingIndex,
             focusedColumn: isFocused ? focusedColumn : null,
           ),
+          _FavoritesRow() => _buildFavoritesTile(
+            index,
+            _stateAt(index),
+            isFocused: isFocused,
+            isMoving: index == movingIndex,
+            focusedColumn: isFocused ? focusedColumn : null,
+          ),
         };
       },
     );
@@ -571,7 +642,7 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
   Widget _buildSectionHeader(LibraryState state, int index, {required bool isFocused}) {
     final theme = Theme.of(context);
     var count = 0;
-    for (var i = index + 1; i < _rows.length && _rows[i] is _LibraryRow; i++) {
+    for (var i = index + 1; i < _rows.length && _rows[i] is! _SectionRow; i++) {
       count++;
     }
     return Container(
@@ -587,6 +658,60 @@ class _LibraryManagementSheetState extends State<_LibraryManagementSheet>
             style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary, fontWeight: FontWeight.w600),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFavoritesTile(
+    int index,
+    LibraryState state, {
+    bool isFocused = false,
+    bool isMoving = false,
+    int? focusedColumn,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    Color? tileColor;
+    if (isMoving) {
+      tileColor = colorScheme.primaryContainer;
+    } else if (isFocused && focusedColumn == 0) {
+      tileColor = colorScheme.surfaceContainerHighest;
+    }
+    return Opacity(
+      key: const ValueKey('favorites'),
+      opacity: switch (state) {
+        LibraryState.shown => 1.0,
+        LibraryState.folded => 0.7,
+        LibraryState.off => 0.45,
+      },
+      child: ListTile(
+        tileColor: tileColor,
+        leading: Row(
+          mainAxisSize: .min,
+          children: [
+            ReorderableDragStartListener(
+              index: index,
+              child: AppIcon(
+                isMoving ? Symbols.swap_vert_rounded : Symbols.drag_indicator_rounded,
+                fill: 1,
+                color: isMoving ? colorScheme.primary : IconTheme.of(context).color?.withValues(alpha: 0.5),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const AppIcon(Symbols.favorite_rounded, fill: 1),
+          ],
+        ),
+        title: Text(t.navigation.favorites),
+        trailing: Container(
+          decoration: FocusTheme.focusBackgroundDecoration(
+            isFocused: isFocused && focusedColumn == 1,
+            borderRadius: 20,
+          ),
+          child: IconButton(
+            icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
+            tooltip: t.libraries.libraryOptions,
+            onPressed: () => _showFavoritesMenu(context),
+          ),
+        ),
       ),
     );
   }

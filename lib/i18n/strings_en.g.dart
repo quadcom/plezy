@@ -3512,6 +3512,9 @@ class Translations$navigation$en {
 
 	/// en: 'Explore'
 	String get explore => 'Explore';
+
+	/// en: 'Favorites'
+	String get favorites => 'Favorites';
 }
 
 // Path: explore
@@ -8547,6 +8550,7 @@ extension on Translations {
 			'navigation.downloads' => 'Downloads',
 			'navigation.liveTv' => 'Live TV',
 			'navigation.explore' => 'Explore',
+			'navigation.favorites' => 'Favorites',
 			'explore.title' => 'Explore',
 			'explore.selectSource' => 'Select source',
 			'explore.rows.watchlist' => 'Watchlist',
@@ -8896,9 +8900,9 @@ extension on Translations {
 			'watchTogether.leaveSessionConfirm' => 'You will be removed from the session.',
 			'watchTogether.endSessionConfirmOverlay' => 'This will end the watch session for all participants.',
 			'watchTogether.leaveSessionConfirmOverlay' => 'You will be disconnected from the watch session.',
-			'watchTogether.end' => 'End',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.end' => 'End',
 			'watchTogether.leave' => 'Leave',
 			'watchTogether.syncing' => 'Syncing...',
 			'watchTogether.joinWatchSession' => 'Join Watch Session',
@@ -9410,9 +9414,9 @@ extension on Translations {
 			'services.libraryFilter.noLibraries' => 'No libraries available',
 			'addServer.addMediaBrowserTitle' => ({required Object product}) => 'Add ${product} server',
 			'addServer.serverUrls' => 'Server URLs',
-			'addServer.serverUrlsHelper' => 'Multiple URLs allowed, separated by commas.',
 			_ => null,
 		} ?? switch (path) {
+			'addServer.serverUrlsHelper' => 'Multiple URLs allowed, separated by commas.',
 			'addServer.findServer' => 'Find server',
 			'addServer.searchingLocalMediaBrowserServers' => ({required Object product}) => 'Looking for local ${product} servers...',
 			'addServer.localMediaBrowserServers' => ({required Object product}) => 'Local ${product} servers',

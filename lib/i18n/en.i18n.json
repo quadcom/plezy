@@ -1293,7 +1293,8 @@
     "libraries": "Libraries",
     "downloads": "Downloads",
     "liveTv": "Live TV",
-    "explore": "Explore"
+    "explore": "Explore",
+    "favorites": "Favorites"
   },
   "explore": {
     "title": "Explore",

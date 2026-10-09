@@ -18,6 +18,9 @@ import '../mixins/mounted_set_state_mixin.dart';
 import '../navigation/navigation_tabs.dart';
 import '../providers/catalog_sources_provider.dart';
 import '../providers/hidden_libraries_provider.dart';
+import '../media/library_layout.dart';
+import '../services/jellyfin_client.dart';
+import '../utils/favorites_navigation.dart';
 import '../providers/libraries_provider.dart';
 import '../services/device_performance.dart';
 import '../services/music/music_playback_service.dart';
@@ -55,6 +58,13 @@ final class _LibraryItemRow extends _LibraryNavRow {
   final bool showServerName;
 
   const _LibraryItemRow({required super.section, required this.library, this.showServerName = false});
+}
+
+/// The PlezyFin account's Favourites, placed and folded like a library.
+final class _FavoritesRow extends _LibraryNavRow {
+  final JellyfinClient client;
+
+  const _FavoritesRow({required super.section, required this.client});
 }
 
 /// SELECT activates the rail row, RIGHT hands off to the content area.
@@ -659,6 +669,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   String _focusKeyForLibraryRow(_LibraryNavRow row) => switch (row) {
     _LibraryServerHeaderRow(:final section, :final serverId) => _serverHeaderFocusKey(section, ServerId(serverId)),
     _LibraryItemRow(:final section, :final library) => _libraryItemFocusKey(section, library),
+    _FavoritesRow(:final section) => '$_kLibraryItemPrefix:${section.name}:favorites',
   };
 
   Iterable<String> _focusKeysForLibraryRows(List<_LibraryNavRow> rows) => rows.map(_focusKeyForLibraryRow);
@@ -935,11 +946,28 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
           section: _LibraryNavSection.hidden,
           showServerHeaders: showHiddenServerHeaders,
         );
+        // Favourites sits where the account puts it: among the shown
+        // libraries, inside the fold with its server's libraries, or nowhere.
+        final favoritesClient = hiddenLibrariesProvider.accountClient;
+        final favoritesState = hiddenLibrariesProvider.favoritesState;
+        if (favoritesClient != null && favoritesState == LibraryState.shown) {
+          final index = hiddenLibrariesProvider.favoritesIndexIn(visibleLibraries).clamp(0, visibleRows.length);
+          visibleRows.insert(index, _FavoritesRow(section: _LibraryNavSection.visible, client: favoritesClient));
+        } else if (favoritesClient != null && favoritesState == LibraryState.folded) {
+          final lastOwn = hiddenRows.lastIndexWhere(
+            (row) => row is _LibraryItemRow && row.library.serverId == favoritesClient.serverId,
+          );
+          hiddenRows.insert(
+            lastOwn < 0 ? hiddenRows.length : lastOwn + 1,
+            _FavoritesRow(section: _LibraryNavSection.hidden, client: favoritesClient),
+          );
+        }
+        final hiddenCount = hiddenLibraries.length + (favoritesState == LibraryState.folded ? 1 : 0);
         _focusTracker.pruneExcept(
           _buildValidFocusKeys(
             visibleRows: visibleRows,
             hiddenRows: hiddenRows,
-            hasHiddenLibraries: hiddenLibraries.isNotEmpty,
+            hasHiddenLibraries: hiddenCount > 0,
             hasLiveTv: hasLiveTv,
             hasNowPlaying: nowPlayingTrack != null,
             hasExplore: hasExplore,
@@ -948,7 +976,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
         final focusOrder = _buildFocusOrder(
           visibleRows,
           hiddenRows,
-          hasHiddenLibraries: hiddenLibraries.isNotEmpty,
+          hasHiddenLibraries: hiddenCount > 0,
           hasLiveTv: hasLiveTv,
           hasNowPlaying: nowPlayingTrack != null,
           hasExplore: hasExplore,
@@ -1064,7 +1092,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                       _buildLibrariesSection(
                                         visibleRows,
                                         hiddenRows,
-                                        hiddenLibraries.length,
+                                        hiddenCount,
                                         t,
                                         isCollapsed: isCollapsed,
                                       ),
@@ -1357,6 +1385,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
             t,
             showServerName: showServerName,
           ),
+          _FavoritesRow() => _buildFavoritesItem(row, t),
         };
       }).toList(),
     );
@@ -1470,6 +1499,26 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFavoritesItem(_FavoritesRow row, dynamic t) {
+    final label = Translations.of(context).navigation.favorites;
+    return NavigationRailItem(
+      icon: Symbols.favorite_rounded,
+      selectedIcon: Symbols.favorite_rounded,
+      label: Text(
+        label,
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: t.textMuted),
+        overflow: .ellipsis,
+      ),
+      isSelected: false,
+      onTap: () => openAccountFavorites(context, row.client),
+      focusNode: _focusTracker.get(_focusKeyForLibraryRow(row)),
+      iconSize: 18,
+      expandedHeight: 40,
+      suppressSelectedBackground: widget.isSidebarFocused,
+      onNavigateRight: widget.onNavigateToContent,
     );
   }
 

@@ -35,8 +35,19 @@ class _FakePlezyFin {
     if (path == '/PlezyFin/LibraryDefaults') {
       return jsonResponse({
         'v': 1,
-        'order': ['$_own/movies', '$_own/master'],
-        'state': {'$_own/movies': 'shown', '$_own/master': 'folded'},
+        'order': ['$_own/movies', '$_own/master', '$_own/collections'],
+        'state': {'$_own/movies': 'shown', '$_own/master': 'folded', '$_own/collections': 'folded'},
+        'titles': {'$_own/movies': 'New Movies'},
+      });
+    }
+    if (path == '/Users/user-1/Views') {
+      // Collections is a boxsets view: Plezy does not list it as a library.
+      return jsonResponse({
+        'Items': [
+          {'Id': 'movies', 'Name': 'Movies', 'CollectionType': 'movies'},
+          {'Id': 'master', 'Name': 'Master Class', 'CollectionType': 'movies'},
+          {'Id': 'collections', 'Name': 'Collections', 'CollectionType': 'boxsets'},
+        ],
       });
     }
     if (path == '/DisplayPreferences/plezyfin-libraries') {
@@ -89,6 +100,7 @@ void main() {
       clientFor: (serverId) => serverId.toString() == 'srv-1' ? client : null,
       onServerHiddenChanged: (_, _) {},
     );
+    await client.fetchLibraries();
     provider.syncLibraries(const [_movies, _master, _dadsPlex]);
     await provider.refreshAccount();
     return (provider, server);
@@ -105,14 +117,39 @@ void main() {
 
     expect(server.layoutWrites, 1);
     final stored = LibraryLayout.tryParse(server.storedLayout)!;
+    // Every view is kept, Collections included, and the Favourites entry.
     expect(stored.known, {
-      _own: ['movies', 'master'],
+      _own: ['movies', 'master', 'collections', 'favorites'],
       'plexmachine': ['1'],
     });
     expect(stored.state['plexmachine/1'], LibraryState.folded);
+    expect(stored.state['$_own/collections'], LibraryState.folded);
+    expect(stored.state['$_own/favorites'], LibraryState.shown);
     // Folded and off libraries of the PlezyFin server are mirrored for other apps.
-    expect(server.postedConfiguration!['MyMediaExcludes'], ['master']);
-    expect(server.postedConfiguration!['OrderedViews'], ['movies', 'master']);
+    expect(server.postedConfiguration!['MyMediaExcludes'], ['master', 'collections']);
+  });
+
+  test('Favourites starts shown, after the libraries', () async {
+    final (provider, _) = await connect();
+    expect(provider.favoritesState, LibraryState.shown);
+    expect(provider.favoritesIndexIn(const [_movies, _master, _dadsPlex]), 3);
+
+    await provider.saveArrangement(
+      [
+        (library: _movies, state: LibraryState.shown),
+        (library: _master, state: LibraryState.shown),
+        (library: _dadsPlex, state: LibraryState.shown),
+      ],
+      favorites: (index: 1, state: LibraryState.folded),
+    );
+    expect(provider.favoritesState, LibraryState.folded);
+    expect(provider.favoritesIndexIn(const [_movies, _master, _dadsPlex]), 1);
+  });
+
+  test('row titles come from the record, then the default', () async {
+    final (provider, _) = await connect();
+    expect(provider.rowTitleFor(serverId: 'srv-1', libraryId: 'movies'), 'New Movies');
+    expect(provider.rowTitleFor(serverId: 'srv-1', libraryId: 'master'), isNull);
   });
 
   test('a change is written to the account and every list follows it', () async {
@@ -128,7 +165,12 @@ void main() {
     expect(provider.offLibraryKeys, {_master.globalKey});
     expect(provider.foldedLibraryKeys, isEmpty);
     expect(provider.accountOrder, [_dadsPlex.globalKey, _movies.globalKey, _master.globalKey]);
-    expect(LibraryLayout.tryParse(server.storedLayout)!.order, ['plexmachine/1', '$_own/movies', '$_own/master']);
+    // Collections and Favourites, which this arrangement did not place, follow.
+    expect(LibraryLayout.tryParse(server.storedLayout)!.order.take(3), [
+      'plexmachine/1',
+      '$_own/movies',
+      '$_own/master',
+    ]);
   });
 
   test('an existing record is followed without another write', () async {
@@ -139,7 +181,7 @@ void main() {
         'order': ['plexmachine/1', '$_own/movies', '$_own/master'],
         'state': {'plexmachine/1': 'shown', '$_own/master': 'off'},
         'known': {
-          _own: ['movies', 'master'],
+          _own: ['movies', 'master', 'favorites'],
           'plexmachine': ['1'],
         },
       });

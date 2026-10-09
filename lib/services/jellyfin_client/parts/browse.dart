@@ -253,7 +253,18 @@ const _detailFields =
     // extra round-trip.
     'ProviderIds';
 
+/// The hub id behind the Favourites entry: the user's favourite movies and
+/// shows on this server, paged like a See All list.
+const jellyfinFavoritesHubId = 'plezyfin.favorites';
+
 mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
+  List<String> _allViewIds = const [];
+
+  /// Every view the last library load returned, collections and playlists
+  /// included, as layout ids. The library layout keeps them all, browsable or
+  /// not, so another client never mistakes one for a new library.
+  List<String> get allViewIds => _allViewIds;
+
   // Shared endpoints and query shapes follow the official Jellyfin SDK so
   // Jellyfin requests remain unchanged. [MediaBrowserPaths] owns the measured
   // route differences: Emby 4.9.5 requires the older user-scoped spellings,
@@ -326,6 +337,10 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       excludes = const {};
     }
     final items = _itemsArray(response.data);
+    _allViewIds = [
+      for (final view in items)
+        if (view['Id'] is String && (view['Id'] as String).isNotEmpty) mediaBrowserIdKey(view['Id'] as String),
+    ];
     // Both MediaBrowser dialects surface collection (BoxSet) and playlist roots as
     // top-level views. We expose those as per-library tabs instead of
     // standalone library entries — matches the Plex shape and avoids
@@ -1736,18 +1751,41 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     String? latestItemTypes,
     HubFetchDiagnostics? diagnostics,
   }) async {
-    final latestFuture = _safeFetchItemsArray(
-      _latestItemsPath,
-      {
-        'Limit': limit.toString(),
-        'ParentId': ?parentId,
-        'Fields': _hubRowFields,
-        'IncludeItemTypes': ?latestItemTypes,
-        ...jellyfinImageQueryParameters,
-      },
-      retry: retry,
-      diagnostics: diagnostics,
-    );
+    final latestFuture =
+        _safeFetchItemsArray(
+          _latestItemsPath,
+          {
+            'Limit': limit.toString(),
+            'ParentId': ?parentId,
+            'Fields': _hubRowFields,
+            'IncludeItemTypes': ?latestItemTypes,
+            ...jellyfinImageQueryParameters,
+          },
+          retry: retry,
+          diagnostics: diagnostics,
+        ).then<List<Map<String, dynamic>>>((rows) async {
+          if (rows.isNotEmpty || parentId == null) return rows;
+          // Latest lists only new files: a library of unreleased shows that
+          // hold just a trailer each (New Shows) has none, so its newest
+          // shows and movies fill the row instead, as PlezyFin's web client
+          // does (Adrian, 2026-10-09).
+          return _safeFetchItemsArray(
+            '/Items',
+            {
+              'userId': connection.userId,
+              'ParentId': parentId,
+              'Recursive': 'true',
+              'IncludeItemTypes': 'Series,Movie',
+              'SortBy': 'DateCreated',
+              'SortOrder': 'Descending',
+              'Limit': limit.toString(),
+              'Fields': _hubRowFields,
+              ...jellyfinImageQueryParameters,
+            },
+            retry: retry,
+            diagnostics: diagnostics,
+          );
+        });
 
     MediaHub hub(String suffix, String title, String type, List<Map<String, dynamic>> items) =>
         JellyfinMappers.syntheticHub(
@@ -1920,6 +1958,27 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       final rest = hubId.substring('library.'.length);
       final dot = rest.lastIndexOf('.');
       if (dot > 0) parentId = rest.substring(0, dot);
+    }
+    if (hubId == jellyfinFavoritesHubId) {
+      return _safeFetchMediaPage(
+        '/Items',
+        {
+          'userId': connection.userId,
+          'Filters': 'IsFavorite',
+          'Recursive': 'true',
+          'StartIndex': offset.toString(),
+          'Limit': effectiveLimit,
+          'EnableTotalRecordCount': 'true',
+          'IncludeItemTypes': 'Movie,Series',
+          'SortBy': 'SortName',
+          'SortOrder': 'Ascending',
+          'Fields': _hubRowFields,
+          ...jellyfinImageQueryParameters,
+        },
+        offset: offset,
+        requestedSize: pageSize,
+        abort: abort,
+      );
     }
     final tail = hubId.split('.').last;
     switch (tail) {

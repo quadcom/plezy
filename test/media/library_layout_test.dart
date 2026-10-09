@@ -27,6 +27,18 @@ void main() {
     expect(LibraryLayout.tryParse(layout.encode())!.toJson(), layout.toJson());
   });
 
+  test('titles: blank ones drop, long ones are cut, the record wins over the default', () {
+    final layout = LibraryLayout.fromJson({
+      'titles': {'own/a': '  Fresh  ', 'own/b': '   ', 'own/c': 'x' * 100},
+    });
+    expect(layout.titles, {'own/a': 'Fresh', 'own/c': 'x' * libraryRowTitleMaxLength});
+    const defaults = LibraryLayout(titles: {'own/a': 'Default A', 'own/d': 'Default D'});
+    expect(layout.titleFor('own/a', defaults: defaults), 'Fresh');
+    expect(layout.titleFor('own/d', defaults: defaults), 'Default D');
+    expect(layout.titleFor('own/e', defaults: defaults), isNull);
+    expect(LibraryLayout.tryParse(layout.encode())!.titles, layout.titles);
+  });
+
   test('junk does not parse', () {
     expect(LibraryLayout.tryParse(null), isNull);
     expect(LibraryLayout.tryParse('not json'), isNull);

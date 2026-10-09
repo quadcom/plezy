@@ -258,7 +258,33 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   List<MediaItem>? _pendingSystemShelfItems;
 
   List<MediaItem> get onDeck => _onDeck;
-  List<MediaHub> get hubs => _hubs;
+
+  /// The home rows, each library's Recently Added row under the title the
+  /// PlezyFin account gives it (Adrian, 2026-10-09).
+  List<MediaHub> get hubs {
+    if (!identical(_titledSource, _hubs) || _titledRevision != _titlesRevision) {
+      _titledSource = _hubs;
+      _titledRevision = _titlesRevision;
+      _titledHubs = [for (final hub in _hubs) _withRowTitle(hub)];
+    }
+    return _titledHubs;
+  }
+
+  List<MediaHub>? _titledSource;
+  List<MediaHub> _titledHubs = const [];
+  int _titledRevision = -1;
+  int _titlesRevision = 0;
+
+  static final _libraryRowId = RegExp(r'^library\.(.+)\.(recent|latestalbums)$');
+
+  MediaHub _withRowTitle(MediaHub hub) {
+    final serverId = hub.serverId;
+    final match = _libraryRowId.firstMatch(hub.identifier ?? hub.id);
+    if (serverId == null || match == null) return hub;
+    final title = _hiddenLibraries.rowTitleFor(serverId: serverId, libraryId: match.group(1)!);
+    return title == null || title == hub.title ? hub : hub.copyWith(title: title);
+  }
+
   bool get hasMoreContinueWatching => _hasMoreContinueWatching;
 
   /// Raw load failure (unlocalized); the screen wraps it for display.
@@ -999,6 +1025,9 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   }
 
   void _onHiddenLibrariesChanged() {
+    // Row titles can change without any library moving.
+    ++_titlesRevision;
+    safeNotifyListeners();
     final currentKeys = _hiddenLibraries.hiddenLibraryKeys;
     if (currentKeys.length == _lastSeenHiddenKeys.length && currentKeys.containsAll(_lastSeenHiddenKeys)) {
       return;

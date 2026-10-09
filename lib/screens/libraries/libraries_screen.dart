@@ -19,6 +19,7 @@ import '../../services/settings_service.dart';
 import '../../widgets/settings_builder.dart';
 import '../../media/library_layout.dart';
 import '../../utils/app_logger.dart';
+import '../../utils/favorites_navigation.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/content_utils.dart';
 import '../../widgets/app_menu.dart';
@@ -616,14 +617,22 @@ class _LibrariesScreenState extends State<LibrariesScreen>
   }
 
   void _showFoldedLibraries(List<MediaLibrary> foldedLibraries) {
+    final favoritesFolded = context.read<HiddenLibrariesProvider>().favoritesState == LibraryState.folded;
+    final entries = _buildGroupedLibraryMenuItems(foldedLibraries, groupByServer: true);
     unawaited(
       OverlaySheetController.showAdaptive<void>(
         context,
         showDragHandle: true,
         builder: (sheetContext) => AppMenuSheet<String>(
-          title: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length),
-          entries: _buildGroupedLibraryMenuItems(foldedLibraries, groupByServer: true),
-          onSelected: (libraryGlobalKey) => unawaited(_loadLibraryContent(libraryGlobalKey)),
+          title: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length + (favoritesFolded ? 1 : 0)),
+          entries: [...entries, if (favoritesFolded) _favoritesMenuItem],
+          onSelected: (libraryGlobalKey) {
+            if (libraryGlobalKey == _favoritesEntry) {
+              _openFavorites();
+            } else {
+              unawaited(_loadLibraryContent(libraryGlobalKey));
+            }
+          },
         ),
       ),
     );
@@ -666,6 +675,30 @@ class _LibrariesScreenState extends State<LibrariesScreen>
   /// The hidden-libraries entry in the phone drop-down; no library key starts with `#`.
   static const _hiddenLibrariesEntry = '#hidden-libraries';
 
+  /// The account's Favourites entry in the phone drop-down.
+  static const _favoritesEntry = '#favorites';
+
+  AppMenuItem<String> get _favoritesMenuItem =>
+      AppMenuItem<String>(value: _favoritesEntry, icon: Symbols.favorite_rounded, label: t.navigation.favorites);
+
+  /// [entries] with the Favourites entry placed among their library items, so
+  /// that [libraryCountBefore] libraries come before it.
+  List<AppMenuEntry<String>> _withFavorites(List<AppMenuEntry<String>> entries, int libraryCountBefore) {
+    var seen = 0;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i] is AppMenuItem<String>) {
+        if (seen == libraryCountBefore) return [...entries.sublist(0, i), _favoritesMenuItem, ...entries.sublist(i)];
+        seen++;
+      }
+    }
+    return [...entries, _favoritesMenuItem];
+  }
+
+  void _openFavorites() {
+    final client = context.read<HiddenLibrariesProvider>().accountClient;
+    if (client != null) openAccountFavorites(context, client);
+  }
+
   Widget _buildLibraryDropdownTitle(
     List<MediaLibrary> visibleLibraries,
     List<MediaLibrary> foldedLibraries, {
@@ -686,24 +719,34 @@ class _LibrariesScreenState extends State<LibrariesScreen>
       onSelected: (libraryGlobalKey) {
         if (libraryGlobalKey == _hiddenLibrariesEntry) {
           _showFoldedLibraries(foldedLibraries);
+        } else if (libraryGlobalKey == _favoritesEntry) {
+          _openFavorites();
         } else {
           _loadLibraryContent(libraryGlobalKey);
         }
       },
       // Folded libraries sit behind one collapsed entry at the bottom, opened
       // as their own list grouped by server (Adrian, 2026-10-09).
-      entriesBuilder: (context) => [
-        ..._buildGroupedLibraryMenuItems(visibleLibraries, groupByServer: groupByServer),
-        if (foldedLibraries.isNotEmpty) ...[
-          const AppMenuDivider<String>(),
-          AppMenuItem<String>(
-            value: _hiddenLibrariesEntry,
-            icon: Symbols.visibility_off_rounded,
-            label: t.libraries.hiddenLibrariesCount(count: foldedLibraries.length),
-            trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
-          ),
-        ],
-      ],
+      entriesBuilder: (context) {
+        final layout = context.read<HiddenLibrariesProvider>();
+        final favoritesState = layout.favoritesState;
+        final shownEntries = _buildGroupedLibraryMenuItems(visibleLibraries, groupByServer: groupByServer);
+        final foldedCount = foldedLibraries.length + (favoritesState == LibraryState.folded ? 1 : 0);
+        return [
+          ...favoritesState == LibraryState.shown
+              ? _withFavorites(shownEntries, layout.favoritesIndexIn(visibleLibraries))
+              : shownEntries,
+          if (foldedCount > 0) ...[
+            const AppMenuDivider<String>(),
+            AppMenuItem<String>(
+              value: _hiddenLibrariesEntry,
+              icon: Symbols.visibility_off_rounded,
+              label: t.libraries.hiddenLibrariesCount(count: foldedCount),
+              trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+            ),
+          ],
+        ];
+      },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         child: Row(

@@ -4477,9 +4477,11 @@ void main() {
 
       await client.fetchLibraryHubs('lib-99', libraryName: 'Movies', limit: 12, includePlaybackHubs: false);
 
-      expect(captured.map((uri) => uri.path), ['/Users/user-1/Items/Latest']);
-      expect(captured.single.queryParameters['ParentId'], 'lib-99');
-      expect(captured.single.queryParameters['Limit'], '12');
+      // The mock's Latest is empty, so the newest shows and movies are asked
+      // for next (the New Shows fallback); no playback hubs either way.
+      expect(captured.map((uri) => uri.path), ['/Users/user-1/Items/Latest', '/Items']);
+      expect(captured.first.queryParameters['ParentId'], 'lib-99');
+      expect(captured.first.queryParameters['Limit'], '12');
     });
   });
 

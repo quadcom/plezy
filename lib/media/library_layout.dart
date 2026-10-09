@@ -46,6 +46,13 @@ String libraryLayoutKey(MediaLibrary library) {
   return '${libraryLayoutServerId(library)}/$libraryId';
 }
 
+/// The layout key of a server's Favourites entry, placed and hidden like a
+/// library (PlezyFin, 2026-10-09).
+String favoritesLayoutKey(String serverId) => '$serverId/favorites';
+
+/// The longest home row title the record keeps.
+const libraryRowTitleMaxLength = 80;
+
 String _serverOf(String key) {
   final slash = key.indexOf('/');
   return slash < 0 ? key : key.substring(0, slash);
@@ -79,12 +86,17 @@ class LibraryLayout {
   /// new library from one that was simply never moved.
   final Map<String, List<String>> known;
 
+  /// Home row titles by key; a missing or blank one means "Recently Added in
+  /// `<library name>`".
+  final Map<String, String> titles;
+
   const LibraryLayout({
     this.rev = 0,
     this.updated,
     this.order = const [],
     this.state = const {},
     this.known = const {},
+    this.titles = const {},
   });
 
   static const empty = LibraryLayout();
@@ -94,6 +106,7 @@ class LibraryLayout {
     final rawState = json['state'];
     final rawKnown = json['known'];
     final rawOrder = json['order'];
+    final rawTitles = json['titles'];
     return LibraryLayout(
       rev: json['rev'] is int ? json['rev'] as int : 0,
       updated: json['updated'] is String ? json['updated'] as String : null,
@@ -117,8 +130,17 @@ class LibraryLayout {
                   if (id is String) id,
               ],
       },
+      titles: {
+        if (rawTitles is Map)
+          for (final entry in rawTitles.entries)
+            if (entry.key is String && entry.value is String && (entry.value as String).trim().isNotEmpty)
+              entry.key as String: _clampTitle((entry.value as String).trim()),
+      },
     );
   }
+
+  static String _clampTitle(String title) =>
+      title.length <= libraryRowTitleMaxLength ? title : title.substring(0, libraryRowTitleMaxLength);
 
   /// [raw] parsed, or null when it is missing or not a record.
   static LibraryLayout? tryParse(String? raw) {
@@ -138,6 +160,7 @@ class LibraryLayout {
     'order': order,
     'state': {for (final entry in state.entries) entry.key: entry.value.wire},
     'known': known,
+    if (titles.isNotEmpty) 'titles': titles,
   };
 
   String encode() => jsonEncode(toJson());
@@ -159,8 +182,11 @@ class LibraryLayout {
   ({List<String> order, Map<String, LibraryState> state}) arrange(
     Iterable<MediaLibrary> libraries, {
     String? ownServerId,
-  }) {
-    final keys = [for (final library in libraries) libraryLayoutKey(library)];
+  }) => arrangeKeys([for (final library in libraries) libraryLayoutKey(library)], ownServerId: ownServerId);
+
+  /// [arrange] for raw keys, which also covers entries that are not browsable
+  /// libraries: collections and playlists views, and Favourites.
+  ({List<String> order, Map<String, LibraryState> state}) arrangeKeys(List<String> keys, {String? ownServerId}) {
     final rank = {for (final (index, key) in order.indexed) key: index};
     final ranked = [
       for (final key in keys)
@@ -198,6 +224,7 @@ class LibraryLayout {
         ...state,
       },
       known: known,
+      titles: titles,
     );
   }
 
@@ -245,6 +272,11 @@ class LibraryLayout {
         ...managedState,
       },
       known: {...known, ...librariesByServer},
+      titles: titles,
     );
   }
+
+  /// The home row title for [key]: this record's, else [defaults]', else null
+  /// for "Recently Added in `<library name>`".
+  String? titleFor(String key, {LibraryLayout? defaults}) => titles[key] ?? defaults?.titles[key];
 }

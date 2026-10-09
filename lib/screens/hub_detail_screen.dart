@@ -8,6 +8,7 @@ import '../media/library_query.dart';
 import '../media/media_hub.dart';
 import '../media/media_item.dart';
 import '../media/media_server_client.dart';
+import '../services/jellyfin_client.dart';
 import '../media/media_sort.dart';
 import '../services/settings_service.dart';
 import '../widgets/settings_builder.dart';
@@ -261,7 +262,8 @@ class _HubDetailScreenState extends State<HubDetailScreen>
   }
 
   bool _shouldUsePaginatedLoader(MediaServerClient client) =>
-      client.backend.usesMediaBrowserApi && widget.hub.id.endsWith('.recent');
+      client.backend.usesMediaBrowserApi &&
+      (widget.hub.id.endsWith('.recent') || widget.hub.id == jellyfinFavoritesHubId);
 
   @override
   Future<LibraryPage<MediaItem>> fetchPage(int start, int size, AbortController? abort) async {

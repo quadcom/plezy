@@ -59,11 +59,11 @@ class MediaHub {
     return hubIdentifier != null && matches(hubIdentifier);
   }
 
-  MediaHub copyWith({List<MediaItem>? items, int? size}) {
+  MediaHub copyWith({List<MediaItem>? items, int? size, String? title}) {
     return MediaHub(
       id: id,
       identifier: identifier,
-      title: title,
+      title: title ?? this.title,
       type: type,
       items: items ?? this.items,
       size: size ?? this.size,
