@@ -1644,6 +1644,12 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       final metadata = result.item;
 
       if (!_canUseDetail) return;
+      // Fork: a Master Class course that only shows itself once fully loaded
+      // (a Jellyfin series reached from search, say) moves to its own screen.
+      if (metadata != null && metadata.isCourse && !widget.isOffline && (metadata.isShow || metadata.isSeason)) {
+        if (mounted) unawaited(Navigator.of(context).pushReplacement(mediaDetailRoute(metadata: metadata)));
+        return;
+      }
       final base = publish(metadata ?? _metadata, onDeckEpisode: result.onDeckEpisode, onDeckSettled: true);
 
       if (base.isShow) {

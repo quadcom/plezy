@@ -167,7 +167,7 @@ void main() {
         'Limit': '300',
         // Emby withholds these from list rows unless asked, so the hub field set
         // is widened for it and only for it.
-        'Fields': 'Overview,DateCreated,ProductionYear,OfficialRating,PremiereDate,UserDataLastPlayedDate',
+        'Fields': 'Overview,DateCreated,ProductionYear,OfficialRating,PremiereDate,UserDataLastPlayedDate,ProviderIds',
         'MediaTypes': 'Video',
         'Recursive': 'true',
         'EnableTotalRecordCount': 'false',
@@ -179,7 +179,7 @@ void main() {
         'Limit': '1',
         // Jellyfin volunteers year/rating and filters its own resume route,
         // but withholds DateCreated (addedAt) unless Fields names it.
-        'Fields': 'Overview,DateCreated',
+        'Fields': 'Overview,DateCreated,ProviderIds',
         'MediaTypes': 'Video',
         'Recursive': 'true',
         'EnableTotalRecordCount': 'false',

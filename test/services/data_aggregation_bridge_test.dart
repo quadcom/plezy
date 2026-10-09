@@ -1174,7 +1174,7 @@ void main() {
       final movieLatest = captured.singleWhere(
         (uri) => uri.path == '/Users/user-1/Items/Latest' && uri.queryParameters['ParentId'] == 'movies',
       );
-      expect(movieLatest.queryParameters['Fields'], 'Overview,DateCreated');
+      expect(movieLatest.queryParameters['Fields'], 'Overview,DateCreated,ProviderIds');
       expect(movieLatest.queryParameters.containsKey('EnableUserData'), isFalse);
     });
 

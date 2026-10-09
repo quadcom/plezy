@@ -4522,7 +4522,7 @@ void main() {
       final client = buildClient();
       await client.fetchMoreHubItems('home.recent', limit: 10);
 
-      expect(captured!.queryParameters['Fields'], 'Overview,DateCreated');
+      expect(captured!.queryParameters['Fields'], 'Overview,DateCreated,ProviderIds');
       client.close();
     });
 
@@ -4781,7 +4781,7 @@ void main() {
       expect(itemsRequest.queryParameters['SortOrder'], 'Ascending');
       expect(
         itemsRequest.queryParameters['Fields'],
-        'RecursiveItemCount,ChildCount,OriginalTitle,SortName,Overview,DateCreated',
+        'RecursiveItemCount,ChildCount,OriginalTitle,SortName,Overview,DateCreated,ProviderIds',
       );
       expect(itemsRequest.queryParameters.containsKey('EnableTotalRecordCount'), isFalse);
       expect(itemsRequest.queryParameters['EnableImageTypes'], 'Primary,Backdrop,Logo');
