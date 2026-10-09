@@ -67,7 +67,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
-    resetSharedPreferencesForTest();
+    // Fork: these cover upstream's season tabs and per-season TV rows, so the
+    // fork's season pages (on by default) are turned off here.
+    resetSharedPreferencesForTest(initialAsync: {'fork_season_pages': false});
     SettingsService.resetForTesting();
     TvDetectionService.debugSetAppleTVOverride(true);
     LocaleSettings.setLocaleSync(AppLocale.en);

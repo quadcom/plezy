@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../focus/focusable_button.dart';
-import '../../focus/focusable_wrapper.dart';
 import '../../focus/input_mode_tracker.dart';
 import '../../i18n/strings.g.dart';
 import '../../media/ids.dart';
@@ -12,6 +11,7 @@ import '../../media/media_course.dart';
 import '../../media/media_item.dart';
 import '../../media/media_kind.dart';
 import '../../media/media_server_client.dart';
+import '../../media/media_trailer.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/formatters.dart';
 import '../../utils/platform_detector.dart';
@@ -20,6 +20,7 @@ import '../../utils/video_player_navigation.dart';
 import '../../widgets/app_bar_back_button.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/cycling_media_backdrop.dart';
+import '../../widgets/media_rail/rail_parts.dart';
 import '../../widgets/optimized_media_image.dart';
 
 /// A Master Class course (see `media_course.dart`) laid out the way
@@ -107,7 +108,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
             libraryTitle: lesson.libraryTitle ?? course.libraryTitle,
           ),
       ]..sort(_lessonOrder);
-      final trailer = courseTrailer(course, extras)?.copyWith(
+      final trailer = pickTrailer(course, extras)?.copyWith(
         serverId: course.serverId ?? widget.metadata.serverId,
         serverName: course.serverName ?? widget.metadata.serverName,
       );
@@ -227,7 +228,7 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
                   fadeDuration: _stillFade,
                 ),
               ),
-              Positioned.fill(child: _Scrim(color: theme.colorScheme.surface)),
+              Positioned.fill(child: RailScrim(color: theme.colorScheme.surface)),
               SafeArea(child: _buildBody(context, client, size)),
               if (!PlatformDetector.isTV())
                 SafeArea(
@@ -431,9 +432,12 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
         clipBehavior: Clip.none,
         itemCount: _lessons.length,
         separatorBuilder: (_, _) => const SizedBox(width: 16),
-        itemBuilder: (context, i) => _LessonCard(
-          lesson: _lessons[i],
-          number: _lessons[i].index ?? i + 1,
+        itemBuilder: (context, i) => RailItemCard(
+          item: _lessons[i],
+          badge: '${_lessons[i].index ?? i + 1}',
+          semanticLabel: t.course.lessonHeading(number: _lessons[i].index ?? i + 1, title: _lessons[i].title ?? ''),
+          onRefresh: (_) => unawaited(_load()),
+          onListRefresh: () => unawaited(_load()),
           client: client,
           width: cardWidth,
           selected: i == _selected,
@@ -462,196 +466,9 @@ class _CourseDetailScreenState extends State<CourseDetailScreen> {
   }
 
   Widget _buildNotes(BuildContext context) {
-    final theme = Theme.of(context);
     final lesson = _lessons[_selected];
     final minutes = lesson.durationMs == null ? null : formatDurationTextual(lesson.durationMs!);
     final heading = t.course.lessonHeading(number: lesson.index ?? _selected + 1, title: lesson.title ?? '');
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 1100),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              minutes == null ? heading : '$heading  ·  $minutes',
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            if (lesson.summary?.isNotEmpty == true) ...[
-              const SizedBox(height: 6),
-              Text(
-                lesson.summary!,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.82),
-                  height: 1.45,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Darkens the cycling stills so the text over them stays readable: heavy on
-/// the left and along the bottom, where the header, rail and notes sit.
-class _Scrim extends StatelessWidget {
-  const _Scrim({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [color.withValues(alpha: 0.94), color.withValues(alpha: 0.74), color.withValues(alpha: 0.5)],
-          stops: const [0, 0.45, 1],
-        ),
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.bottomCenter,
-            end: Alignment.topCenter,
-            colors: [color.withValues(alpha: 0.97), color.withValues(alpha: 0.6), color.withValues(alpha: 0)],
-            stops: const [0, 0.45, 0.75],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _LessonCard extends StatelessWidget {
-  const _LessonCard({
-    required this.lesson,
-    required this.number,
-    required this.client,
-    required this.width,
-    required this.selected,
-    required this.focusNode,
-    required this.onFocused,
-    required this.onSelect,
-    required this.onNavigateUp,
-  });
-
-  final MediaItem lesson;
-  final int number;
-  final MediaServerClient? client;
-  final double width;
-  final bool selected;
-  final FocusNode? focusNode;
-  final VoidCallback onFocused;
-  final VoidCallback onSelect;
-  final VoidCallback onNavigateUp;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final duration = lesson.durationMs;
-    final offset = lesson.viewOffsetMs ?? 0;
-    final partial = !lesson.isWatched && duration != null && duration > 0 && offset > 0 ? offset / duration : null;
-    return SizedBox(
-      width: width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          FocusableWrapper(
-            focusNode: focusNode,
-            borderRadius: 10,
-            onSelect: onSelect,
-            onNavigateUp: onNavigateUp,
-            onFocusChange: (focused) {
-              if (focused) onFocused();
-            },
-            semanticLabel: t.course.lessonHeading(number: number, title: lesson.title ?? ''),
-            // FocusableWrapper handles the remote and keyboard; taps and clicks come through here.
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onSelect,
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      OptimizedMediaImage.thumb(client: client, imagePath: lesson.thumbPath),
-                      if (selected)
-                        DecoratedBox(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: theme.colorScheme.onSurface, width: 2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                      Positioned(
-                        left: 8,
-                        top: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.7),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '$number',
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                      if (lesson.isWatched)
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: AppIcon(Symbols.check_rounded, size: 16, color: theme.colorScheme.onPrimary),
-                          ),
-                        ),
-                      if (partial != null)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: LinearProgressIndicator(
-                            value: partial.clamp(0.0, 1.0),
-                            minHeight: 4,
-                            backgroundColor: Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            lesson.title ?? '',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          if (duration != null)
-            Text(
-              formatDurationTextual(duration),
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
-            ),
-        ],
-      ),
-    );
+    return RailNotesPanel(heading: minutes == null ? heading : '$heading  ·  $minutes', body: lesson.summary);
   }
 }

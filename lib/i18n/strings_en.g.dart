@@ -92,6 +92,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$services$en services = Translations$services$en.internal(_root);
 	late final Translations$addServer$en addServer = Translations$addServer$en.internal(_root);
 	late final Translations$course$en course = Translations$course$en.internal(_root);
+	late final Translations$seasonPage$en seasonPage = Translations$seasonPage$en.internal(_root);
 }
 
 // Path: app
@@ -588,6 +589,12 @@ class Translations$settings$en {
 
 	/// en: 'Show each season's poster above its tab'
 	String get showSeasonPostersOnTabsDescription => 'Show each season\'s poster above its tab';
+
+	/// en: 'Season Pages'
+	String get seasonPages => 'Season Pages';
+
+	/// en: 'Open each season on its own page, with its episodes in a row and the selected episode's description below. Turn off for season tabs and an episode list.'
+	String get seasonPagesDescription => 'Open each season on its own page, with its episodes in a row and the selected episode\'s description below. Turn off for season tabs and an episode list.';
 
 	/// en: 'Full TV Cards'
 	String get tvFullCardLayout => 'Full TV Cards';
@@ -5707,6 +5714,42 @@ class Translations$course$en {
 	String get loadFailed => 'Could not load this course.';
 }
 
+// Path: seasonPage
+class Translations$seasonPage$en {
+	Translations$seasonPage$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: '(one) {${n} episode} (other) {${n} episodes}'
+	String episodeCount({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n,
+		one: '${n} episode',
+		other: '${n} episodes',
+	);
+
+	/// en: '${watched} of ${total} episodes watched'
+	String episodesWatched({required Object watched, required Object total}) => '${watched} of ${total} episodes watched';
+
+	/// en: 'Resume: Episode ${number} – ${title}'
+	String resumeEpisode({required Object number, required Object title}) => 'Resume: Episode ${number} – ${title}';
+
+	/// en: 'Start over'
+	String get startOver => 'Start over';
+
+	/// en: 'Watch trailer'
+	String get watchTrailer => 'Watch trailer';
+
+	/// en: 'Episode ${number}: ${title}'
+	String episodeHeading({required Object number, required Object title}) => 'Episode ${number}: ${title}';
+
+	/// en: 'The description shows once you've watched it.'
+	String get spoilerHidden => 'The description shows once you\'ve watched it.';
+
+	/// en: 'Could not load this season.'
+	String get loadFailed => 'Could not load this season.';
+}
+
 // Path: common.ratingSource
 class Translations$common$ratingSource$en {
 	Translations$common$ratingSource$en.internal(this._root);
@@ -7465,6 +7508,8 @@ extension on Translations {
 			'settings.showEpisodeNumberOnCardsDescription' => 'Show season and episode number on episode cards',
 			'settings.showSeasonPostersOnTabs' => 'Show Season Posters on Tabs',
 			'settings.showSeasonPostersOnTabsDescription' => 'Show each season\'s poster above its tab',
+			'settings.seasonPages' => 'Season Pages',
+			'settings.seasonPagesDescription' => 'Open each season on its own page, with its episodes in a row and the selected episode\'s description below. Turn off for season tabs and an episode list.',
 			'settings.tvFullCardLayout' => 'Full TV Cards',
 			'settings.tvFullCardLayoutDescription' => 'Use image-only TV cards with actor names overlaid',
 			'settings.focusGlow' => 'Focus Glow',
@@ -7806,10 +7851,10 @@ extension on Translations {
 			'fileInfo.scalingMatrix' => 'Custom Scaling Matrix',
 			'fileInfo.streamIdentifier' => 'Stream Identifier',
 			'fileInfo.streamIndex' => 'Stream Index',
-			'fileInfo.streamId' => 'Stream ID',
-			'fileInfo.language' => 'Language',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.streamId' => 'Stream ID',
+			'fileInfo.language' => 'Language',
 			'fileInfo.languageCode' => 'Language Code',
 			'fileInfo.streamTitle' => 'Track Title',
 			'fileInfo.channels' => 'Channels',
@@ -8320,10 +8365,10 @@ extension on Translations {
 			'libraries.emptyTrash' => 'Empty Trash',
 			'libraries.emptyingTrash' => ({required Object title}) => 'Emptying trash for "${title}"...',
 			'libraries.trashEmptied' => ({required Object title}) => 'Trash emptied for "${title}"',
-			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Failed to empty trash: ${error}',
-			'libraries.analyzing' => ({required Object title}) => 'Analyzing "${title}"...',
 			_ => null,
 		} ?? switch (path) {
+			'libraries.failedToEmptyTrash' => ({required Object error}) => 'Failed to empty trash: ${error}',
+			'libraries.analyzing' => ({required Object title}) => 'Analyzing "${title}"...',
 			'libraries.analysisStarted' => ({required Object title}) => 'Analysis started for "${title}"',
 			'libraries.failedToAnalyze' => ({required Object error}) => 'Failed to analyze library: ${error}',
 			'libraries.noLibrariesFound' => 'No libraries found',
@@ -8834,10 +8879,10 @@ extension on Translations {
 			'watchTogether.enterCodeHint' => 'Enter 5-character code',
 			'watchTogether.pasteFromClipboard' => 'Paste from clipboard',
 			'watchTogether.pleaseEnterCode' => 'Please enter a session code',
-			'watchTogether.codeMustBe5Chars' => 'Session code must be 5 characters',
-			'watchTogether.joinInstructions' => 'Enter the host\'s session code to join.',
 			_ => null,
 		} ?? switch (path) {
+			'watchTogether.codeMustBe5Chars' => 'Session code must be 5 characters',
+			'watchTogether.joinInstructions' => 'Enter the host\'s session code to join.',
 			'watchTogether.failedToCreate' => 'Failed to create session',
 			'watchTogether.failedToJoin' => 'Failed to join session',
 			'watchTogether.sessionCodeCopied' => 'Session code copied to clipboard',
@@ -9348,10 +9393,10 @@ extension on Translations {
 			'addServer.username' => 'Username',
 			'addServer.password' => 'Password',
 			'addServer.signIn' => 'Sign in',
-			'addServer.change' => 'Change',
-			'addServer.required' => 'Required',
 			_ => null,
 		} ?? switch (path) {
+			'addServer.change' => 'Change',
+			'addServer.required' => 'Required',
 			'addServer.couldNotReachServer' => ({required Object error}) => 'Could not reach the server: ${error}',
 			'addServer.signInFailed' => ({required Object error}) => 'Sign-in failed: ${error}',
 			'addServer.quickConnectFailed' => ({required Object error}) => 'Quick Connect failed: ${error}',
@@ -9397,6 +9442,14 @@ extension on Translations {
 			'course.watchTrailer' => 'Watch trailer',
 			'course.lessonHeading' => ({required Object number, required Object title}) => 'Lesson ${number}: ${title}',
 			'course.loadFailed' => 'Could not load this course.',
+			'seasonPage.episodeCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} episode', other: '${n} episodes', ), 
+			'seasonPage.episodesWatched' => ({required Object watched, required Object total}) => '${watched} of ${total} episodes watched',
+			'seasonPage.resumeEpisode' => ({required Object number, required Object title}) => 'Resume: Episode ${number} – ${title}',
+			'seasonPage.startOver' => 'Start over',
+			'seasonPage.watchTrailer' => 'Watch trailer',
+			'seasonPage.episodeHeading' => ({required Object number, required Object title}) => 'Episode ${number}: ${title}',
+			'seasonPage.spoilerHidden' => 'The description shows once you\'ve watched it.',
+			'seasonPage.loadFailed' => 'Could not load this season.',
 			_ => null,
 		};
 	}

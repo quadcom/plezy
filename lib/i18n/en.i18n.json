@@ -183,6 +183,8 @@
     "showEpisodeNumberOnCardsDescription": "Show season and episode number on episode cards",
     "showSeasonPostersOnTabs": "Show Season Posters on Tabs",
     "showSeasonPostersOnTabsDescription": "Show each season's poster above its tab",
+    "seasonPages": "Season Pages",
+    "seasonPagesDescription": "Open each season on its own page, with its episodes in a row and the selected episode's description below. Turn off for season tabs and an episode list.",
     "tvFullCardLayout": "Full TV Cards",
     "tvFullCardLayoutDescription": "Use image-only TV cards with actor names overlaid",
     "focusGlow": "Focus Glow",
@@ -2310,5 +2312,18 @@
     "watchTrailer": "Watch trailer",
     "lessonHeading": "Lesson ${number}: ${title}",
     "loadFailed": "Could not load this course."
+  },
+  "seasonPage": {
+    "episodeCount": {
+      "one": "${n} episode",
+      "other": "${n} episodes"
+    },
+    "episodesWatched": "${watched} of ${total} episodes watched",
+    "resumeEpisode": "Resume: Episode ${number} – ${title}",
+    "startOver": "Start over",
+    "watchTrailer": "Watch trailer",
+    "episodeHeading": "Episode ${number}: ${title}",
+    "spoilerHidden": "The description shows once you've watched it.",
+    "loadFailed": "Could not load this season."
   }
 }

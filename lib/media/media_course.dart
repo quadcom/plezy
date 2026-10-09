@@ -77,31 +77,6 @@ CourseTitle? _splitByWording(String title) {
   return null;
 }
 
-/// The course's trailer among its [extras] (PMB gives a course at most one,
-/// from its `Trailers` folder). Plex names it as the show's primary extra;
-/// otherwise the first extra marked as a trailer: Plex `subtype="trailer"`,
-/// Jellyfin `Type`/`ExtraType` "Trailer". Same rule as the detail screen's
-/// trailer button.
-MediaItem? courseTrailer(MediaItem course, List<MediaItem> extras) {
-  if (course case PlexMediaItem(:final trailerKey?)) {
-    final primaryId = trailerKey.split('/').last;
-    for (final extra in extras) {
-      if (extra.id == primaryId) return extra;
-    }
-  }
-  for (final extra in extras) {
-    if (_isTrailer(extra)) return extra;
-  }
-  return null;
-}
-
-bool _isTrailer(MediaItem extra) {
-  if (extra case PlexMediaItem(:final subtype?)) return subtype.toLowerCase() == 'trailer';
-  final raw = extra.raw;
-  return (raw?['ExtraType'] as String?)?.toLowerCase() == 'trailer' ||
-      (raw?['Type'] as String?)?.toLowerCase() == 'trailer';
-}
-
 /// [summary] without PMB's leading `Folder: ... [pmb-...]` line. Adrian,
 /// 2026-10-08: hide it in Plezy until PMB stops writing it.
 String? courseSummary(String? summary) {

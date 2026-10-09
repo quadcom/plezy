@@ -735,6 +735,11 @@ class SettingsService extends BaseSharedPreferencesService {
   static const showWatchedIndicators = BoolPref('show_watched_indicators', defaultValue: true);
   static const showEpisodeNumberOnCards = BoolPref('show_episode_number_on_cards', defaultValue: true);
   static const showSeasonPostersOnTabs = BoolPref('show_season_posters_on_tabs');
+
+  /// Fork: seasons open on their own page with the episodes in a rail, like
+  /// the Master Class course screen; off brings back the season tabs and the
+  /// episode list (Adrian, 2026-10-09; local/plans/season-rail-layout.md).
+  static const seasonPages = BoolPref('fork_season_pages', defaultValue: true);
   static const hideSpoilers = BoolPref('hide_spoilers');
   static const showNavBarLabels = BoolPref('show_nav_bar_labels', defaultValue: true);
   static const globalShaderPreset = StringPref('global_shader_preset', defaultValue: 'none');
@@ -1352,6 +1357,7 @@ class SettingsService extends BaseSharedPreferencesService {
     showWatchedIndicators,
     showEpisodeNumberOnCards,
     showSeasonPostersOnTabs,
+    seasonPages,
     hideSpoilers,
     showNavBarLabels,
     globalShaderPreset,

@@ -3,6 +3,7 @@ import 'package:plezy/media/media_course.dart';
 import 'package:plezy/media/media_item.dart';
 import 'package:plezy/media/media_kind.dart';
 import 'package:plezy/media/media_role.dart';
+import 'package:plezy/media/media_trailer.dart';
 
 void main() {
   group('courseKey', () {
@@ -127,7 +128,7 @@ void main() {
     });
   });
 
-  group('courseTrailer', () {
+  group('pickTrailer', () {
     const course = PlexMediaItem(id: 's', kind: MediaKind.show);
 
     test('picks the extra marked as a trailer', () {
@@ -135,7 +136,7 @@ void main() {
         PlexMediaItem(id: 'a', kind: MediaKind.clip, subtype: 'behindTheScenes'),
         PlexMediaItem(id: 'b', kind: MediaKind.clip, subtype: 'trailer'),
       ];
-      expect(courseTrailer(course, extras)?.id, 'b');
+      expect(pickTrailer(course, extras)?.id, 'b');
     });
 
     test('prefers the primary extra Plex names', () {
@@ -144,19 +145,19 @@ void main() {
         PlexMediaItem(id: 'b', kind: MediaKind.clip, subtype: 'trailer'),
         PlexMediaItem(id: 'c', kind: MediaKind.clip, subtype: 'trailer'),
       ];
-      expect(courseTrailer(named, extras)?.id, 'c');
+      expect(pickTrailer(named, extras)?.id, 'c');
     });
 
     test('reads the Jellyfin trailer type', () {
       const extras = [
         JellyfinMediaItem(id: 'j', kind: MediaKind.clip, raw: {'Type': 'Trailer', 'ExtraType': 'Trailer'}),
       ];
-      expect(courseTrailer(course, extras)?.id, 'j');
+      expect(pickTrailer(course, extras)?.id, 'j');
     });
 
     test('is null without a trailer', () {
-      expect(courseTrailer(course, const []), isNull);
-      expect(courseTrailer(course, const [PlexMediaItem(id: 'a', kind: MediaKind.clip, subtype: 'interview')]), isNull);
+      expect(pickTrailer(course, const []), isNull);
+      expect(pickTrailer(course, const [PlexMediaItem(id: 'a', kind: MediaKind.clip, subtype: 'interview')]), isNull);
     });
   });
 }

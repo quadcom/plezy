@@ -35,6 +35,8 @@ import '../utils/plex_season_display.dart';
 import '../media/media_item.dart';
 import '../media/media_course.dart';
 import 'course/course_detail_screen.dart';
+import 'season/season_detail_screen.dart';
+import 'season/season_poster_row.dart';
 import '../media/episode_collection.dart';
 import '../media/media_item_types.dart';
 import '../media/media_kind.dart';
@@ -134,6 +136,9 @@ const double _tvDetailActionSize = 46;
 const double _tvDetailActionRailGap = 4;
 const String _tvDetailSeasonsErrorHubId = 'detail_seasons_error';
 const String _tvDetailSeasonHubIdPrefix = 'detail_season_';
+// Fork: the seasons as one row of posters when season pages are on. Must not
+// start with [_tvDetailSeasonHubIdPrefix].
+const String _tvDetailSeasonsRowHubId = 'detail_seasons_row';
 const String _tvDetailExtrasHubId = 'detail_extras';
 const String _tvDetailActorsHubId = 'detail_actors';
 const String _tvDetailActorPersonIdRawKey = 'tvDetailActorPersonId';
@@ -295,8 +300,23 @@ PageRoute<bool> mediaDetailRoute({
   // [courseSource] is the item the user opened, which carries the course guid
   // when [metadata] is a stand-in built from a lesson.
   final isCourse = !isOffline && (metadata.isCourse || (courseSource?.isCourse ?? false));
+  // Fork: with season pages on, a season (or a show opened at one of its
+  // seasons or episodes) opens on its own page (local/plans/season-rail-layout.md).
+  final isSeasonPage =
+      !isCourse &&
+      !isOffline &&
+      seasonPagesEnabled() &&
+      (metadata.isSeason ||
+          (metadata.isShow && (initialSeasonId != null || initialSeasonIndex != null || initialEpisodeId != null)));
   final Widget page = isCourse
       ? CourseDetailScreen(metadata: metadata, initialLessonId: initialEpisodeId)
+      : isSeasonPage
+      ? SeasonDetailScreen(
+          metadata: metadata,
+          initialSeasonId: initialSeasonId,
+          initialSeasonIndex: initialSeasonIndex,
+          initialEpisodeId: initialEpisodeId,
+        )
       : MediaDetailScreen(
           metadata: metadata,
           isOffline: isOffline,
@@ -304,6 +324,12 @@ PageRoute<bool> mediaDetailRoute({
           initialSeasonId: initialSeasonId,
           initialEpisodeId: initialEpisodeId,
         );
+  return detailPageRoute(page);
+}
+
+/// The route a detail screen opens in: a fade on TV, the platform's push
+/// elsewhere.
+PageRoute<bool> detailPageRoute(Widget page) {
   if (!PlatformDetector.isTV()) return MaterialPageRoute<bool>(builder: (_) => page);
 
   return PageRouteBuilder<bool>(
@@ -1746,6 +1772,26 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
         shouldShowEpisodesDirectly = seasonsWithServerId.length <= 1;
       }
 
+      // Fork: with season pages on, a show the server flattens (one season, or
+      // Plex's "hide seasons") goes straight to its episodes.
+      if (shouldShowEpisodesDirectly && seasonsWithServerId.isNotEmpty && !widget.isOffline && seasonPagesEnabled()) {
+        final single = seasonsWithServerId.length == 1;
+        if (!mounted) return;
+        unawaited(
+          Navigator.of(context).pushReplacement(
+            detailPageRoute(
+              SeasonDetailScreen(
+                metadata: _fullMetadata ?? _metadata,
+                initialSeasonId: single ? seasonsWithServerId.first.id : null,
+                initialEpisodeId: widget.initialEpisodeId,
+                wholeShow: !single,
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
       _updateSeasonTabFocusNodes(seasonsWithServerId.length);
 
       // Auto-select the on-deck season
@@ -2361,6 +2407,37 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     }
 
     _focusBelowOverview();
+  }
+
+  /// Fork: seasons open on their own page instead of as tabs here.
+  bool get _usesSeasonPages => !widget.isOffline && seasonPagesEnabled();
+
+  /// Fork: opens a season's page from the poster row (or the TV seasons row),
+  /// then refreshes the play button's next episode on return.
+  Future<void> _openSeasonPage(int index) async {
+    if (index < 0 || index >= _seasons.length) return;
+    final season = _seasons[index];
+    setState(() => _selectedSeasonIndex = index);
+    await Navigator.of(
+      context,
+    ).push(detailPageRoute(SeasonDetailScreen(metadata: _fullMetadata ?? _metadata, initialSeasonId: season.id)));
+    if (_canUseDetail) unawaited(_refreshWatchState());
+  }
+
+  /// Fork: DOWN from the season posters: cast, extras, related hubs, info rows.
+  void _focusBelowSeasonPosters() {
+    final metadata = _metadata;
+    if (metadata.roles != null && metadata.roles!.isNotEmpty) {
+      _castStripKey.currentState?.requestFocus();
+      _scrollSectionIntoView(_castSectionKey);
+    } else if (_extras != null && _extras!.isNotEmpty) {
+      _extrasFocusNode.requestFocus();
+      _scrollSectionIntoView(_extrasSectionKey);
+    } else if (_relatedHubs.isNotEmpty) {
+      _relatedHubKeys.first.currentState?.requestFocusFromMemory();
+    } else if (_hasInfoRows) {
+      _focusInfoRows();
+    }
   }
 
   /// Focus the first available content section after the overview.
@@ -3428,7 +3505,26 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                                   _sectionError(t.messages.seasonsLoadFailed, () => unawaited(_loadSeasons()))
                                 else if (_seasons.isEmpty)
                                   _sectionEmpty(context, t.messages.noSeasonsFound)
-                                else ...[
+                                else if (_usesSeasonPages) ...[
+                                  Text(
+                                    key: _seasonsSectionKey,
+                                    t.libraries.groupings.seasons,
+                                    style: sectionTitleStyle,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  SeasonPosterRow(
+                                    seasons: _seasons,
+                                    client: _getMediaClientForMetadata(context),
+                                    focusNodes: _seasonTabFocusNodes,
+                                    onOpen: (index) => unawaited(_openSeasonPage(index)),
+                                    onNavigateDown: _focusBelowSeasonPosters,
+                                    onRefresh: (source) {
+                                      _watchStateChanged = true;
+                                      unawaited(_refreshItemInPlace(source));
+                                    },
+                                    onListRefresh: () => unawaited(_loadSeasons()),
+                                  ),
+                                ] else ...[
                                   Text(
                                     key: _seasonsSectionKey,
                                     t.libraries.groupings.episodes,
@@ -4194,6 +4290,16 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
           size: 0,
         ),
       );
+    } else if (metadata.isShow && !_showEpisodesDirectly && _seasons.isNotEmpty && _usesSeasonPages) {
+      hubs.add(
+        MediaHub(
+          id: _tvDetailSeasonsRowHubId,
+          title: t.libraries.groupings.seasons,
+          type: 'season',
+          items: _seasons,
+          size: _seasons.length,
+        ),
+      );
     } else if (metadata.isShow && !_showEpisodesDirectly && _seasons.isNotEmpty) {
       // Emit a hub for every season so TV users can choose a season before its
       // episodes are fetched. Extra pages load in-place when focus reaches the
@@ -4259,6 +4365,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   }
 
   String? _tvDetailInitialHubId(MediaItem metadata) {
+    if (metadata.isShow && !_showEpisodesDirectly && _seasons.isNotEmpty && _usesSeasonPages) {
+      return _tvDetailSeasonsRowHubId;
+    }
     if (metadata.isShow && !_showEpisodesDirectly && _seasons.isNotEmpty) {
       return '$_tvDetailSeasonHubIdPrefix$_selectedSeasonIndex';
     }
@@ -4271,6 +4380,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   String? _tvDetailInitialItemId(MediaItem metadata) {
     if (widget.initialEpisodeId != null) return widget.initialEpisodeId;
     if (!metadata.isShow) return null;
+    if (!_showEpisodesDirectly && _usesSeasonPages && _selectedSeasonIndex < _seasons.length) {
+      return _seasons[_selectedSeasonIndex].id;
+    }
     return _onDeckEpisode?.id;
   }
 
@@ -4300,6 +4412,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   }
 
   Future<bool> _handleTvDetailRailItemActivated(MediaHub hub, MediaItem item) async {
+    if (hub.id == _tvDetailSeasonsRowHubId && item.isSeason) {
+      await _openSeasonPage(_seasons.indexWhere((season) => season.id == item.id));
+      return true;
+    }
     if (_isTvDetailEpisodeHub(hub) && item.isEpisode) {
       await navigateToVideoPlayerWithRefresh(
         context,
@@ -4466,7 +4582,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   IconData _getTvDetailHubIcon(MediaHub hub, int index) {
     if (hub.id == _tvDetailSeasonsErrorHubId) return Symbols.error_outline_rounded;
     if (hub.id.startsWith(_tvDetailSeasonHubIdPrefix)) return Symbols.tv_rounded;
-    if (hub.id == 'detail_episodes') return Symbols.tv_rounded;
+    if (hub.id == 'detail_episodes' || hub.id == _tvDetailSeasonsRowHubId) return Symbols.tv_rounded;
     if (hub.id == _tvDetailExtrasHubId) return Symbols.theaters_rounded;
     if (hub.id == _tvDetailActorsHubId) return Symbols.group_rounded;
     return _getRelatedHubIcon(hub);
