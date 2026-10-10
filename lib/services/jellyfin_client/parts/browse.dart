@@ -1694,6 +1694,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     bool includePlaybackHubs = true,
     MediaKind? libraryKind,
     HubFetchDiagnostics? diagnostics,
+    HomeRowSort recentSort = HomeRowSort.added,
   }) async {
     // Music libraries get their own hub set. Home passes
     // includePlaybackHubs=false because it already renders the app-level
@@ -1726,10 +1727,74 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       retry: _libraryHubRetry,
       continueTitle: t.discover.continueWatchingIn(library: libraryName),
       nextUpTitle: t.discover.nextUpIn(library: libraryName),
-      recentTitle: t.discover.recentlyAddedIn(library: libraryName),
+      recentTitle: switch (recentSort) {
+        HomeRowSort.added => t.discover.recentlyAddedIn(library: libraryName),
+        HomeRowSort.released => t.discover.newReleasesIn(library: libraryName),
+        HomeRowSort.upcoming => t.discover.comingUpIn(library: libraryName),
+      },
+      recentSort: recentSort,
       diagnostics: diagnostics,
     );
   }
+
+  /// A library's row by release date (PlezyFin PLAN_SHA_12): dated films and
+  /// shows newest first, or soonest first for [soonest]. When fewer than
+  /// [limit] have a date, undated ones fill the rest, newest added first;
+  /// undated items always go last and are never guessed.
+  Future<List<Map<String, dynamic>>> _releaseRowItems({
+    required String parentId,
+    required int limit,
+    required bool soonest,
+    required _HubRetryPolicy retry,
+    HubFetchDiagnostics? diagnostics,
+  }) async {
+    final dated = await _safeFetchItemsArray(
+      '/Items',
+      {
+        'userId': connection.userId,
+        'ParentId': parentId,
+        'Recursive': 'true',
+        'IncludeItemTypes': 'Movie,Series',
+        'SortBy': 'PremiereDate,SortName',
+        'SortOrder': soonest ? 'Ascending' : 'Descending',
+        'MinPremiereDate': _anyPremiereDate,
+        'Limit': limit.toString(),
+        'Fields': _hubRowFields,
+        ...jellyfinImageQueryParameters,
+      },
+      retry: retry,
+      diagnostics: diagnostics,
+    );
+    if (dated.length >= limit) return dated;
+    final recent = await _safeFetchItemsArray(
+      '/Items',
+      {
+        'userId': connection.userId,
+        'ParentId': parentId,
+        'Recursive': 'true',
+        'IncludeItemTypes': 'Movie,Series',
+        'SortBy': 'DateCreated',
+        'SortOrder': 'Descending',
+        'Limit': _undatedFillWindow.toString(),
+        'Fields': _hubRowFields,
+        ...jellyfinImageQueryParameters,
+      },
+      retry: retry,
+      diagnostics: diagnostics,
+    );
+    final datedIds = {for (final row in dated) row['Id']};
+    return [
+      ...dated,
+      ...recent.where((row) => row['PremiereDate'] == null && !datedIds.contains(row['Id'])).take(limit - dated.length),
+    ];
+  }
+
+  /// Jellyfin's `MinPremiereDate` that keeps every dated item and drops the
+  /// undated ones.
+  static const _anyPremiereDate = '0001-01-01T00:00:00Z';
+
+  /// How many newest-added items a release row scans for undated ones.
+  static const _undatedFillWindow = 100;
 
   /// Latest + Continue Watching + Next Up row set shared by the home and
   /// per-library surfaces. Both scopes issue the same three requests in the
@@ -1749,43 +1814,53 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     required String recentTitle,
     String? parentId,
     String? latestItemTypes,
+    HomeRowSort recentSort = HomeRowSort.added,
     HubFetchDiagnostics? diagnostics,
   }) async {
-    final latestFuture =
-        _safeFetchItemsArray(
-          _latestItemsPath,
-          {
-            'Limit': limit.toString(),
-            'ParentId': ?parentId,
-            'Fields': _hubRowFields,
-            'IncludeItemTypes': ?latestItemTypes,
-            ...jellyfinImageQueryParameters,
-          },
-          retry: retry,
-          diagnostics: diagnostics,
-        ).then<List<Map<String, dynamic>>>((rows) async {
-          if (rows.isNotEmpty || parentId == null) return rows;
-          // Latest lists only new files: a library of unreleased shows that
-          // hold just a trailer each (New Shows) has none, so its newest
-          // shows and movies fill the row instead, as PlezyFin's web client
-          // does (Adrian, 2026-10-09).
-          return _safeFetchItemsArray(
-            '/Items',
+    final byRelease = recentSort != HomeRowSort.added && parentId != null;
+    final recentSuffix = byRelease ? recentSort.wire : 'recent';
+    final latestFuture = byRelease
+        ? _releaseRowItems(
+            parentId: parentId,
+            limit: limit,
+            soonest: recentSort == HomeRowSort.upcoming,
+            retry: retry,
+            diagnostics: diagnostics,
+          )
+        : _safeFetchItemsArray(
+            _latestItemsPath,
             {
-              'userId': connection.userId,
-              'ParentId': parentId,
-              'Recursive': 'true',
-              'IncludeItemTypes': 'Series,Movie',
-              'SortBy': 'DateCreated',
-              'SortOrder': 'Descending',
               'Limit': limit.toString(),
+              'ParentId': ?parentId,
               'Fields': _hubRowFields,
+              'IncludeItemTypes': ?latestItemTypes,
               ...jellyfinImageQueryParameters,
             },
             retry: retry,
             diagnostics: diagnostics,
-          );
-        });
+          ).then<List<Map<String, dynamic>>>((rows) async {
+            if (rows.isNotEmpty || parentId == null) return rows;
+            // Latest lists only new files: a library of unreleased shows that
+            // hold just a trailer each (New Shows) has none, so its newest
+            // shows and movies fill the row instead, as PlezyFin's web client
+            // does (Adrian, 2026-10-09).
+            return _safeFetchItemsArray(
+              '/Items',
+              {
+                'userId': connection.userId,
+                'ParentId': parentId,
+                'Recursive': 'true',
+                'IncludeItemTypes': 'Series,Movie',
+                'SortBy': 'DateCreated',
+                'SortOrder': 'Descending',
+                'Limit': limit.toString(),
+                'Fields': _hubRowFields,
+                ...jellyfinImageQueryParameters,
+              },
+              retry: retry,
+              diagnostics: diagnostics,
+            );
+          });
 
     MediaHub hub(String suffix, String title, String type, List<Map<String, dynamic>> items) =>
         JellyfinMappers.syntheticHub(
@@ -1801,7 +1876,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
 
     if (!includePlaybackHubs) {
       final latest = await latestFuture;
-      return [hub('recent', recentTitle, 'mixed', latest)].where((h) => h.items.isNotEmpty).toList();
+      return [hub(recentSuffix, recentTitle, 'mixed', latest)].where((h) => h.items.isNotEmpty).toList();
     }
 
     final Future<List<Map<String, dynamic>>> resumeRowsFuture;
@@ -1844,7 +1919,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       // server-side queries already do for Jellyfin.
       hub('continue', continueTitle, 'mixed', results[1].take(limit).toList(growable: false)),
       hub('nextup', nextUpTitle, 'episode', results[2].take(limit).toList(growable: false)),
-      hub('recent', recentTitle, 'mixed', results.first),
+      hub(recentSuffix, recentTitle, 'mixed', results.first),
     ].where((h) => h.items.isNotEmpty).toList();
   }
 
@@ -1995,6 +2070,29 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
             'IncludeItemTypes': 'Movie,Series,Episode,Video,MusicVideo,Photo',
             'SortBy': 'DateCreated,SortName,ProductionYear',
             'SortOrder': 'Descending,Descending,Descending',
+            'Fields': _hubRowFields,
+            ...jellyfinImageQueryParameters,
+          },
+          offset: offset,
+          requestedSize: pageSize,
+          abort: abort,
+        );
+      case 'released' || 'upcoming':
+        // The dated items, in release order; the preview row's undated fill
+        // is not paged (PlezyFin PLAN_SHA_12).
+        return _safeFetchMediaPage(
+          '/Items',
+          {
+            'userId': connection.userId,
+            'ParentId': ?parentId,
+            'Recursive': 'true',
+            'StartIndex': offset.toString(),
+            'Limit': effectiveLimit,
+            'EnableTotalRecordCount': 'true',
+            'IncludeItemTypes': 'Movie,Series',
+            'SortBy': 'PremiereDate,SortName',
+            'SortOrder': tail == 'upcoming' ? 'Ascending' : 'Descending',
+            'MinPremiereDate': _anyPremiereDate,
             'Fields': _hubRowFields,
             ...jellyfinImageQueryParameters,
           },

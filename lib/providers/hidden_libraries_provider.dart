@@ -370,6 +370,49 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       ? HomeCardStyle.thumb
       : HomeCardStyle.poster;
 
+  /// [row]'s item order on home: the account's, else the admin default's,
+  /// else newest added first. Without an account, this device's.
+  HomeRowSort rowSortFor(String row) {
+    if (!isAccountLayout) return _deviceHome?.sort[row] ?? HomeRowSort.added;
+    return _layout!.home?.sort[row] ?? _defaults?.home?.sort[row] ?? HomeRowSort.added;
+  }
+
+  /// The libraries whose home row is not newest added first, by global key,
+  /// for the home fetch.
+  Map<String, HomeRowSort> get libraryRowSorts => {
+    for (final library in _libraries)
+      if (rowSortFor(_homeRowKey(library)) case final sort when sort != HomeRowSort.added) library.globalKey: sort,
+  };
+
+  /// Set [row]'s item order.
+  Future<void> setRowSort(String row, HomeRowSort sort) => _saveHome((base) => base.withSort(row, sort));
+
+  /// Whether [library]'s page sort is kept with the account: a library of the
+  /// PlezyFin server itself. Plex and other servers keep it on the device
+  /// (PlezyFin, 2026-10-10).
+  bool _sortsWithAccount(MediaLibrary library) =>
+      isAccountLayout && library.backend.usesMediaBrowserApi && libraryLayoutServerId(library) == _ownServerId;
+
+  /// [library]'s page sort from the account, or null when it is not an
+  /// account library or the record has none; the device copy applies then.
+  ({String by, bool descending})? accountLibrarySort(MediaLibrary library) =>
+      _sortsWithAccount(library) ? _layout!.librarySortOf(libraryLayoutKey(library)) : null;
+
+  /// Save [library]'s page sort with the account (null clears it), only when
+  /// the person picked one. Not an account library: nothing to do.
+  Future<void> saveAccountLibrarySort(MediaLibrary library, ({String by, bool descending})? sort) async {
+    await ensureInitialized();
+    if (isDisposed || !_sortsWithAccount(library)) return;
+    final account = _account;
+    final ownServerId = _ownServerId!;
+    if (account == null) throw StateError('The PlezyFin server is not reachable');
+    final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
+    final next = fresh.withLibrarySort(libraryLayoutKey(library), sort, now: DateTime.now());
+    await account.saveLibraryLayout(next);
+    if (isDisposed) return;
+    await _setAccount(account, ownServerId, next);
+  }
+
   /// [library]'s card style on home.
   HomeCardStyle? libraryCardStyle(MediaLibrary library) => cardStyleFor(_homeRowKey(library));
 

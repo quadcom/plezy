@@ -1,5 +1,7 @@
 import 'dart:async';
+import '../media/home_layout.dart';
 import '../media/ids.dart';
+import '../media/media_backend.dart';
 
 import '../media/media_hub.dart';
 import '../media/media_item.dart';
@@ -500,6 +502,7 @@ class DataAggregationService {
     bool useGlobalHubs = true,
     bool includePlaybackHubs = true,
     Set<String>? serverIds,
+    Map<String, HomeRowSort> rowSorts = const {},
   }) async {
     final clients = _clientsFor(serverIds);
     if (clients.isEmpty) {
@@ -598,6 +601,7 @@ class DataAggregationService {
             hiddenLibraryKeys: hiddenLibraryKeys,
             includePlaybackHubs: includePlaybackHubs,
             libraries: useGlobalHubs ? serverLibraries : null,
+            rowSorts: rowSorts,
           );
           if (libraryHubs.succeeded || (!libraryHubs.failed && !libraryHubs.cancelled)) {
             legSucceededServerIds.add(serverId);
@@ -650,11 +654,15 @@ class DataAggregationService {
     required bool includePlaybackHubs,
     List<MediaLibrary>? libraries,
     Set<MediaKind> kinds = const {MediaKind.movie, MediaKind.show, MediaKind.clip, MediaKind.artist},
+    Map<String, HomeRowSort> rowSorts = const {},
   }) async {
     final libs = libraries ?? await client.fetchLibraries();
     final visible = libs.where((l) {
       if (!kinds.contains(l.kind)) return false;
-      if (l.hidden) return false;
+      // A caller with its own list decides for Jellyfin and Emby: a library
+      // hidden on its server (folded in PlezyFin) can still have a home row
+      // (Adrian, 2026-10-10). Plex's own hidden flag still counts.
+      if (l.hidden && (hiddenLibraryKeys == null || l.backend == MediaBackend.plex)) return false;
       if (hiddenLibraryKeys != null && hiddenLibraryKeys.contains(l.globalKey)) return false;
       return true;
     }).toList();
@@ -687,6 +695,7 @@ class DataAggregationService {
             includePlaybackHubs: includePlaybackHubs,
             libraryKind: library.kind,
             diagnostics: diagnostics,
+            recentSort: rowSorts[library.globalKey] ?? HomeRowSort.added,
           );
           results[index] = hubs;
           if (hubs.isNotEmpty || (!diagnostics.failed && !diagnostics.cancelled)) succeeded = true;

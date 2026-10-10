@@ -10,6 +10,7 @@ import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/library_filter_result.dart';
 import 'package:plezy/media/library_query.dart';
 import 'package:plezy/media/media_backend.dart';
+import 'package:plezy/media/home_layout.dart';
 import 'package:plezy/media/media_hub.dart';
 import 'package:plezy/media/media_item.dart';
 import 'package:plezy/media/media_kind.dart';
@@ -635,6 +636,7 @@ class _HubClient extends _PagedClient {
     bool includePlaybackHubs = true,
     MediaKind? libraryKind,
     HubFetchDiagnostics? diagnostics,
+    HomeRowSort recentSort = HomeRowSort.added,
   }) async {
     libraryHubCalls++;
     final pending = nextHubs;

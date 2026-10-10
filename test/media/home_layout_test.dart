@@ -138,4 +138,36 @@ void main() {
     expect(home.cards, {'own/tv': HomeCardStyle.season, 'own/movies': HomeCardStyle.poster});
     expect((home.toJson()['cards'] as Map)['own/tv'], 'season');
   });
+
+  test('row sorts read, write and clear back to newest added', () {
+    final home = HomeLayout.fromJson({
+      'sort': {'own/movies': 'released', 'own/tv': 'sideways'},
+    });
+    expect(home.sort, {'own/movies': HomeRowSort.released});
+    final next = home.withSort('own/soon', HomeRowSort.upcoming).withSort('own/movies', HomeRowSort.added);
+    expect(next.toJson()['sort'], {'own/soon': 'upcoming'});
+    expect(next.withSort('own/soon', HomeRowSort.added).toJson().containsKey('sort'), isFalse);
+  });
+
+  test('a library page sort is kept beside the other fields and can be removed', () {
+    final layout = LibraryLayout.fromJson({
+      'v': 1,
+      'rev': 3,
+      'order': ['own/a'],
+      'sort': {
+        'own/b': {'by': 'SortName', 'order': 'Ascending'},
+      },
+    });
+    expect(layout.librarySortOf('own/b'), (by: 'SortName', descending: false));
+    final next = layout.withLibrarySort('own/a', (
+      by: 'DateLastContentAdded,SortName',
+      descending: true,
+    ), now: DateTime(2026, 10, 10));
+    expect(next.rev, 4);
+    expect(next.toJson()['sort'], {
+      'own/b': {'by': 'SortName', 'order': 'Ascending'},
+      'own/a': {'by': 'DateLastContentAdded,SortName', 'order': 'Descending'},
+    });
+    expect(next.withLibrarySort('own/b', null, now: DateTime(2026, 10, 10)).librarySortOf('own/b'), isNull);
+  });
 }

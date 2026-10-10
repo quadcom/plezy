@@ -1316,6 +1316,18 @@ class Translations$settings$en {
 	/// en: 'Screenshot'
 	String get cardScreenshot => 'Screenshot';
 
+	/// en: 'Recently added'
+	String get rowSortAdded => 'Recently added';
+
+	/// en: 'Newest release first'
+	String get rowSortReleased => 'Newest release first';
+
+	/// en: 'Soonest release first'
+	String get rowSortUpcoming => 'Soonest release first';
+
+	/// en: 'Row order'
+	String get rowSortTitle => 'Row order';
+
 	/// en: 'Usual look'
 	String get cardsUsual => 'Usual look';
 
@@ -3101,6 +3113,12 @@ class Translations$discover$en {
 
 	/// en: 'Recently Added in ${library}'
 	String recentlyAddedIn({required Object library}) => 'Recently Added in ${library}';
+
+	/// en: 'New Releases in ${library}'
+	String newReleasesIn({required Object library}) => 'New Releases in ${library}';
+
+	/// en: 'Coming Up in ${library}'
+	String comingUpIn({required Object library}) => 'Coming Up in ${library}';
 
 	/// en: 'Latest Albums in ${library}'
 	String latestAlbumsIn({required Object library}) => 'Latest Albums in ${library}';
@@ -7858,6 +7876,10 @@ extension on Translations {
 			'settings.cardShowPoster' => 'Show poster',
 			'settings.cardSeasonPoster' => 'Season poster',
 			'settings.cardScreenshot' => 'Screenshot',
+			'settings.rowSortAdded' => 'Recently added',
+			'settings.rowSortReleased' => 'Newest release first',
+			'settings.rowSortUpcoming' => 'Soonest release first',
+			'settings.rowSortTitle' => 'Row order',
 			'settings.cardsUsual' => 'Usual look',
 			'settings.cardsPosters' => 'Posters',
 			'settings.cardsScreenGrabs' => 'Screen grabs',
@@ -7955,12 +7977,12 @@ extension on Translations {
 			'fileInfo.rotation' => 'Rotation',
 			'fileInfo.comment' => 'Comment',
 			'fileInfo.audioDescription' => 'Audio Description',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.headerCompression' => 'Header Compression',
 			'fileInfo.sidecarFile' => 'Sidecar File',
 			'fileInfo.transportTimestamp' => 'Transport Timestamp',
 			'fileInfo.displayOffset' => 'Display Offset',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.previewFailureCode' => 'Preview Failure Code',
 			'fileInfo.previewRetries' => 'Preview Retries',
 			'fileInfo.aspectRatio' => 'Aspect Ratio',
@@ -8457,6 +8479,8 @@ extension on Translations {
 			'discover.nextUpIn' => ({required Object library}) => 'Next Up in ${library}',
 			'discover.recentlyAdded' => 'Recently Added',
 			'discover.recentlyAddedIn' => ({required Object library}) => 'Recently Added in ${library}',
+			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
+			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
 			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
 			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
@@ -8467,14 +8491,14 @@ extension on Translations {
 			'discover.studio' => 'Studio',
 			'discover.rating' => 'Rating',
 			'discover.director' => 'Director',
+			_ => null,
+		} ?? switch (path) {
 			'discover.directors' => 'Directors',
 			'discover.movie' => 'Movie',
 			'discover.tvShow' => 'TV Show',
 			'discover.minutesLeft' => ({required Object minutes}) => '${minutes} min left',
 			'discover.moreLikeThis' => 'More Like This',
 			'discover.titleCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} title', other: '${n} titles', ), 
-			_ => null,
-		} ?? switch (path) {
 			'errors.searchFailed' => ({required Object error}) => 'Search failed: ${error}',
 			'errors.searchUnavailable' => 'Search could not reach any media server.',
 			'errors.connectionTimeout' => ({required Object context}) => 'Connection timeout while loading ${context}',
@@ -8981,14 +9005,14 @@ extension on Translations {
 			'watchTogether.description' => 'Watch content in sync with friends and family',
 			'watchTogether.createSession' => 'Create Session',
 			'watchTogether.creating' => 'Creating...',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.joinSession' => 'Join Session',
 			'watchTogether.joining' => 'Joining...',
 			'watchTogether.controlMode' => 'Control Mode',
 			'watchTogether.controlModeQuestion' => 'Who can control playback?',
 			'watchTogether.hostOnly' => 'Host Only',
 			'watchTogether.anyone' => 'Anyone',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.hostingSession' => 'Hosting Session',
 			'watchTogether.inSession' => 'In Session',
 			'watchTogether.sessionCode' => 'Session Code',
@@ -9495,14 +9519,14 @@ extension on Translations {
 			'services.integrations' => 'Integrations',
 			'services.notConnected' => 'Not connected',
 			'services.connectedAs' => ({required Object username}) => 'Connected as @${username}',
+			_ => null,
+		} ?? switch (path) {
 			'services.scrobble' => 'Track progress automatically',
 			'services.scrobbleDescription' => 'Update your list when you finish an episode or movie.',
 			'services.disconnectConfirm' => ({required Object service}) => 'Disconnect ${service}?',
 			'services.disconnectConfirmBody' => ({required Object service}) => 'Plezy will stop updating ${service}. Reconnect any time.',
 			'services.connectFailed' => ({required Object service}) => 'Couldn\'t connect to ${service}. Try again.',
 			'services.names.mal' => 'MyAnimeList',
-			_ => null,
-		} ?? switch (path) {
 			'services.names.anilist' => 'AniList',
 			'services.names.simkl' => 'Simkl',
 			'services.names.seerr' => 'Seerr',

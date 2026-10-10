@@ -24,6 +24,32 @@ enum HomeCardStyle {
   }
 }
 
+/// How a library's home row orders its items (PlezyFin PLAN_SHA_12, Adrian
+/// 2026-10-10): `home.sort` per library row key. Continue Watching and Next
+/// Up keep the server's own order and have none.
+enum HomeRowSort {
+  /// Newest added first: "Recently Added in X".
+  added('added'),
+
+  /// Newest release (PremiereDate) first: "New Releases in X".
+  released('released'),
+
+  /// Soonest release first: "Coming Up in X".
+  upcoming('upcoming');
+
+  const HomeRowSort(this.wire);
+
+  /// The value the layout record stores.
+  final String wire;
+
+  static HomeRowSort? fromWire(Object? value) {
+    for (final sort in values) {
+      if (sort.wire == value) return sort;
+    }
+    return null;
+  }
+}
+
 /// The home page's own row order and switches, apart from the menu (Adrian,
 /// 2026-10-10; PlezyFin PLAN_SHA_13, plan `local/plans/home-rows-apart.md`):
 /// `home.rows: {order, off}`, both lists of layout keys.
@@ -137,6 +163,9 @@ class HomeLayout {
   /// entries, in menu order). With an account only; `off` keeps the banner.
   final HomeRows? rows;
 
+  /// Item order per library row key; a missing row is [HomeRowSort.added].
+  final Map<String, HomeRowSort> sort;
+
   /// Keys of the `home` object this version does not know, kept on write.
   final Map<String, dynamic> extra;
 
@@ -145,12 +174,13 @@ class HomeLayout {
     this.off = const [],
     this.cards = const {},
     this.rows,
+    this.sort = const {},
     this.extra = const {},
   });
 
   static const standard = HomeLayout();
 
-  static const _knownKeys = {'order', 'off', 'cards', 'rows'};
+  static const _knownKeys = {'order', 'off', 'cards', 'rows', 'sort'};
 
   /// Read a `home` object, skipping anything malformed rather than failing.
   factory HomeLayout.fromJson(Map<String, dynamic> json) {
@@ -160,6 +190,7 @@ class HomeLayout {
           if (value is String && value.isNotEmpty) value,
     ];
     final rawCards = json['cards'];
+    final rawSort = json['sort'];
     return HomeLayout(
       order: strings(json['order']),
       off: strings(json['off']),
@@ -170,6 +201,12 @@ class HomeLayout {
               entry.key as String: HomeCardStyle.fromWire(entry.value)!,
       },
       rows: HomeRows.tryFrom(json['rows']),
+      sort: {
+        if (rawSort is Map)
+          for (final entry in rawSort.entries)
+            if (entry.key is String && HomeRowSort.fromWire(entry.value) != null)
+              entry.key as String: HomeRowSort.fromWire(entry.value)!,
+      },
       extra: {
         for (final entry in json.entries)
           if (!_knownKeys.contains(entry.key)) entry.key: entry.value,
@@ -186,6 +223,7 @@ class HomeLayout {
     'off': off,
     if (cards.isNotEmpty) 'cards': {for (final entry in cards.entries) entry.key: entry.value.wire},
     if (rows != null) 'rows': rows!.toJson(),
+    if (sort.isNotEmpty) 'sort': {for (final entry in sort.entries) entry.key: entry.value.wire},
   };
 
   /// The known sections in display order: those [order] names first, then any
@@ -217,7 +255,7 @@ class HomeLayout {
       }
     }
     next.addAll(queue.where((id) => !next.contains(id)));
-    return HomeLayout(order: next, off: off, cards: cards, rows: rows, extra: extra);
+    return HomeLayout(order: next, off: off, cards: cards, rows: rows, sort: sort, extra: extra);
   }
 
   HomeLayout withSection(String id, {required bool on}) => HomeLayout(
@@ -230,6 +268,7 @@ class HomeLayout {
         : [...off.where((o) => o != id), id],
     cards: cards,
     rows: rows,
+    sort: sort,
     extra: extra,
   );
 
@@ -243,11 +282,27 @@ class HomeLayout {
       row: ?style,
     },
     rows: rows,
+    sort: sort,
+    extra: extra,
+  );
+
+  /// This layout with [row]'s item order set; [HomeRowSort.added] clears it.
+  HomeLayout withSort(String row, HomeRowSort value) => HomeLayout(
+    order: order,
+    off: off,
+    cards: cards,
+    rows: rows,
+    sort: {
+      for (final entry in sort.entries)
+        if (entry.key != row) entry.key: entry.value,
+      if (value != HomeRowSort.added) row: value,
+    },
     extra: extra,
   );
 
   /// This layout with the home rows replaced.
-  HomeLayout withRows(HomeRows rows) => HomeLayout(order: order, off: off, cards: cards, rows: rows, extra: extra);
+  HomeLayout withRows(HomeRows rows) =>
+      HomeLayout(order: order, off: off, cards: cards, rows: rows, sort: sort, extra: extra);
 
   @override
   bool operator ==(Object other) =>
@@ -255,7 +310,9 @@ class HomeLayout {
       _listEquals(order, other.order) &&
       _listEquals(off, other.off) &&
       _mapEquals(cards, other.cards) &&
-      rows == other.rows;
+      rows == other.rows &&
+      sort.length == other.sort.length &&
+      sort.entries.every((entry) => other.sort[entry.key] == entry.value);
 
   @override
   int get hashCode => Object.hash(
@@ -263,6 +320,7 @@ class HomeLayout {
     Object.hashAll(off),
     Object.hashAll(cards.entries.map((e) => '${e.key}=${e.value.wire}')),
     rows,
+    Object.hashAll(sort.entries.map((e) => '${e.key}=${e.value.wire}')),
   );
 }
 

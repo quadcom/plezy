@@ -161,12 +161,13 @@ class HomeSectionsScreen extends StatelessWidget {
     for (final row in layout.homeRowsInForce ?? const <({String key, bool on})>[]) {
       final library = byKey[row.key];
       final style = layout.cardStyleFor(row.key) ?? HomeCardStyle.poster;
+      final sort = layout.rowSortFor(row.key);
       if (row.key == resume) {
         result.add(_HomeRow(key: row.key, on: row.on, style: style, section: HomeLayout.resume));
       } else if (row.key == nextUp) {
         result.add(_HomeRow(key: row.key, on: row.on, style: style, section: HomeLayout.nextUp));
       } else if (library != null) {
-        result.add(_HomeRow(key: row.key, on: row.on, style: style, library: library));
+        result.add(_HomeRow(key: row.key, on: row.on, style: style, sort: sort, library: library));
       }
     }
     return result;
@@ -246,10 +247,23 @@ class _HomeRow {
   final String key;
   final bool on;
   final HomeCardStyle style;
+
+  /// The library row's item order; Continue Watching and Next Up keep the
+  /// server's.
+  final HomeRowSort sort;
   final String? section;
   final MediaLibrary? library;
 
-  const _HomeRow({required this.key, required this.on, required this.style, this.section, this.library});
+  const _HomeRow({
+    required this.key,
+    required this.on,
+    required this.style,
+    this.sort = HomeRowSort.added,
+    this.section,
+    this.library,
+  });
+
+  _HomeRow withOn(bool on) => _HomeRow(key: key, on: on, style: style, sort: sort, section: section, library: library);
 
   String get title => library?.title ?? _sectionTitle(section!);
 
@@ -329,12 +343,11 @@ class _HomeRowsEditorState extends State<_HomeRowsEditor> {
     _saveRows(rows);
   }
 
-  void _setOn(_HomeRow row, bool on) => _saveRows([
-    for (final r in _rows)
-      r.key == row.key ? _HomeRow(key: r.key, on: on, style: r.style, section: r.section, library: r.library) : r,
-  ]);
+  void _setOn(_HomeRow row, bool on) => _saveRows([for (final r in _rows) r.key == row.key ? r.withOn(on) : r]);
 
   void _setStyle(_HomeRow row, HomeCardStyle style) => _save(context, () => _layout.setCardStyle(row.key, style));
+
+  void _setSort(_HomeRow row, HomeRowSort sort) => _save(context, () => _layout.setRowSort(row.key, sort));
 
   KeyEventResult _onHandleKey(_HomeRow row, KeyEvent event) {
     if (_moving != row.key) return KeyEventResult.ignored;
@@ -400,6 +413,7 @@ class _HomeRowsEditorState extends State<_HomeRowsEditor> {
                 onHandleKey: (event) => _onHandleKey(row, event),
                 onOn: (on) => _setOn(row, on),
                 onStyle: (style) => _setStyle(row, style),
+                onSort: (sort) => _setSort(row, sort),
               ),
             ),
           );
@@ -418,6 +432,7 @@ class _HomeRowTile extends StatelessWidget {
   final KeyEventResult Function(KeyEvent event) onHandleKey;
   final ValueChanged<bool> onOn;
   final ValueChanged<HomeCardStyle> onStyle;
+  final ValueChanged<HomeRowSort> onSort;
 
   const _HomeRowTile({
     required this.row,
@@ -428,6 +443,7 @@ class _HomeRowTile extends StatelessWidget {
     required this.onHandleKey,
     required this.onOn,
     required this.onStyle,
+    required this.onSort,
   });
 
   @override
@@ -461,7 +477,17 @@ class _HomeRowTile extends StatelessWidget {
         ],
       ),
     );
-    final choice = _CardChoice(row: row, onStyle: onStyle);
+    // Library rows pick their item order, before the card choice; Continue
+    // Watching and Next Up keep the server's (PlezyFin PLAN_SHA_12).
+    final choice = Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        if (row.library != null) _SortChoice(row: row, onSort: onSort),
+        _CardChoice(row: row, onStyle: onStyle),
+      ],
+    );
     final toggle = Switch(value: row.on, onChanged: onOn);
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -500,6 +526,55 @@ class _HomeRowTile extends StatelessWidget {
                 ),
         );
       },
+    );
+  }
+}
+
+String _rowSortLabel(HomeRowSort sort) => switch (sort) {
+  HomeRowSort.added => t.settings.rowSortAdded,
+  HomeRowSort.released => t.settings.rowSortReleased,
+  HomeRowSort.upcoming => t.settings.rowSortUpcoming,
+};
+
+/// A library row's item order: a small pill naming the current order that
+/// opens the three choices, which works the same with a pointer and a remote.
+class _SortChoice extends StatelessWidget {
+  final _HomeRow row;
+  final ValueChanged<HomeRowSort> onSort;
+
+  const _SortChoice({required this.row, required this.onSort});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(MonoTokens.radiusFull),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        focusColor: colorScheme.onSurface.withValues(alpha: 0.2),
+        onTap: () async {
+          final picked = await showSelectionDialog<HomeRowSort>(
+            context: context,
+            title: t.settings.rowSortTitle,
+            options: [for (final sort in HomeRowSort.values) DialogOption(value: sort, title: _rowSortLabel(sort))],
+            currentValue: row.sort,
+          );
+          final sort = picked?.value;
+          if (sort != null && sort != row.sort) onSort(sort);
+        },
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 6, 8, 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(_rowSortLabel(row.sort), style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(width: 2),
+              const AppIcon(Symbols.arrow_drop_down_rounded, size: 18),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

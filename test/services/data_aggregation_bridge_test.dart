@@ -10,6 +10,7 @@ import 'package:plezy/connection/connection.dart';
 import 'package:plezy/database/app_database.dart';
 import 'package:plezy/exceptions/media_server_exceptions.dart';
 import 'package:plezy/media/media_backend.dart';
+import 'package:plezy/media/home_layout.dart';
 import 'package:plezy/media/media_kind.dart';
 import 'package:plezy/media/media_library.dart';
 import 'package:plezy/media/media_hub.dart';
@@ -131,6 +132,7 @@ class _GatedHubsClient implements MediaServerClient {
     bool includePlaybackHubs = true,
     MediaKind? libraryKind,
     HubFetchDiagnostics? diagnostics,
+    HomeRowSort recentSort = HomeRowSort.added,
   }) {
     started.add(libraryId);
     return (_gates[libraryId] = Completer<List<MediaHub>>()).future;

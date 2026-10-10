@@ -238,6 +238,9 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   bool _continueWatchingRefreshQueued = false;
 
   Set<String> _lastSeenHiddenKeys = {};
+
+  /// The home row orders the last full load asked for, by library global key.
+  Map<String, HomeRowSort> _lastSeenRowSorts = const {};
   List<String> _lastSeenLibraryOrderKeys = const [];
 
   /// Online servers whose Continue Watching legs succeeded without a failure
@@ -320,7 +323,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   int _titledRevision = -1;
   int _titlesRevision = 0;
 
-  static final _libraryRowId = RegExp(r'^library\.(.+)\.(recent|latestalbums)$');
+  static final _libraryRowId = RegExp(r'^library\.(.+)\.(recent|released|upcoming|latestalbums)$');
 
   MediaHub _withRowTitle(MediaHub hub) {
     final serverId = hub.serverId;
@@ -575,6 +578,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
         hiddenLibraryKeys: _hiddenLibraries.homeHiddenLibraryKeys,
         useGlobalHubs: useGlobalHubs,
         includePlaybackHubs: false,
+        rowSorts: _lastSeenRowSorts = _hiddenLibraries.libraryRowSorts,
       );
 
       // A pass in which zero servers succeeded is never authoritative: it
@@ -762,6 +766,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
               useGlobalHubs: useGlobalHubs,
               includePlaybackHubs: false,
               serverIds: hubIds,
+              rowSorts: _hiddenLibraries.libraryRowSorts,
             );
 
       final freshOnDeck = await onDeckFuture;
@@ -1135,10 +1140,14 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     ++_titlesRevision;
     safeNotifyListeners();
     final currentKeys = _hiddenLibraries.homeHiddenLibraryKeys;
-    if (currentKeys.length == _lastSeenHiddenKeys.length && currentKeys.containsAll(_lastSeenHiddenKeys)) {
+    final currentSorts = _hiddenLibraries.libraryRowSorts;
+    if (currentKeys.length == _lastSeenHiddenKeys.length &&
+        currentKeys.containsAll(_lastSeenHiddenKeys) &&
+        mapEquals(currentSorts, _lastSeenRowSorts)) {
       return;
     }
     _lastSeenHiddenKeys = Set.of(currentKeys);
+    _lastSeenRowSorts = currentSorts;
     unawaited(load());
   }
 

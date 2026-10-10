@@ -10,6 +10,7 @@ import '../../../media/library_query.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
 import '../../../media/media_library.dart';
+import '../../../providers/hidden_libraries_provider.dart';
 import '../../../providers/multi_server_provider.dart';
 import '../../../utils/media_server_http_client.dart';
 import '../../../focus/dpad_navigator.dart';
@@ -603,6 +604,9 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     // flow through [MediaServerClient.fetchLibraryFiltersWithValues].
     try {
       final client = context.getMediaClientForLibrary(library);
+      // A PlezyFin library's sort comes from the account first, so the web
+      // and every device agree (PLAN_SHA_12).
+      final accountSort = context.read<HiddenLibrariesProvider?>()?.accountLibrarySort(library);
       final storage = await StorageService.getInstance();
       if (!isCurrentLibraryLoad(generation, libraryGlobalKey)) return;
 
@@ -648,8 +652,17 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
         _selectedFilters = savedFilters;
         _selectedGrouping = restoredGrouping;
 
-        // Restore sort
-        if (savedSort != null) {
+        // Restore sort: the account's when this app offers it, else the
+        // device's.
+        final accountMatch = accountSort == null
+            ? null
+            : loaded.sorts
+                  .where((s) => JellyfinLibraryQueryTranslator.jellyfinSortBy(s.key, library.kind) == accountSort.by)
+                  .firstOrNull;
+        if (accountMatch != null) {
+          _selectedSort = accountMatch;
+          _isSortDescending = accountSort!.descending;
+        } else if (savedSort != null) {
           final sortKey = savedSort['key'] as String?;
           if (sortKey != null) {
             final sort = loaded.sorts.where((s) => s.key == sortKey).firstOrNull;
@@ -1323,6 +1336,7 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       StorageService.getInstance().then((storage) {
         storage.clearLibrarySort(widget.library.globalKey);
       });
+      _saveAccountSort(null);
     } else if (sort != null && (sort.key != _selectedSort?.key || descending != _isSortDescending)) {
       setState(() {
         _selectedSort = sort;
@@ -1331,9 +1345,25 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       StorageService.getInstance().then((storage) {
         storage.saveLibrarySort(widget.library.globalKey, sort.key, descending: descending);
       });
+      _saveAccountSort((
+        by: JellyfinLibraryQueryTranslator.jellyfinSortBy(sort.key, widget.library.kind),
+        descending: descending,
+      ));
       _loadItems();
       _loadFirstCharacters();
     }
+  }
+
+  /// Keep the person's pick with the PlezyFin account too; the device copy
+  /// stays, so a failed save only costs the other devices.
+  void _saveAccountSort(({String by, bool descending})? sort) {
+    final layout = context.read<HiddenLibrariesProvider?>();
+    if (layout == null) return;
+    unawaited(
+      layout.saveAccountLibrarySort(widget.library, sort).catchError((Object e, StackTrace st) {
+        appLogger.w('Library sort: could not save it with the account', error: e, stackTrace: st);
+      }),
+    );
   }
 
   /// Navigate focus from chips down to the grid item.

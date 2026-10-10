@@ -336,4 +336,44 @@ void main() {
       expect(home['order'], HomeLayout.builtInOrder);
     });
   });
+
+  group('row and page sorts (PLAN_SHA_12)', () {
+    test("row sorts follow the account, then the default, then newest added", () async {
+      final server = _FakePlezyFin(
+        defaultHome: {
+          'sort': {'$_own/master': 'upcoming'},
+        },
+      );
+      final provider = await connect(server);
+
+      expect(provider.rowSortFor('$_own/movies'), HomeRowSort.added);
+      expect(provider.rowSortFor('$_own/master'), HomeRowSort.upcoming);
+      expect(provider.libraryRowSorts, {_master.globalKey: HomeRowSort.upcoming});
+
+      await provider.setRowSort('$_own/movies', HomeRowSort.released);
+      final home = server.stored['home'] as Map<String, dynamic>;
+      expect(home['sort'], {'$_own/movies': 'released'});
+      expect(provider.libraryRowSorts, {
+        _movies.globalKey: HomeRowSort.released,
+        _master.globalKey: HomeRowSort.upcoming,
+      });
+    });
+
+    test("a PlezyFin library's page sort is saved with the account; a Plex one is not", () async {
+      final server = _FakePlezyFin();
+      final provider = await connect(server);
+
+      expect(provider.accountLibrarySort(_movies), isNull);
+      await provider.saveAccountLibrarySort(_movies, (by: 'PremiereDate', descending: true));
+      expect(server.stored['sort'], {
+        '$_own/movies': {'by': 'PremiereDate', 'order': 'Descending'},
+      });
+      expect(provider.accountLibrarySort(_movies), (by: 'PremiereDate', descending: true));
+
+      const plex = MediaLibrary(id: '1', backend: MediaBackend.plex, title: 'Plex Films', serverId: 'plexbox');
+      expect(provider.accountLibrarySort(plex), isNull);
+      await provider.saveAccountLibrarySort(plex, (by: 'titleSort', descending: false));
+      expect((server.stored['sort'] as Map).keys, ['$_own/movies']);
+    });
+  });
 }

@@ -16,6 +16,7 @@ import 'library_query.dart';
 import 'live_tv_support.dart';
 import 'lyrics.dart';
 import 'media_backend.dart';
+import 'home_layout.dart';
 import 'media_file_info.dart';
 import 'media_hub.dart';
 import '../services/scrub_preview_source.dart';
@@ -370,6 +371,8 @@ abstract class MediaServerClient {
   /// Watching skip duplicate playback rows. [libraryKind] lets backends avoid
   /// irrelevant expensive probes, e.g. Jellyfin `NextUp` for movie libraries.
   /// [diagnostics] carries degraded legs as in [fetchGlobalHubs].
+  /// [recentSort] orders the library's own row by release date instead of
+  /// date added (PlezyFin PLAN_SHA_12); backends that cannot ignore it.
   Future<List<MediaHub>> fetchLibraryHubs(
     String libraryId, {
     required String libraryName,
@@ -377,6 +380,7 @@ abstract class MediaServerClient {
     bool includePlaybackHubs = true,
     MediaKind? libraryKind,
     HubFetchDiagnostics? diagnostics,
+    HomeRowSort recentSort = HomeRowSort.added,
   });
 
   /// Recommendations for [id]. Plex returns every row of

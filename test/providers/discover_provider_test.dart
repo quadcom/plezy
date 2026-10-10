@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/home_layout.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/media_backend.dart';
 import 'package:plezy/media/media_hub.dart';
@@ -114,6 +115,7 @@ class _FakeAggregationService extends DataAggregationService {
     bool useGlobalHubs = true,
     bool includePlaybackHubs = true,
     Set<String>? serverIds,
+    Map<String, HomeRowSort> rowSorts = const {},
   }) async {
     hubCalls++;
     lastHubsServerIds = serverIds;

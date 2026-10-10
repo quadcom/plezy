@@ -283,6 +283,10 @@ class JellyfinLibraryQueryTranslator implements LibraryQueryTranslator {
     };
   }
 
+  /// The Jellyfin `SortBy` value Plezy sends for the neutral sort [neutral],
+  /// as the PlezyFin account record stores a library page's sort (PLAN_SHA_12).
+  static String jellyfinSortBy(String neutral, MediaKind? kind) => _sortFieldFor(neutral, kind);
+
   static String _sortFieldFor(String neutral, MediaKind? kind) {
     return switch (neutral) {
       'addedAt' => 'DateCreated',

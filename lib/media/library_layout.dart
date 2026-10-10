@@ -342,6 +342,38 @@ class LibraryLayout {
     );
   }
 
+  /// [key]'s library page sort from the record's top-level `sort` (PlezyFin
+  /// PLAN_SHA_12): Jellyfin's own `SortBy` string, compared whole, and the
+  /// direction. Null when the record has none. Kept as the raw field, so
+  /// another client's entries survive unchanged.
+  ({String by, bool descending})? librarySortOf(String key) {
+    final raw = extra['sort'];
+    if (raw is! Map) return null;
+    final entry = raw[key];
+    if (entry is! Map) return null;
+    final by = entry['by'];
+    if (by is! String || by.isEmpty) return null;
+    return (by: by, descending: entry['order'] == 'Descending');
+  }
+
+  /// The next record with [key]'s library page sort set, or removed when
+  /// [sort] is null, and everything else kept.
+  LibraryLayout withLibrarySort(String key, ({String by, bool descending})? sort, {required DateTime now}) {
+    final raw = extra['sort'];
+    final sorts = <String, dynamic>{if (raw is Map) ...raw.cast<String, dynamic>()}..remove(key);
+    if (sort != null) sorts[key] = {'by': sort.by, 'order': sort.descending ? 'Descending' : 'Ascending'};
+    return LibraryLayout(
+      rev: rev + 1,
+      updated: now.toUtc().toIso8601String(),
+      order: order,
+      state: state,
+      known: known,
+      titles: titles,
+      home: home,
+      extra: {...extra, 'sort': sorts},
+    );
+  }
+
   /// The home row title for [key]: this record's, else [defaults]', else null
   /// for "Recently Added in `<library name>`".
   String? titleFor(String key, {LibraryLayout? defaults}) => titles[key] ?? defaults?.titles[key];
