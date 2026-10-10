@@ -198,10 +198,11 @@ class DisplayModeSelectorTest {
 
   @Test
   fun resolutionMatchingRanksMultiplesTheSameWay() {
+    val uhd120 = ModeInfo(36, 3840, 2160, 120f)
     val selection = select(
       23.976f,
       current = tv60,
-      modes = listOf(tv60, tv48, tv120, uhd60, uhd50),
+      modes = listOf(tv60, tv48, tv120, uhd60, uhd50, uhd120),
       videoWidth = 1920,
       videoHeight = 1080,
       matchResolution = true
@@ -216,6 +217,29 @@ class DisplayModeSelectorTest {
       matchResolution = true
     )
     assertEquals(tv120, stay?.mode)
+  }
+
+  @Test
+  fun resolutionMatchingSkipsRatesTheLargestResolutionCannotUpscaleTo() {
+    // A SHIELD feeding a receiver and a 4K/60 projector: 1080p offers 120 Hz
+    // but 4K stops at 60, so 1080p at 120 Hz would pass through unscaled.
+    // 29.97 fps takes 59.94 (2x) instead of 120 (4x).
+    val uhd2997 = ModeInfo(40, 3840, 2160, 29.97f)
+    val fhd5994 = ModeInfo(43, 1920, 1080, 59.94f)
+    val shield = listOf(uhd60, uhd24, uhd2997, fhd60, fhd5994, fhd24, tv120)
+    val selection = select(29.97f, current = uhd60, modes = shield, videoWidth = 1920, videoHeight = 1080, matchResolution = true)
+    assertEquals(fhd5994, selection?.mode)
+    // 4K video is already at the largest resolution: nothing to upscale.
+    val native = select(29.97f, current = uhd60, modes = shield, videoWidth = 3840, videoHeight = 2160, matchResolution = true)
+    assertEquals(uhd2997, native?.mode)
+  }
+
+  @Test
+  fun resolutionMatchingKeepsAHighRateWhenNothingElseFits() {
+    // Only 120 Hz at the target resolution: still better than leaving the
+    // resolution, which the resolution path never does.
+    val selection = select(23.976f, current = uhd60, modes = listOf(uhd60, tv120), videoWidth = 1920, videoHeight = 1080, matchResolution = true)
+    assertEquals(tv120, selection?.mode)
   }
 
   @Test

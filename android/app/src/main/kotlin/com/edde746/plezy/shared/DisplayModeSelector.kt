@@ -195,7 +195,19 @@ object DisplayModeSelector {
     // Native target: the smallest resolution that still contains the video,
     // so the display (not the device) performs the upscale.
     val targetArea = candidates.minOf { it.area }
-    val bucket = candidates.filter { it.area == targetArea }
+    var bucket = candidates.filter { it.area == targetArea }
+
+    // Below the largest resolution, whatever does the upscale (the TV, or a
+    // receiver or projector further down the HDMI chain) has to output the
+    // largest resolution at the same rate. A rate that resolution never runs
+    // at cannot be upscaled, so the chain passes the small picture through
+    // unscaled: 1080p at 120 Hz from a box whose 4K stops at 60 Hz. Keep the
+    // target to rates the largest resolution offers, when any are left.
+    val largestArea = supportedModes.maxOf { it.area }
+    if (targetArea < largestArea) {
+      val upscalableRate = supportedModes.filter { it.area == largestArea }.maxOf { it.refreshRate } + RATE_TOLERANCE
+      bucket.filter { it.refreshRate <= upscalableRate }.takeIf { it.isNotEmpty() }?.let { bucket = it }
+    }
 
     // Rate-match within the target resolution when requested. Resolution
     // wins over cadence: a missing rate match here deliberately does not
