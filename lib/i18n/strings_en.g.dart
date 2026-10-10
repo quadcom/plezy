@@ -2023,6 +2023,9 @@ class Translations$accessibility$en {
 	/// en: 'Tap to play'
 	String get tapToPlay => 'Tap to play';
 
+	/// en: 'Tap to open details'
+	String get tapToOpenDetails => 'Tap to open details';
+
 	/// en: 'Decrease'
 	String get decrease => 'Decrease';
 
@@ -8135,6 +8138,7 @@ extension on Translations {
 			'accessibility.mediaCardPartiallyWatched' => ({required Object percent}) => '${percent} percent watched',
 			'accessibility.mediaCardUnwatched' => 'unwatched',
 			'accessibility.tapToPlay' => 'Tap to play',
+			'accessibility.tapToOpenDetails' => 'Tap to open details',
 			'accessibility.decrease' => 'Decrease',
 			'accessibility.increase' => 'Increase',
 			'accessibility.decreaseValue' => ({required Object label}) => 'Decrease ${label}',
@@ -8508,9 +8512,9 @@ extension on Translations {
 			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
 			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
-			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			_ => null,
 		} ?? switch (path) {
+			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => 'Overview',
 			'discover.cast' => 'Cast',
 			'discover.extras' => 'Trailers & Extras',
@@ -9022,9 +9026,9 @@ extension on Translations {
 			'music.instantMixFailed' => 'Failed to load the instant mix',
 			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
 			'music.noAudioUrl' => ({required Object track}) => 'No audio URL is available for ${track}',
-			'music.discography.singlesAndEps' => 'Singles & EPs',
 			_ => null,
 		} ?? switch (path) {
+			'music.discography.singlesAndEps' => 'Singles & EPs',
 			'music.discography.live' => 'Live',
 			'music.discography.compilations' => 'Compilations',
 			'watchTogether.title' => 'Watch Together',
@@ -9536,9 +9540,9 @@ extension on Translations {
 			'seerr.freshCookieRejected' => 'Seerr rejected the new session cookie',
 			'seerr.noUserInformation' => 'Seerr did not return user information',
 			'seerr.sessionRejectedAfterReauth' => 'The session was rejected after signing in again',
-			'seerr.permissionDenied' => 'Seerr denied this action: your account no longer has the required permission',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.permissionDenied' => 'Seerr denied this action: your account no longer has the required permission',
 			'seerr.permissionRevoked' => 'You no longer have permission to request this',
 			'services.title' => 'Services',
 			'services.hubSubtitle' => 'Sync watch progress and request new titles.',

@@ -1653,14 +1653,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     );
   }
 
-  /// Play a banner slide: an upcoming one plays its trailer, the rest play
-  /// the item itself (resuming a half-watched one).
+  /// Tapping a banner slide: a PlezyFin slide opens the item's details page,
+  /// a new episode its own page, as on the web; only its button plays
+  /// (Adrian, 2026-10-10). A Continue Watching slide plays, as it always did.
   void _activateSlide(BannerSlide slide) {
-    if (slide.isUpcoming) {
-      unawaited(_playTrailer(slide));
-    } else {
-      navigateToMediaItem(context, slide.item, playDirectly: true);
-    }
+    navigateToMediaItem(context, slide.item, playDirectly: slide.kind == BannerKind.onDeck);
   }
 
   /// A Coming Soon film's own video is its trailer; a New Shows series'
@@ -1870,7 +1867,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     return Semantics(
       label: item.isEpisode ? '${item.grandparentTitle}, ${item.title}' : item.title,
       button: true,
-      hint: t.accessibility.tapToPlay,
+      hint: t.accessibility.tapToOpenDetails,
       child: ClickableCursor(
         child: GestureDetector(
           onTap: () => _activateSlide(slide),
