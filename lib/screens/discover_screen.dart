@@ -1795,7 +1795,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       final logoWidth = 480 * scale;
       final logoHeight = 130 * scale;
       final textBlock = ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 1050 * scale),
+        constraints: BoxConstraints(maxWidth: 900 * scale),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1865,8 +1865,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final gap = 80 * scale;
-                final textWidth = math.max(0.0, math.min(1050 * scale, constraints.maxWidth - gap - posterWidth));
+                // Closer together, as on the web: text 900, gap 3.5% of the
+                // width within 32..64 (Adrian, 2026-10-10).
+                final gap = (screenWidth * 0.035).clamp(32.0, 64.0);
+                final textWidth = math.max(0.0, math.min(900 * scale, constraints.maxWidth - gap - posterWidth));
                 return Center(
                   child: SizedBox(
                     height: posterWidth * 1.5,
