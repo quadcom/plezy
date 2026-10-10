@@ -1699,7 +1699,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     // The look was set at 1920x1080; smaller windows scale it down.
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final scale = math.min(screenWidth / 1920, viewportHeight / 1080).clamp(0.55, 1.0);
-    final bottom = 80.0 * scale;
+    final topClear = kToolbarHeight + MediaQuery.paddingOf(context).top;
     // A new episode raises only its text, never the poster.
     final textLift = slide.kind == BannerKind.newEpisode ? 60.0 * scale : 0.0;
     // The same poster on every slide, kept clear of the top bar: 2:3, at most
@@ -1848,34 +1848,49 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           ],
         ),
       );
+      // Text and poster as one group, centred in the banner between the top
+      // bar and the dots, so a wide or short window stays balanced instead of
+      // pinned to a corner (Adrian, 2026-10-10). The group is as tall as the
+      // poster, which keeps its place on every slide; the text sits on the
+      // poster's bottom line and grows upward.
       foreground = Positioned(
+        top: topClear,
         left: 0,
         right: 0,
-        bottom: bottom,
+        bottom: 40,
         child: SafeArea(
           top: false,
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
-            // The text keeps its full width even when short, so the poster
-            // sits in the same place on every slide.
             child: LayoutBuilder(
               builder: (context, constraints) {
                 final gap = 80 * scale;
                 final textWidth = math.max(0.0, math.min(1050 * scale, constraints.maxWidth - gap - posterWidth));
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    SizedBox(
-                      width: textWidth,
-                      child: Padding(
-                        padding: EdgeInsets.only(bottom: textLift),
-                        child: Align(alignment: Alignment.bottomLeft, child: textBlock),
-                      ),
+                return Center(
+                  child: SizedBox(
+                    height: posterWidth * 1.5,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        SizedBox(
+                          width: textWidth,
+                          child: OverflowBox(
+                            alignment: Alignment.bottomLeft,
+                            minHeight: 0,
+                            maxHeight: double.infinity,
+                            child: Padding(
+                              padding: EdgeInsets.only(bottom: textLift),
+                              child: textBlock,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: gap),
+                        poster,
+                      ],
                     ),
-                    SizedBox(width: gap),
-                    poster,
-                  ],
+                  ),
                 );
               },
             ),
