@@ -124,6 +124,22 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     return Set.unmodifiable(isAccountLayout ? loaded : {...loaded, ..._folded, ..._off, ..._serverHidden});
   }
 
+  /// Libraries with no home rows: with an account, the Not shown ones and
+  /// those whose home row is off (a folded library can keep its row, Adrian
+  /// 2026-10-10); without one, the same as [hiddenLibraryKeys].
+  Set<String> get homeHiddenLibraryKeys {
+    final rows = homeRowsInForce;
+    if (rows == null) return hiddenLibraryKeys;
+    final on = {
+      for (final row in rows)
+        if (row.on) row.key,
+    };
+    return Set.unmodifiable({
+      for (final library in _libraries)
+        if (!on.contains(libraryLayoutKey(library))) library.globalKey,
+    });
+  }
+
   /// Libraries in the Hidden libraries fold.
   Set<String> get foldedLibraryKeys => Set.unmodifiable(_keysIn(const {LibraryState.folded}));
 
@@ -211,12 +227,100 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     return result;
   }
 
-  /// Account mode: where [key] sits in the account's order, for placing home
-  /// rows; null without an account or for a key the account does not manage.
-  int? homeRank(String key) {
+  /// The home rows' own order and switches: the record's, else the admin
+  /// default's (per field, PlezyFin 2026-10-10); null keeps the old rule.
+  HomeRows? get _rowsInForce => _layout?.home?.rows ?? _defaults?.home?.rows;
+
+  List<({String key, bool on})>? _homeRowsCache;
+  Object? _homeRowsCacheKey;
+
+  /// With an account, every entry that can have a home row, in home order,
+  /// each with whether its row is on; null without an account. Not shown
+  /// entries and Favourites have none (Adrian, 2026-10-10; plan
+  /// `local/plans/home-rows-apart.md`).
+  ///
+  /// Until the record has `home.rows`, the old rule holds: Shown entries on,
+  /// in menu order, then the folded ones, off.
+  List<({String key, bool on})>? get homeRowsInForce {
     if (!isAccountLayout) return null;
-    final index = _arrangedKeys().indexOf(key);
-    return index < 0 ? null : index;
+    final cacheKey = (_layout, _defaults, _libraries, _ownServerId);
+    final cached = _homeRowsCache;
+    if (cached != null && _homeRowsCacheKey == cacheKey) return cached;
+    final layout = _layout!;
+    final favorites = favoritesLayoutKey(_ownServerId!);
+    final shown = <String>[];
+    final folded = <String>[];
+    for (final key in _arrangedKeys()) {
+      if (key == favorites) continue;
+      switch (layout.stateOf(key, ownServerId: _ownServerId)) {
+        case LibraryState.shown:
+          shown.add(key);
+        case LibraryState.folded:
+          folded.add(key);
+        case LibraryState.off:
+          break;
+      }
+    }
+    final rows = _rowsInForce;
+    final result = rows == null
+        ? [for (final key in shown) (key: key, on: true), for (final key in folded) (key: key, on: false)]
+        : [
+            for (final key in rows.arrange([...shown, ...folded])) (key: key, on: !rows.off.contains(key)),
+          ];
+    _homeRowsCacheKey = cacheKey;
+    return _homeRowsCache = List.unmodifiable(result);
+  }
+
+  /// Account mode: where [key]'s home row sits among the rows that are on;
+  /// null without an account or when [key] has no row on home.
+  int? homeRank(String key) {
+    final rows = homeRowsInForce;
+    if (rows == null) return null;
+    var rank = 0;
+    for (final row in rows) {
+      if (!row.on) continue;
+      if (row.key == key) return rank;
+      rank++;
+    }
+    return null;
+  }
+
+  /// [entry]'s layout key, or null without an account.
+  String? entryLayoutKey(LayoutEntry entry) => _entryKey(entry);
+
+  /// Save the home rows from the Home page list: [rows] are the rows it shows,
+  /// top to bottom, each on or off. Entries it does not show (views Plezy has
+  /// no rows for) keep their place and switch; Not shown ones and other
+  /// servers' keys keep theirs in the record. The first save writes every
+  /// managed entry, so nothing changes on screen (PlezyFin, 2026-10-10).
+  Future<void> saveHomeRows(List<({String key, bool on})> rows) async {
+    final inForce = homeRowsInForce;
+    if (inForce == null) throw StateError('Home rows need a PlezyFin account');
+    final shownKeys = {for (final row in rows) row.key};
+    final queue = List.of(rows);
+    // The list's rows take the slots the shown rows held, in its order.
+    final ordered = <({String key, bool on})>[];
+    for (final row in inForce) {
+      if (!shownKeys.contains(row.key)) {
+        ordered.add(row);
+      } else if (queue.isNotEmpty) {
+        ordered.add(queue.removeAt(0));
+      }
+    }
+    ordered.addAll(queue);
+    final managed = {for (final row in ordered) row.key};
+    await _saveHome(
+      (base) => base.withRows(
+        (base.rows ?? const HomeRows()).place(
+          managed: managed,
+          ordered: [for (final row in ordered) row.key],
+          offKeys: {
+            for (final row in ordered)
+              if (!row.on) row.key,
+          },
+        ),
+      ),
+    );
   }
 
   /// Account mode: [entry]'s rank; see [homeRank].

@@ -28,6 +28,11 @@ enum _SectionAction { turnOn, turnOff, moveUp, moveDown, cardsUsual, cardsPoster
 /// row. With a PlezyFin account this is saved with the account, so every
 /// device follows (Adrian, 2026-10-09; plan
 /// `local/plans/settings-search-home-sections.md`).
+///
+/// With an account the list holds every home row, apart from the menu: a
+/// folded library or Continue Watching can still have one, and only Not shown
+/// takes a row off home (Adrian, 2026-10-10; plan
+/// `local/plans/home-rows-apart.md`).
 class HomeSectionsScreen extends StatelessWidget {
   const HomeSectionsScreen({super.key});
 
@@ -36,16 +41,13 @@ class HomeSectionsScreen extends StatelessWidget {
     final layout = context.watch<HiddenLibrariesProvider>();
     final libraries = context.watch<LibrariesProvider>().libraries;
     final home = layout.home;
-    // With an account, Continue Watching and Next Up are placed and switched
-    // in Manage Libraries like a library, and the library rows sit at their
-    // libraries' places; only the banner keeps a switch here (Adrian,
-    // 2026-10-09).
     final account = layout.isAccountLayout;
     final sections = account ? const [HomeLayout.hero] : home.sections;
     final rowLibraries = [
       for (final library in libraries)
         if (_hasHomeRows(library) && layout.stateOf(library) == LibraryState.shown) library,
     ];
+    final homeRows = account ? _homeRows(layout, libraries) : const <_HomeRow>[];
     return SettingsPage(
       title: Text(t.settings.homeSections),
       children: [
@@ -68,23 +70,11 @@ class HomeSectionsScreen extends StatelessWidget {
                 on: _isOn(context, layout, section),
                 cardStyle: _hasCards(section) ? layout.cardStyleFor(layout.sectionCardKey(section)) : null,
               ),
+            for (final (index, row) in homeRows.indexed)
+              _HomeRowTile(key: ValueKey('row:${row.key}'), rows: homeRows, index: index),
           ],
         ),
-        if (account)
-          SettingsGroup(
-            title: t.settings.homeSectionsCards,
-            children: [
-              for (final section in const [HomeLayout.resume, HomeLayout.nextUp])
-                FocusableListTile(
-                  key: ValueKey('cards:$section'),
-                  leading: AppIcon(_sectionIcon(section), fill: 1),
-                  title: Text(_sectionTitle(section)),
-                  subtitle: Text(_cardStyleLabel(layout.cardStyleFor(layout.sectionCardKey(section)))),
-                  onTap: () => _pickSectionCards(context, layout, section),
-                ),
-            ],
-          ),
-        if (rowLibraries.isNotEmpty)
+        if (!account && rowLibraries.isNotEmpty)
           SettingsGroup(
             title: t.settings.homeSectionsLibraryCards,
             children: [
@@ -102,11 +92,28 @@ class HomeSectionsScreen extends StatelessWidget {
     );
   }
 
-  static Future<void> _pickSectionCards(BuildContext context, HiddenLibrariesProvider layout, String section) async {
-    final key = layout.sectionCardKey(section);
-    final picked = await _pickCardStyle(context, _sectionTitle(section), layout.cardStyleFor(key));
-    if (picked == null || !context.mounted) return;
-    await _save(context, () => layout.setCardStyle(key, picked.value));
+  /// The account's home rows this list shows, in home order: Continue
+  /// Watching, Next Up and the libraries that have home rows. Views Plezy has
+  /// no rows for are left out and keep their place.
+  static List<_HomeRow> _homeRows(HiddenLibrariesProvider layout, List<MediaLibrary> libraries) {
+    final byKey = {
+      for (final library in libraries)
+        if (_hasHomeRows(library)) libraryLayoutKey(library): library,
+    };
+    final resume = layout.entryLayoutKey(LayoutEntry.continueWatching);
+    final nextUp = layout.entryLayoutKey(LayoutEntry.nextUp);
+    final result = <_HomeRow>[];
+    for (final row in layout.homeRowsInForce ?? const <({String key, bool on})>[]) {
+      final library = byKey[row.key];
+      if (row.key == resume) {
+        result.add(_HomeRow(key: row.key, on: row.on, section: HomeLayout.resume));
+      } else if (row.key == nextUp) {
+        result.add(_HomeRow(key: row.key, on: row.on, section: HomeLayout.nextUp));
+      } else if (library != null) {
+        result.add(_HomeRow(key: row.key, on: row.on, library: library));
+      }
+    }
+    return result;
   }
 
   static bool _hasHomeRows(MediaLibrary library) =>
@@ -172,6 +179,102 @@ Future<void> _save(BuildContext context, Future<void> Function() write) async {
   } catch (e, st) {
     appLogger.w('Home sections: could not save', error: e, stackTrace: st);
     if (context.mounted) showErrorSnackBar(context, t.settings.saveFailed);
+  }
+}
+
+/// One row of the account's home rows list: Continue Watching or Next Up
+/// ([section]), or a library's rows ([library]).
+class _HomeRow {
+  final String key;
+  final bool on;
+  final String? section;
+  final MediaLibrary? library;
+
+  const _HomeRow({required this.key, required this.on, this.section, this.library});
+
+  String get title => library?.title ?? _sectionTitle(section!);
+
+  IconData get icon => library == null ? _sectionIcon(section!) : ContentTypeHelper.getLibraryIcon(library!.kind.id);
+}
+
+class _HomeRowTile extends StatelessWidget {
+  final List<_HomeRow> rows;
+  final int index;
+
+  const _HomeRowTile({super.key, required this.rows, required this.index});
+
+  _HomeRow get row => rows[index];
+
+  @override
+  Widget build(BuildContext context) {
+    final layout = context.watch<HiddenLibrariesProvider>();
+    final cardStyle = layout.cardStyleFor(row.key);
+    final parts = [
+      row.on ? t.settings.homeSectionOn : t.settings.homeSectionOff,
+      _cardStyleLabel(cardStyle),
+      if (_isFolded(layout)) t.libraries.sectionFolded,
+    ];
+    return FocusableListTile(
+      leading: AppIcon(row.icon, fill: 1),
+      title: Text(row.title),
+      subtitle: Text(parts.join(' · ')),
+      trailing: AppIcon(row.on ? Symbols.toggle_on_rounded : Symbols.toggle_off_rounded, fill: 1),
+      onTap: () => _showActions(context, layout, cardStyle),
+    );
+  }
+
+  /// Whether the row's library or entry sits in the menu's folded section.
+  bool _isFolded(HiddenLibrariesProvider layout) {
+    final library = row.library;
+    if (library != null) return layout.stateOf(library) == LibraryState.folded;
+    final entry = row.section == HomeLayout.nextUp ? LayoutEntry.nextUp : LayoutEntry.continueWatching;
+    return layout.entryState(entry) == LibraryState.folded;
+  }
+
+  Future<void> _showActions(BuildContext context, HiddenLibrariesProvider layout, HomeCardStyle? cardStyle) async {
+    final picked = await showSelectionDialog<_SectionAction?>(
+      context: context,
+      title: row.title,
+      options: [
+        DialogOption(
+          value: row.on ? _SectionAction.turnOff : _SectionAction.turnOn,
+          title: row.on ? t.settings.homeSectionTurnOff : t.settings.homeSectionTurnOn,
+        ),
+        if (index > 0) DialogOption(value: _SectionAction.moveUp, title: t.settings.homeSectionMoveUp),
+        if (index < rows.length - 1)
+          DialogOption(value: _SectionAction.moveDown, title: t.settings.homeSectionMoveDown),
+        DialogOption(value: _SectionAction.cardsUsual, title: t.settings.cardsUsual),
+        DialogOption(value: _SectionAction.cardsPosters, title: t.settings.cardsPosters),
+        DialogOption(value: _SectionAction.cardsScreenGrabs, title: t.settings.cardsScreenGrabs),
+      ],
+      // Marks the current card style; the other actions are never selected.
+      currentValue: switch (cardStyle) {
+        HomeCardStyle.poster => _SectionAction.cardsPosters,
+        HomeCardStyle.thumb => _SectionAction.cardsScreenGrabs,
+        null => _SectionAction.cardsUsual,
+      },
+    );
+    final action = picked?.value;
+    if (action == null || !context.mounted) return;
+    await _save(context, () => _apply(layout, action));
+  }
+
+  Future<void> _apply(HiddenLibrariesProvider layout, _SectionAction action) {
+    final next = [for (final r in rows) (key: r.key, on: r.on)];
+    switch (action) {
+      case _SectionAction.turnOn || _SectionAction.turnOff:
+        next[index] = (key: row.key, on: action == _SectionAction.turnOn);
+        return layout.saveHomeRows(next);
+      case _SectionAction.moveUp || _SectionAction.moveDown:
+        next.insert(action == _SectionAction.moveUp ? index - 1 : index + 1, next.removeAt(index));
+        return layout.saveHomeRows(next);
+      case _SectionAction.cardsUsual:
+        return layout.setCardStyle(row.key, null);
+      case _SectionAction.cardsPosters:
+        return layout.setCardStyle(row.key, HomeCardStyle.poster);
+      case _SectionAction.cardsScreenGrabs:
+        return layout.setCardStyle(row.key, HomeCardStyle.thumb);
+    }
   }
 }
 

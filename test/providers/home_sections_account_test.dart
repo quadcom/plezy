@@ -206,4 +206,133 @@ void main() {
     expect(reloaded.home.isOn(HomeLayout.nextUp), isFalse);
     expect(reloaded.libraryCardStyle(_movies), HomeCardStyle.thumb);
   });
+
+  group('home rows apart from the menu (PLAN_SHA_13)', () {
+    String layoutWith({Map<String, String> state = const {}, Map<String, dynamic>? home}) => jsonEncode({
+      'v': 1,
+      'rev': 1,
+      'order': ['$_own/continuewatching', '$_own/nextup', '$_own/movies', '$_own/master', '$_own/favorites'],
+      'state': state,
+      'known': {
+        _own: ['movies', 'master', 'continuewatching', 'nextup', 'favorites'],
+      },
+      'home': ?home,
+    });
+
+    test('without rows the old rule holds: Shown on in menu order, folded after and off', () async {
+      final server = _FakePlezyFin(storedLayout: layoutWith(state: {'$_own/master': 'folded'}));
+      final provider = await connect(server);
+
+      expect(provider.homeRowsInForce, [
+        (key: '$_own/continuewatching', on: true),
+        (key: '$_own/nextup', on: true),
+        (key: '$_own/movies', on: true),
+        (key: '$_own/master', on: false),
+      ]);
+      expect(provider.homeHiddenLibraryKeys, {_master.globalKey});
+      expect(provider.homeRank('$_own/movies'), 2);
+      expect(provider.homeRank('$_own/master'), isNull);
+    });
+
+    test('rows set the order and switches; a folded entry keeps its row, Not shown has none', () async {
+      final server = _FakePlezyFin(
+        storedLayout: layoutWith(
+          state: {'$_own/master': 'folded', '$_own/continuewatching': 'folded', '$_own/nextup': 'off'},
+          home: {
+            'order': HomeLayout.builtInOrder,
+            'off': <String>[],
+            'rows': {
+              'order': ['$_own/master', '$_own/nextup', '$_own/continuewatching'],
+              'off': ['$_own/continuewatching'],
+            },
+          },
+        ),
+      );
+      final provider = await connect(server);
+
+      // Movies is in neither list: on, after the listed rows.
+      expect(provider.homeRowsInForce, [
+        (key: '$_own/master', on: true),
+        (key: '$_own/continuewatching', on: false),
+        (key: '$_own/movies', on: true),
+      ]);
+      expect(provider.homeHiddenLibraryKeys, isEmpty);
+      expect(provider.homeRank('$_own/master'), 0);
+      expect(provider.homeRank('$_own/movies'), 1);
+      expect(provider.homeRank('$_own/continuewatching'), isNull);
+      expect(provider.homeRank('$_own/nextup'), isNull);
+    });
+
+    test('with no rows of its own the account follows the rows of the default', () async {
+      final server = _FakePlezyFin(
+        defaultHome: {
+          'rows': {
+            'order': ['$_own/movies', '$_own/continuewatching'],
+            'off': ['$_own/nextup'],
+          },
+        },
+        storedLayout: layoutWith(
+          home: {
+            'order': HomeLayout.builtInOrder,
+            'off': ['hero'],
+          },
+        ),
+      );
+      final provider = await connect(server);
+
+      expect(provider.homeRowsInForce, [
+        (key: '$_own/movies', on: true),
+        (key: '$_own/continuewatching', on: true),
+        (key: '$_own/nextup', on: false),
+        (key: '$_own/master', on: true),
+      ]);
+    });
+
+    test('the first save writes every entry, so only the change shows', () async {
+      final server = _FakePlezyFin(storedLayout: layoutWith(state: {'$_own/master': 'folded'}));
+      final provider = await connect(server);
+
+      final rows = List.of(provider.homeRowsInForce!);
+      rows[3] = (key: '$_own/master', on: true);
+      await provider.saveHomeRows(rows);
+
+      final home = server.stored['home'] as Map<String, dynamic>;
+      expect(home['rows'], {
+        'order': ['$_own/continuewatching', '$_own/nextup', '$_own/movies', '$_own/master'],
+        'off': <String>[],
+      });
+      expect(server.stored['state'], {'$_own/master': 'folded'});
+      expect(provider.homeHiddenLibraryKeys, isEmpty);
+    });
+
+    test('a Not shown entry keeps its place and switch while the rest move', () async {
+      final server = _FakePlezyFin(
+        storedLayout: layoutWith(
+          state: {'$_own/master': 'off'},
+          home: {
+            'order': HomeLayout.builtInOrder,
+            'off': <String>[],
+            'rows': {
+              'order': ['$_own/continuewatching', '$_own/master', '$_own/nextup', '$_own/movies'],
+              'off': ['$_own/master'],
+            },
+          },
+        ),
+      );
+      final provider = await connect(server);
+
+      // Move Movies to the top.
+      final rows = List.of(provider.homeRowsInForce!);
+      expect(rows.map((r) => r.key), ['$_own/continuewatching', '$_own/nextup', '$_own/movies']);
+      rows.insert(0, rows.removeAt(2));
+      await provider.saveHomeRows(rows);
+
+      final home = server.stored['home'] as Map<String, dynamic>;
+      expect(home['rows'], {
+        'order': ['$_own/movies', '$_own/master', '$_own/continuewatching', '$_own/nextup'],
+        'off': ['$_own/master'],
+      });
+      expect(home['order'], HomeLayout.builtInOrder);
+    });
+  });
 }

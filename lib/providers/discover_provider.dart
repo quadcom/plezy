@@ -349,33 +349,30 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   /// styles or home sections.
   int get layoutRevision => _titlesRevision;
 
-  /// With a PlezyFin account, the home rows in the account's order: the
-  /// library rows of [hubs], with Continue Watching and Next Up, when shown,
-  /// placed where the account puts them among the libraries (Adrian,
-  /// 2026-10-09). Each item is a [MediaHub] or a [LayoutEntry]. Null without
-  /// an account; the home sections order the rows then.
+  /// With a PlezyFin account, the home rows in the account's home order: the
+  /// library rows of [hubs], with Continue Watching and Next Up when their
+  /// rows are on, each at its home row's place (Adrian, 2026-10-09; home rows
+  /// apart from the menu, 2026-10-10). Each item is a [MediaHub] or a
+  /// [LayoutEntry]. Null without an account; the home sections order the rows
+  /// then.
   List<Object>? get accountHomeOrder {
     final layout = _hiddenLibraries;
     if (!layout.isAccountLayout) return null;
-    int rankOf(LayoutEntry entry) => layout.entryRank(entry) ?? -1;
-    final entries = [
-      for (final entry in LayoutEntry.leading)
-        if (layout.entryState(entry) == LibraryState.shown) entry,
-    ]..sort((a, b) => rankOf(a).compareTo(rankOf(b)));
-    final result = <Object>[];
-    var next = 0;
+    final ranked = <({int rank, int seq, Object item})>[];
+    for (final entry in LayoutEntry.leading) {
+      final key = layout.entryLayoutKey(entry);
+      final rank = key == null ? null : layout.homeRank(key);
+      if (rank != null) ranked.add((rank: rank, seq: -1, item: entry));
+    }
     // A server-wide row keeps to the library row before it.
     var rank = -1;
-    for (final hub in hubs) {
+    for (final (index, hub) in hubs.indexed) {
       final library = _hubLibrary(hub);
-      rank = (library == null ? null : layout.libraryRank(library)) ?? rank;
-      while (next < entries.length && rankOf(entries[next]) < rank) {
-        result.add(entries[next++]);
-      }
-      result.add(hub);
+      rank = (library == null ? null : layout.homeRank(libraryLayoutKey(library))) ?? rank;
+      ranked.add((rank: rank, seq: index, item: hub));
     }
-    result.addAll(entries.skip(next));
-    return result;
+    ranked.sort((a, b) => a.rank != b.rank ? a.rank.compareTo(b.rank) : a.seq.compareTo(b.seq));
+    return [for (final row in ranked) row.item];
   }
 
   /// The library a Plex section row comes from: the one it was split for, or
@@ -556,7 +553,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
       await _hiddenLibraries.ensureInitialized();
       if (isDisposed) return;
-      _lastSeenHiddenKeys = Set.of(_hiddenLibraries.hiddenLibraryKeys);
+      _lastSeenHiddenKeys = Set.of(_hiddenLibraries.homeHiddenLibraryKeys);
 
       final settings = await SettingsService.getInstance();
       if (isDisposed) return;
@@ -575,7 +572,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
         hiddenLibraryKeys: _hiddenLibraries.offLibraryKeys,
       );
       final hubsFuture = aggregation.getHubsFromAllServers(
-        hiddenLibraryKeys: _hiddenLibraries.hiddenLibraryKeys,
+        hiddenLibraryKeys: _hiddenLibraries.homeHiddenLibraryKeys,
         useGlobalHubs: useGlobalHubs,
         includePlaybackHubs: false,
       );
@@ -688,7 +685,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
           _withoutHiddenLibraries(previousOnDeck, _hiddenLibraries.offLibraryKeys),
           hasMore: previousHasMoreContinueWatching,
         );
-        _replaceHubs(_hubsWithoutHiddenLibraries(previousHubs, _hiddenLibraries.hiddenLibraryKeys));
+        _replaceHubs(_hubsWithoutHiddenLibraries(previousHubs, _hiddenLibraries.homeHiddenLibraryKeys));
         _loadedOnDeckServerIds = Set<String>.of(previousLoadedOnDeckServerIds);
         _loadedHubServerIds = Set<String>.of(previousLoadedHubServerIds);
         _onDeckState = previousOnDeckState;
@@ -698,7 +695,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
         _filterCurrentContentForHiddenLibraries();
       }
 
-      final hiddenServerIds = _serverIdsForLibraryKeys(_hiddenLibraries.hiddenLibraryKeys);
+      final hiddenServerIds = _serverIdsForLibraryKeys(_hiddenLibraries.homeHiddenLibraryKeys);
       if (!onDeckFetchCompleted) {
         _loadedOnDeckServerIds = {};
       } else {
@@ -761,7 +758,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
       final Future<HubAggregationResult?> hubsFuture = hubIds.isEmpty
           ? Future<HubAggregationResult?>.value()
           : aggregation.getHubsFromAllServers(
-              hiddenLibraryKeys: _hiddenLibraries.hiddenLibraryKeys,
+              hiddenLibraryKeys: _hiddenLibraries.homeHiddenLibraryKeys,
               useGlobalHubs: useGlobalHubs,
               includePlaybackHubs: false,
               serverIds: hubIds,
@@ -894,7 +891,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   }
 
   void _filterCurrentContentForHiddenLibraries() {
-    final hiddenLibraryKeys = _hiddenLibraries.hiddenLibraryKeys;
+    final hiddenLibraryKeys = _hiddenLibraries.homeHiddenLibraryKeys;
     // Continue Watching keeps a folded library's items; only a Not shown one
     // takes them out (Adrian, 2026-10-09).
     final filteredOnDeck = _withoutHiddenLibraries(_onDeck, _hiddenLibraries.offLibraryKeys);
@@ -1137,7 +1134,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     // Row titles can change without any library moving.
     ++_titlesRevision;
     safeNotifyListeners();
-    final currentKeys = _hiddenLibraries.hiddenLibraryKeys;
+    final currentKeys = _hiddenLibraries.homeHiddenLibraryKeys;
     if (currentKeys.length == _lastSeenHiddenKeys.length && currentKeys.containsAll(_lastSeenHiddenKeys)) {
       return;
     }
