@@ -39,9 +39,4 @@ void main() {
     expect(slide.releaseDate, DateTime(2026, 10, 28));
     expect(slide.isUpcoming, isTrue);
   });
-
-  test('upcoming starts at the local calendar day, written as midnight UTC', () {
-    expect(bannerUpcomingFrom(DateTime(2026, 11, 3, 21, 30)), '2026-11-03T00:00:00Z');
-    expect(bannerUpcomingFrom(DateTime(2026, 1, 5)), '2026-01-05T00:00:00Z');
-  });
 }

@@ -245,7 +245,8 @@ void main() {
       final upcoming = requests.last.queryParameters;
       expect(upcoming['IncludeItemTypes'], 'Series');
       expect(upcoming['SortOrder'], 'Ascending');
-      expect(upcoming['MinPremiereDate'], isNotNull);
+      // Every dated item, past dates too, until it lands (Adrian, 2026-10-10).
+      expect(upcoming['MinPremiereDate'], '0001-01-01T00:00:00Z');
       expect(upcoming['Limit'], '10');
     });
 

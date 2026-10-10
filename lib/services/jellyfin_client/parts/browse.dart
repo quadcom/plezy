@@ -1845,14 +1845,16 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   }
 
   /// The banner's upcoming items from [libraryId] (PLAN_SHA_16): [types]
-  /// with a future release date, soonest first. Undated ones are skipped.
+  /// with a release date, soonest first. One whose date has passed stays,
+  /// at the front, until its file lands and PlexMediaBridge moves it out of
+  /// the library (Adrian, 2026-10-10). Undated ones are skipped.
   Future<List<MediaItem>> fetchBannerUpcoming(String libraryId, {required String types, int limit = 10}) async {
     final rows = await _safeFetchItemsArray('/Items', {
       'userId': connection.userId,
       'ParentId': libraryId,
       'Recursive': 'true',
       'IncludeItemTypes': types,
-      'MinPremiereDate': bannerUpcomingFrom(DateTime.now()),
+      'MinPremiereDate': _anyPremiereDate,
       'SortBy': 'PremiereDate,SortName',
       'SortOrder': 'Ascending',
       'Limit': limit.toString(),
