@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../media/banner_slide.dart';
 import '../media/home_layout.dart';
 import '../media/library_layout.dart';
 import '../media/ids.dart';
@@ -6,6 +7,7 @@ import 'dart:io' show Platform;
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart' show DateFormat;
 import 'package:plezy/widgets/app_icon.dart';
 import '../widgets/server_activities_button.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -23,7 +25,7 @@ import '../media/media_hub.dart';
 import '../utils/media_image_helper.dart';
 import '../utils/content_utils.dart';
 import '../widgets/cycling_media_backdrop.dart';
-import '../widgets/optimized_media_image.dart' show ClearLogoImage, blurArtwork;
+import '../widgets/optimized_media_image.dart' show ClearLogoImage, OptimizedMediaImage, blurArtwork;
 import '../widgets/toolbar_scrim.dart';
 import '../widgets/system_clock.dart';
 import '../providers/discover_provider.dart';
@@ -55,6 +57,7 @@ import '../utils/hub_icons.dart';
 import '../utils/media_navigation_helper.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/snackbar_helper.dart';
+import '../services/jellyfin_client.dart';
 import '../utils/video_player_navigation.dart';
 import '../utils/layout_constants.dart';
 import '../utils/platform_detector.dart';
@@ -168,7 +171,23 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       ? _discover.home.isOn(HomeLayout.hero)
       : context.settingsRead(SettingsService.showHeroSection);
 
-  bool get _isHeroSectionVisible => _onDeck.isNotEmpty && _heroOn;
+  bool get _isHeroSectionVisible => _heroSlides.isNotEmpty && _heroOn;
+
+  List<BannerSlide> _onDeckSlides = const [];
+  List<MediaItem>? _onDeckSlidesSource;
+
+  /// The banner's slides: with a PlezyFin account the new arrivals and
+  /// upcoming items (PLAN_SHA_16), else the Continue Watching and Next Up
+  /// items, as the banner always showed them.
+  List<BannerSlide> get _heroSlides {
+    final banner = _discover.bannerSlides;
+    if (banner != null) return banner;
+    if (!identical(_onDeckSlidesSource, _onDeck)) {
+      _onDeckSlidesSource = _onDeck;
+      _onDeckSlides = [for (final item in _onDeck) BannerSlide(item, BannerKind.onDeck)];
+    }
+    return _onDeckSlides;
+  }
 
   static const _continueWatchingHubId = 'continue_watching';
   static const _nextUpHubId = 'nextup';
@@ -444,6 +463,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   /// TV rail included — is not rebuilt for nothing.
   Object get _renderSignature => (
     _onDeck,
+    _discover.bannerSlides,
     _hubs,
     _hasMoreContinueWatching,
     _isLoading,
@@ -463,7 +483,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final generation = _discover.loadGeneration;
     final isNewLoad = generation != _seenLoadGeneration;
     _seenLoadGeneration = generation;
-    final heroOutOfBounds = _heroIndex.value >= _onDeck.length;
+    final heroOutOfBounds = _heroIndex.value >= _heroSlides.length;
     final signature = _renderSignature;
     final renderChanged = isNewLoad || heroOutOfBounds || signature != _seenRenderSignature;
     _seenRenderSignature = signature;
@@ -476,11 +496,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     }
     _applyPendingTvBrowseRailFocus();
 
-    if ((isNewLoad || heroOutOfBounds) && _heroController.hasClients && _onDeck.isNotEmpty) {
+    if ((isNewLoad || heroOutOfBounds) && _heroController.hasClients && _heroSlides.isNotEmpty) {
       _heroController.jumpToPage(0);
     }
     // Focus hero when fresh content lands, but only if no modal route is on top
-    if (isNewLoad && !PlatformDetector.isTV() && _onDeck.isNotEmpty && (ModalRoute.of(context)?.isCurrent ?? false)) {
+    if (isNewLoad &&
+        !PlatformDetector.isTV() &&
+        _heroSlides.isNotEmpty &&
+        (ModalRoute.of(context)?.isCurrent ?? false)) {
       _heroFocusNode.requestFocus();
     }
 
@@ -489,7 +512,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       if (PlatformDetector.isTV() && (_onDeck.isNotEmpty || _hubs.isNotEmpty)) {
         _initialLoadComplete = true;
         _focusTvBrowseRailWhenReady();
-      } else if (!PlatformDetector.isTV() && _onDeck.isNotEmpty) {
+      } else if (!PlatformDetector.isTV() && _heroSlides.isNotEmpty) {
         _initialLoadComplete = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) return;
@@ -536,15 +559,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
         }
       },
       onRight: () {
-        if (_heroIndex.value < _onDeck.length - 1) {
+        if (_heroIndex.value < _heroSlides.length - 1) {
           _heroController.nextPage(duration: tokens(context).slow, curve: Curves.easeInOut);
         }
       },
       onSelect: () {
         final heroIndex = _heroIndex.value;
-        if (_onDeck.isNotEmpty && heroIndex < _onDeck.length) {
-          navigateToMediaItem(context, _onDeck[heroIndex], playDirectly: true);
-        }
+        final slides = _heroSlides;
+        if (heroIndex < slides.length) _activateSlide(slides[heroIndex]);
       },
     )(node, event);
   }
@@ -592,14 +614,15 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
     _startIndicatorProgress();
     _autoScrollTimer = Timer.periodic(_heroAutoScrollDuration, (timer) {
-      if (_onDeck.isEmpty || !_heroController.hasClients || _isAutoScrollPaused) {
+      final count = _heroSlides.length;
+      if (count == 0 || !_heroController.hasClients || _isAutoScrollPaused) {
         return;
       }
 
       // Validate current index is within bounds before calculating next page
-      if (_heroIndex.value >= _onDeck.length) _heroIndex.value = 0;
+      if (_heroIndex.value >= count) _heroIndex.value = 0;
 
-      final nextPage = (_heroIndex.value + 1) % _onDeck.length;
+      final nextPage = (_heroIndex.value + 1) % count;
       _heroController.animateToPage(nextPage, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
       // Wait for page transition to complete before resetting progress
       Future.delayed(const Duration(milliseconds: 500), () {
@@ -681,7 +704,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   // Helper method to calculate visible dot range (max 5 dots)
   ({int start, int end}) _getVisibleDotRange() {
-    final totalDots = _onDeck.length;
+    final totalDots = _heroSlides.length;
     if (totalDots <= 5) {
       return (start: 0, end: totalDots - 1);
     }
@@ -696,7 +719,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   // Helper method to determine dot size based on position
   double _getDotSize(int dotIndex, int start, int end) {
-    final totalDots = _onDeck.length;
+    final totalDots = _heroSlides.length;
 
     // If we have 5 or fewer dots, all are full size (8px)
     if (totalDots <= 5) {
@@ -1045,7 +1068,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               // Hero Section (Continue Watching) - at top of screen
               Builder(
                 builder: (context) {
-                  if (_onDeck.isNotEmpty && showHeroSection) {
+                  if (_heroSlides.isNotEmpty && showHeroSection) {
                     return _buildHeroSection();
                   }
                   // Add top padding when hero is not shown
@@ -1249,15 +1272,18 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             children: [
               PageView.builder(
                 controller: _heroController,
-                itemCount: _onDeck.length,
+                itemCount: _heroSlides.length,
                 onPageChanged: (index) {
-                  if (index >= 0 && index < _onDeck.length) {
+                  if (index >= 0 && index < _heroSlides.length) {
                     _heroIndex.value = index;
                     _resetAutoScrollTimer();
                   }
                 },
                 itemBuilder: (context, index) {
-                  return _buildHeroItem(_onDeck[index], heroHeight);
+                  final slide = _heroSlides[index];
+                  return slide.kind == BannerKind.onDeck || PlatformDetector.isTV()
+                      ? _buildHeroItem(slide.item, heroHeight)
+                      : _buildBannerSlide(slide, heroHeight);
                 },
               ),
               // Page indicators with animated progress and pause/play button.
@@ -1622,6 +1648,312 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Play a banner slide: an upcoming one plays its trailer, the rest play
+  /// the item itself (resuming a half-watched one).
+  void _activateSlide(BannerSlide slide) {
+    if (slide.isUpcoming) {
+      unawaited(_playTrailer(slide));
+    } else {
+      navigateToMediaItem(context, slide.item, playDirectly: true);
+    }
+  }
+
+  /// A Coming Soon film's own video is its trailer; a New Shows series'
+  /// trailer is its Season 0 special (PLAN_SHA_16).
+  Future<void> _playTrailer(BannerSlide slide) async {
+    if (slide.kind == BannerKind.comingSoon) {
+      await navigateToVideoPlayer(context, metadata: slide.item);
+      return;
+    }
+    final client = _getMediaClientForItem(slide.item);
+    MediaItem? trailer;
+    if (client is JellyfinClient) {
+      try {
+        trailer = await client.fetchSeriesTrailer(slide.item.id);
+      } catch (e, st) {
+        appLogger.w('Banner: could not find the trailer of ${slide.item.title}', error: e, stackTrace: st);
+      }
+    }
+    if (!mounted) return;
+    if (trailer == null) {
+      showErrorSnackBar(context, t.discover.noTrailer);
+      return;
+    }
+    await navigateToVideoPlayer(context, metadata: trailer);
+  }
+
+  /// A banner slide in the PlezyFin look (PLAN_SHA_16 part B, agreed with
+  /// Adrian 2026-10-10 on the web mock-up): fan art under a 35% black layer;
+  /// on the left a coming-soon heading and date for upcoming items, the logo,
+  /// the meta line, the synopsis and the button; the poster to their right.
+  /// A phone shows the poster centred with the heading, meta line and button.
+  Widget _buildBannerSlide(BannerSlide slide, double heroHeight) {
+    final item = slide.item;
+    final client = _getMediaClientForItem(item);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final heroAspectRatio = screenWidth / heroHeight;
+    final artPaths = item.heroArtCandidates(containerAspectRatio: heroAspectRatio);
+    final narrow = screenWidth <= 700;
+    // The look was set at 1920 wide; smaller windows scale it down.
+    final scale = (screenWidth / 1920).clamp(0.62, 1.0);
+    final topClear = kToolbarHeight + MediaQuery.paddingOf(context).top + 16;
+    final bottom = (slide.kind == BannerKind.newEpisode ? 140.0 : 80.0) * scale;
+    // 170 on a phone, so the poster clears the top bar (PlezyFin, 2026-10-10).
+    final posterWidth = narrow ? 170.0 : math.min(300 * scale, (heroHeight - topClear - bottom) * 2 / 3);
+    final posterPath = item.posterThumb(mode: EpisodePosterMode.seriesPoster);
+    final date = slide.releaseDate;
+    final upcomingHeading = slide.isUpcoming
+        ? <Widget>[
+            Text(
+              t.discover.bannerComingSoon,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: (narrow ? 24 : 34) * scale,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 3,
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
+              ),
+            ),
+            if (date != null)
+              Text(
+                DateFormat('EEEE d MMMM').format(date),
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: (narrow ? 16 : 22) * scale,
+                  fontWeight: FontWeight.w700,
+                  shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
+                ),
+              ),
+          ]
+        : const <Widget>[];
+    final meta = Text(
+      [
+        switch (slide.kind) {
+          BannerKind.newMovie => t.discover.bannerNewMovie,
+          BannerKind.newEpisode => t.discover.bannerNewEpisode,
+          BannerKind.newShow => t.discover.bannerNewShow,
+          _ => t.discover.movie,
+        },
+        if (item.rating != null) '★ ${formatRating(item.rating!)}',
+        if (item.contentRating != null) formatContentRating(item.contentRating!),
+        if (item.year != null) item.year.toString(),
+      ].join(' • '),
+      style: TextStyle(color: Colors.white, fontSize: (narrow ? 14 : 15) * scale, fontWeight: FontWeight.w700),
+      textAlign: narrow ? TextAlign.center : TextAlign.left,
+    );
+    final button = slide.isUpcoming ? _buildTrailerButton(slide) : _buildSmartPlayButton(item);
+    final poster = Container(
+      width: posterWidth,
+      height: posterWidth * 1.5,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Color(0x99000000), blurRadius: 40, offset: Offset(0, 10))],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: OptimizedMediaImage.poster(
+        client: client,
+        imagePath: posterPath,
+        width: posterWidth,
+        height: posterWidth * 1.5,
+      ),
+    );
+
+    final Widget foreground;
+    if (narrow) {
+      foreground = Positioned(
+        left: 24,
+        right: 24,
+        bottom: 48,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            poster,
+            const SizedBox(height: 16),
+            ...upcomingHeading,
+            if (slide.isUpcoming) const SizedBox(height: 8),
+            meta,
+            const SizedBox(height: 14),
+            button,
+          ],
+        ),
+      );
+    } else {
+      final hideSpoilers = SettingsService.instance.read(SettingsService.hideSpoilers);
+      final shouldHideSpoiler = hideSpoilers && item.shouldHideSpoiler;
+      final episodePrefix = item.isEpisode && item.parentIndex != null && item.index != null
+          ? 'S${item.parentIndex}, E${item.index}: '
+          : null;
+      final summary = shouldHideSpoiler ? (episodePrefix == null ? null : item.title) : item.summary;
+      final logoWidth = 480 * scale;
+      final logoHeight = 130 * scale;
+      final textBlock = ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 1050 * scale),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...upcomingHeading,
+            if (slide.isUpcoming) SizedBox(height: 48 * scale),
+            LayoutBuilder(
+              builder: (context, constraints) => ClearLogoImage(
+                client: client,
+                logoPath: item.clearLogoPath,
+                width: math.min(logoWidth, constraints.maxWidth),
+                height: logoHeight,
+                fallbackWidth: ClearLogoImage.fallbackWidthFor(logoWidth: logoWidth, available: constraints.maxWidth),
+                alignment: Alignment.bottomLeft,
+                fallbackBuilder: (context) => FittingTitleText(
+                  item.grandparentTitle ?? item.displayTitle,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 52 * scale,
+                    fontWeight: FontWeight.w700,
+                    shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
+                  ),
+                  textAlign: TextAlign.left,
+                  alignment: Alignment.centerLeft,
+                ),
+              ),
+            ),
+            SizedBox(height: 18 * scale),
+            meta,
+            if (summary != null && summary.isNotEmpty) ...[
+              SizedBox(height: 10 * scale),
+              RichText(
+                maxLines: 5,
+                overflow: TextOverflow.ellipsis,
+                text: TextSpan(
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 23 * scale, height: 1.5),
+                  children: [
+                    if (episodePrefix != null)
+                      TextSpan(
+                        text: episodePrefix,
+                        style: const TextStyle(fontWeight: FontWeight.w700, color: Colors.white),
+                      ),
+                    TextSpan(text: summary),
+                  ],
+                ),
+              ),
+            ],
+            SizedBox(height: 24 * scale),
+            button,
+          ],
+        ),
+      );
+      foreground = Positioned(
+        left: 0,
+        right: 0,
+        bottom: bottom,
+        child: SafeArea(
+          top: false,
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Flexible(child: textBlock),
+                SizedBox(width: 80 * scale),
+                poster,
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      label: item.isEpisode ? '${item.grandparentTitle}, ${item.title}' : item.title,
+      button: true,
+      hint: t.accessibility.tapToPlay,
+      child: ClickableCursor(
+        child: GestureDetector(
+          onTap: () => _activateSlide(slide),
+          child: Stack(
+            fit: StackFit.expand,
+            clipBehavior: Clip.none,
+            children: [
+              if (artPaths.isNotEmpty)
+                ClipRect(
+                  child: AnimatedBuilder(
+                    animation: _scrollController,
+                    builder: (context, child) {
+                      final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                      return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
+                    },
+                    child: blurArtwork(
+                      CyclingMediaBackdrop(
+                        mediaKey: item.globalKey,
+                        imagePaths: item.heroRotationPaths(containerAspectRatio: heroAspectRatio),
+                        fallbackImagePaths: artPaths,
+                        client: client,
+                        active: _isTabVisible,
+                        width: screenWidth,
+                        height: heroHeight,
+                        fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+              // "A slight darkening overlay" (Adrian): 35% black over the art.
+              const IgnorePointer(child: ColoredBox(color: Color(0x59000000))),
+              // Blend into the page below, as the banner always did.
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: -4,
+                child: IgnorePointer(
+                  child: Builder(
+                    builder: (context) {
+                      final bgColor = Theme.of(context).scaffoldBackgroundColor;
+                      return DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Colors.transparent, bgColor.withValues(alpha: 0.85), bgColor],
+                            stops: const [0.6, 0.93, 1.0],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+              foreground,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// The white "Play trailer" pill of an upcoming slide, with a film icon.
+  Widget _buildTrailerButton(BannerSlide slide) {
+    return InkWell(
+      onTap: () => unawaited(_playTrailer(slide)),
+      borderRadius: const BorderRadius.all(Radius.circular(24)),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.all(Radius.circular(24))),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const AppIcon(Symbols.movie_rounded, fill: 1, size: 20, color: Colors.black),
+            const SizedBox(width: 8),
+            Text(
+              t.discover.playTrailer,
+              style: const TextStyle(color: Colors.black, fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ],
         ),
       ),
     );

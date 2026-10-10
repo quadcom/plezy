@@ -1789,6 +1789,95 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     ];
   }
 
+  /// The banner's new films from [libraryId] (PlezyFin PLAN_SHA_16 A2):
+  /// unwatched, newest added first. Half-watched ones count.
+  Future<List<MediaItem>> fetchBannerNewFilms(String libraryId, {int limit = 20}) async {
+    final rows = await _safeFetchItemsArray('/Items', {
+      'userId': connection.userId,
+      'ParentId': libraryId,
+      'Recursive': 'true',
+      'IncludeItemTypes': 'Movie',
+      'IsPlayed': 'false',
+      'SortBy': 'DateCreated',
+      'SortOrder': 'Descending',
+      'Limit': limit.toString(),
+      'Fields': _hubRowFields,
+      ...jellyfinImageQueryParameters,
+    }, retry: _homeHubRetry);
+    return [for (final row in rows) ?_mapItem(row)];
+  }
+
+  /// The banner's new shows from [libraryId] (PLAN_SHA_16 A3): unwatched
+  /// episodes newest added first, one per show in that order until [shows];
+  /// each show's episode is its lowest-numbered new arrival, so a new season
+  /// starts at its first episode.
+  Future<List<MediaItem>> fetchBannerNewEpisodes(String libraryId, {int shows = 20}) async {
+    final rows = await _safeFetchItemsArray('/Items', {
+      'userId': connection.userId,
+      'ParentId': libraryId,
+      'Recursive': 'true',
+      'IncludeItemTypes': 'Episode',
+      'IsPlayed': 'false',
+      'SortBy': 'DateCreated',
+      'SortOrder': 'Descending',
+      'Limit': '200',
+      'Fields': _hubRowFields,
+      ...jellyfinImageQueryParameters,
+    }, retry: _homeHubRetry);
+    final bySeries = <String, List<Map<String, dynamic>>>{};
+    for (final row in rows) {
+      final seriesId = row['SeriesId'];
+      if (seriesId is! String) continue;
+      if (!bySeries.containsKey(seriesId) && bySeries.length >= shows) continue;
+      bySeries.putIfAbsent(seriesId, () => []).add(row);
+    }
+    int number(Object? value) => value is int ? value : 1 << 30;
+    return [
+      for (final episodes in bySeries.values)
+        ?_mapItem(
+          episodes.reduce((a, b) {
+            final season = number(a['ParentIndexNumber']).compareTo(number(b['ParentIndexNumber']));
+            if (season != 0) return season < 0 ? a : b;
+            return number(a['IndexNumber']) <= number(b['IndexNumber']) ? a : b;
+          }),
+        ),
+    ];
+  }
+
+  /// The banner's upcoming items from [libraryId] (PLAN_SHA_16): [types]
+  /// with a future release date, soonest first. Undated ones are skipped.
+  Future<List<MediaItem>> fetchBannerUpcoming(String libraryId, {required String types, int limit = 10}) async {
+    final rows = await _safeFetchItemsArray('/Items', {
+      'userId': connection.userId,
+      'ParentId': libraryId,
+      'Recursive': 'true',
+      'IncludeItemTypes': types,
+      'MinPremiereDate': DateTime.now().toUtc().toIso8601String(),
+      'SortBy': 'PremiereDate,SortName',
+      'SortOrder': 'Ascending',
+      'Limit': limit.toString(),
+      'Fields': _hubRowFields,
+      ...jellyfinImageQueryParameters,
+    }, retry: _homeHubRetry);
+    return [for (final row in rows) ?_mapItem(row)];
+  }
+
+  /// A New Shows series' trailer: its one Season 0 special (PlexMediaBridge
+  /// files it as S00E00). Null when the series has none.
+  Future<MediaItem?> fetchSeriesTrailer(String seriesId) async {
+    final rows = await _safeFetchItemsArray('/Shows/${_segment(seriesId)}/Episodes', {
+      'userId': connection.userId,
+      'Season': '0',
+      'Fields': _hubRowFields,
+      ...jellyfinImageQueryParameters,
+    }, retry: _homeHubRetry);
+    for (final row in rows) {
+      final item = _mapItem(row);
+      if (item != null) return item;
+    }
+    return null;
+  }
+
   /// Jellyfin's `MinPremiereDate` that keeps every dated item and drops the
   /// undated ones.
   static const _anyPremiereDate = '0001-01-01T00:00:00Z';

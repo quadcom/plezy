@@ -167,4 +167,108 @@ void main() {
       expect(requests.single.queryParameters['SortOrder'], 'Ascending');
     });
   });
+
+  group('banner queries (PLAN_SHA_16)', () {
+    test('new episodes keep one per show, its lowest new episode, in newest-added order', () async {
+      final requests = <Uri>[];
+      final client = testJellyfinClient(
+        handler: (request) async {
+          requests.add(request.url);
+          return jsonResponse({
+            'Items': [
+              {
+                'Id': 'b2',
+                'Type': 'Episode',
+                'Name': 'B two',
+                'SeriesId': 'b',
+                'ParentIndexNumber': 6,
+                'IndexNumber': 2,
+              },
+              {
+                'Id': 'a9',
+                'Type': 'Episode',
+                'Name': 'A nine',
+                'SeriesId': 'a',
+                'ParentIndexNumber': 1,
+                'IndexNumber': 9,
+              },
+              {
+                'Id': 'b1',
+                'Type': 'Episode',
+                'Name': 'B one',
+                'SeriesId': 'b',
+                'ParentIndexNumber': 6,
+                'IndexNumber': 1,
+              },
+              {
+                'Id': 'c1',
+                'Type': 'Episode',
+                'Name': 'C one',
+                'SeriesId': 'c',
+                'ParentIndexNumber': 1,
+                'IndexNumber': 1,
+              },
+            ],
+            'TotalRecordCount': 4,
+          });
+        },
+      );
+      addTearDown(client.close);
+
+      final episodes = await client.fetchBannerNewEpisodes('tv', shows: 2);
+
+      expect([for (final e in episodes) e.title], ['B one', 'A nine']);
+      final query = requests.single.queryParameters;
+      expect(query['IncludeItemTypes'], 'Episode');
+      expect(query['IsPlayed'], 'false');
+      expect(query['SortBy'], 'DateCreated');
+      expect(query['Limit'], '200');
+    });
+
+    test('new films and upcoming items ask for the agreed order', () async {
+      final requests = <Uri>[];
+      final client = testJellyfinClient(
+        handler: (request) async {
+          requests.add(request.url);
+          return jsonResponse({'Items': <Object>[], 'TotalRecordCount': 0});
+        },
+      );
+      addTearDown(client.close);
+
+      await client.fetchBannerNewFilms('movies');
+      await client.fetchBannerUpcoming('soon', types: 'Series');
+
+      final films = requests.first.queryParameters;
+      expect(films['IncludeItemTypes'], 'Movie');
+      expect(films['IsPlayed'], 'false');
+      expect(films['Limit'], '20');
+      final upcoming = requests.last.queryParameters;
+      expect(upcoming['IncludeItemTypes'], 'Series');
+      expect(upcoming['SortOrder'], 'Ascending');
+      expect(upcoming['MinPremiereDate'], isNotNull);
+      expect(upcoming['Limit'], '10');
+    });
+
+    test("a New Shows series' trailer is its Season 0 special", () async {
+      final requests = <Uri>[];
+      final client = testJellyfinClient(
+        handler: (request) async {
+          requests.add(request.url);
+          return jsonResponse({
+            'Items': [
+              {'Id': 'trailer', 'Type': 'Episode', 'Name': 'Trailer', 'ParentIndexNumber': 0, 'IndexNumber': 0},
+            ],
+            'TotalRecordCount': 1,
+          });
+        },
+      );
+      addTearDown(client.close);
+
+      final trailer = await client.fetchSeriesTrailer('show-1');
+
+      expect(trailer?.id, 'trailer');
+      expect(requests.single.path, '/Shows/show-1/Episodes');
+      expect(requests.single.queryParameters['Season'], '0');
+    });
+  });
 }

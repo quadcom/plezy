@@ -3114,6 +3114,24 @@ class Translations$discover$en {
 	/// en: 'Recently Added in ${library}'
 	String recentlyAddedIn({required Object library}) => 'Recently Added in ${library}';
 
+	/// en: 'COMING SOON'
+	String get bannerComingSoon => 'COMING SOON';
+
+	/// en: 'New Movie'
+	String get bannerNewMovie => 'New Movie';
+
+	/// en: 'New Episode'
+	String get bannerNewEpisode => 'New Episode';
+
+	/// en: 'New Show'
+	String get bannerNewShow => 'New Show';
+
+	/// en: 'Play trailer'
+	String get playTrailer => 'Play trailer';
+
+	/// en: 'No trailer for this one yet'
+	String get noTrailer => 'No trailer for this one yet';
+
 	/// en: 'New Releases in ${library}'
 	String newReleasesIn({required Object library}) => 'New Releases in ${library}';
 
@@ -8479,20 +8497,26 @@ extension on Translations {
 			'discover.nextUpIn' => ({required Object library}) => 'Next Up in ${library}',
 			'discover.recentlyAdded' => 'Recently Added',
 			'discover.recentlyAddedIn' => ({required Object library}) => 'Recently Added in ${library}',
+			'discover.bannerComingSoon' => 'COMING SOON',
+			'discover.bannerNewMovie' => 'New Movie',
+			'discover.bannerNewEpisode' => 'New Episode',
+			'discover.bannerNewShow' => 'New Show',
+			'discover.playTrailer' => 'Play trailer',
+			'discover.noTrailer' => 'No trailer for this one yet',
 			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
 			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
 			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
 			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
+			_ => null,
+		} ?? switch (path) {
 			'discover.overview' => 'Overview',
 			'discover.cast' => 'Cast',
 			'discover.extras' => 'Trailers & Extras',
 			'discover.studio' => 'Studio',
 			'discover.rating' => 'Rating',
 			'discover.director' => 'Director',
-			_ => null,
-		} ?? switch (path) {
 			'discover.directors' => 'Directors',
 			'discover.movie' => 'Movie',
 			'discover.tvShow' => 'TV Show',
@@ -8999,14 +9023,14 @@ extension on Translations {
 			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
 			'music.noAudioUrl' => ({required Object track}) => 'No audio URL is available for ${track}',
 			'music.discography.singlesAndEps' => 'Singles & EPs',
+			_ => null,
+		} ?? switch (path) {
 			'music.discography.live' => 'Live',
 			'music.discography.compilations' => 'Compilations',
 			'watchTogether.title' => 'Watch Together',
 			'watchTogether.description' => 'Watch content in sync with friends and family',
 			'watchTogether.createSession' => 'Create Session',
 			'watchTogether.creating' => 'Creating...',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.joinSession' => 'Join Session',
 			'watchTogether.joining' => 'Joining...',
 			'watchTogether.controlMode' => 'Control Mode',
@@ -9513,14 +9537,14 @@ extension on Translations {
 			'seerr.noUserInformation' => 'Seerr did not return user information',
 			'seerr.sessionRejectedAfterReauth' => 'The session was rejected after signing in again',
 			'seerr.permissionDenied' => 'Seerr denied this action: your account no longer has the required permission',
+			_ => null,
+		} ?? switch (path) {
 			'seerr.permissionRevoked' => 'You no longer have permission to request this',
 			'services.title' => 'Services',
 			'services.hubSubtitle' => 'Sync watch progress and request new titles.',
 			'services.integrations' => 'Integrations',
 			'services.notConnected' => 'Not connected',
 			'services.connectedAs' => ({required Object username}) => 'Connected as @${username}',
-			_ => null,
-		} ?? switch (path) {
 			'services.scrobble' => 'Track progress automatically',
 			'services.scrobbleDescription' => 'Update your list when you finish an episode or movie.',
 			'services.disconnectConfirm' => ({required Object service}) => 'Disconnect ${service}?',

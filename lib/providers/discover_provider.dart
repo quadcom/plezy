@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../media/banner_slide.dart';
 import '../media/home_layout.dart';
 import '../media/ids.dart';
 import '../media/media_hub.dart';
@@ -266,6 +268,80 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
 
   List<MediaItem> get onDeck => _onDeck;
 
+  /// The banner's slides with a PlezyFin account: new films and episodes
+  /// with upcoming items mixed in (PLAN_SHA_16). Shuffled once when loaded
+  /// and kept while the app runs, so the dots stay put; a pull to refresh
+  /// draws a new deck.
+  List<BannerSlide>? _bannerSlides;
+  Future<void>? _bannerLoad;
+
+  /// With a reachable PlezyFin account, the banner's slides (empty until they
+  /// load, and when there is nothing to show); null without one, when the
+  /// banner shows the Continue Watching and Next Up items as before.
+  List<BannerSlide>? get bannerSlides => _hiddenLibraries.accountClient == null ? null : _bannerSlides ?? const [];
+
+  /// Load the banner's deck unless one is loaded already, or always when
+  /// [force].
+  void _ensureBanner({bool force = false}) {
+    if (_hiddenLibraries.accountClient == null) {
+      if (_bannerSlides != null) {
+        _bannerSlides = null;
+        safeNotifyListeners();
+      }
+      return;
+    }
+    if (_bannerLoad != null || (!force && _bannerSlides != null)) return;
+    final run = _loadBanner();
+    _bannerLoad = run;
+    unawaited(run.whenComplete(() => _bannerLoad = null));
+  }
+
+  Future<void> _loadBanner() async {
+    final client = _hiddenLibraries.accountClient;
+    if (client == null) return;
+    final own = client.layoutServerId;
+    final ownLibraries = [
+      for (final library in _libraries.libraries)
+        if (library.backend.usesMediaBrowserApi && libraryLayoutServerId(library) == own) library,
+    ];
+    // The library list may not be in yet; the next change tries again.
+    if (ownLibraries.isEmpty) return;
+    MediaLibrary? named(String name) {
+      final library = ownLibraries.where((l) => l.title.trim().toLowerCase() == name).firstOrNull;
+      if (library == null) appLogger.w('Banner: no library named "$name" on the PlezyFin server');
+      return library;
+    }
+
+    final movies = named(BannerLibraries.movies);
+    final tv = named(BannerLibraries.tv);
+    final comingSoon = named(BannerLibraries.comingSoon);
+    final newShows = named(BannerLibraries.newShows);
+    Future<List<MediaItem>> none() async => const [];
+    try {
+      final results = await Future.wait([
+        movies == null ? none() : client.fetchBannerNewFilms(movies.id),
+        tv == null ? none() : client.fetchBannerNewEpisodes(tv.id),
+        comingSoon == null ? none() : client.fetchBannerUpcoming(comingSoon.id, types: 'Movie'),
+        newShows == null ? none() : client.fetchBannerUpcoming(newShows.id, types: 'Series'),
+      ]);
+      if (isDisposed) return;
+      final random = math.Random();
+      bool hasArt(BannerSlide slide) => slide.item.heroArtCandidates(containerAspectRatio: 16 / 9).isNotEmpty;
+      final fresh = [
+        for (final item in results[0]) BannerSlide(item, BannerKind.newMovie),
+        for (final item in results[1]) BannerSlide(item, BannerKind.newEpisode),
+      ].where(hasArt).toList()..shuffle(random);
+      final upcoming = [
+        for (final item in results[2]) BannerSlide(item, BannerKind.comingSoon),
+        for (final item in results[3]) BannerSlide(item, BannerKind.newShow),
+      ].where(hasArt).toList()..shuffle(random);
+      _bannerSlides = interleaveBanner(fresh, upcoming);
+      safeNotifyListeners();
+    } catch (e, st) {
+      appLogger.w('Banner: could not load the new arrivals', error: e, stackTrace: st);
+    }
+  }
+
   /// Continue Watching: the [onDeck] items started and not finished. Next Up
   /// holds the rest. Plezy showed both in one row until Adrian asked for two,
   /// as on the web (2026-10-09).
@@ -435,11 +511,13 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   /// arrives mid-load still observes its own fresh fetch).
   Future<void> load() {
     if (isDisposed) return Future<void>.value();
+    _ensureBanner();
     return _loadCoordinator.requestFull();
   }
 
   Future<DiscoverRefreshOutcome> refreshNow() async {
     if (isDisposed) return DiscoverRefreshOutcome.cancelled;
+    _ensureBanner(force: true);
     await _loadCoordinator.requestFull();
     if (isDisposed) return DiscoverRefreshOutcome.cancelled;
     return _lastOutcome;
@@ -1139,6 +1217,8 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     // Row titles can change without any library moving.
     ++_titlesRevision;
     safeNotifyListeners();
+    // The account may have just been found, or lost.
+    _ensureBanner();
     final currentKeys = _hiddenLibraries.homeHiddenLibraryKeys;
     final currentSorts = _hiddenLibraries.libraryRowSorts;
     if (currentKeys.length == _lastSeenHiddenKeys.length &&
@@ -1152,6 +1232,7 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   }
 
   void _onLibrariesChanged() {
+    _ensureBanner();
     final currentKeys = _libraryOrderKeys();
     if (listEquals(currentKeys, _lastSeenLibraryOrderKeys)) return;
     _lastSeenLibraryOrderKeys = currentKeys;
