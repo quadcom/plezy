@@ -1696,12 +1696,18 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final heroAspectRatio = screenWidth / heroHeight;
     final artPaths = item.heroArtCandidates(containerAspectRatio: heroAspectRatio);
     final narrow = screenWidth <= 700;
-    // The look was set at 1920 wide; smaller windows scale it down.
-    final scale = (screenWidth / 1920).clamp(0.62, 1.0);
-    final topClear = kToolbarHeight + MediaQuery.paddingOf(context).top + 16;
-    final bottom = (slide.kind == BannerKind.newEpisode ? 140.0 : 80.0) * scale;
-    // 170 on a phone, so the poster clears the top bar (PlezyFin, 2026-10-10).
-    final posterWidth = narrow ? 170.0 : math.min(300 * scale, (heroHeight - topClear - bottom) * 2 / 3);
+    // The look was set at 1920x1080; smaller windows scale it down.
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    final scale = math.min(screenWidth / 1920, viewportHeight / 1080).clamp(0.55, 1.0);
+    final bottom = 80.0 * scale;
+    // A new episode raises only its text, never the poster.
+    final textLift = slide.kind == BannerKind.newEpisode ? 60.0 * scale : 0.0;
+    // The same poster on every slide, kept clear of the top bar: 2:3, at most
+    // 450 tall, the banner height less 190, or 32% of the width (PlezyFin,
+    // 2026-10-10). A phone's is 170 wide.
+    final posterWidth = narrow
+        ? 170.0
+        : math.max(0.0, [450.0, heroHeight - 190, screenWidth * 0.32].reduce(math.min)) * 2 / 3;
     final posterPath = item.posterThumb(mode: EpisodePosterMode.seriesPoster);
     final date = slide.releaseDate;
     final upcomingHeading = slide.isUpcoming
@@ -1822,7 +1828,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             if (summary != null && summary.isNotEmpty) ...[
               SizedBox(height: 10 * scale),
               RichText(
-                maxLines: 5,
+                maxLines: viewportHeight < 850 ? 3 : 5,
                 overflow: TextOverflow.ellipsis,
                 text: TextSpan(
                   style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 23 * scale, height: 1.5),
@@ -1851,13 +1857,27 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           bottom: false,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Flexible(child: textBlock),
-                SizedBox(width: 80 * scale),
-                poster,
-              ],
+            // The text keeps its full width even when short, so the poster
+            // sits in the same place on every slide.
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final gap = 80 * scale;
+                final textWidth = math.max(0.0, math.min(1050 * scale, constraints.maxWidth - gap - posterWidth));
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    SizedBox(
+                      width: textWidth,
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: textLift),
+                        child: Align(alignment: Alignment.bottomLeft, child: textBlock),
+                      ),
+                    ),
+                    SizedBox(width: gap),
+                    poster,
+                  ],
+                );
+              },
             ),
           ),
         ),
