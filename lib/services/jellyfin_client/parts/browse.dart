@@ -1852,7 +1852,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
       'ParentId': libraryId,
       'Recursive': 'true',
       'IncludeItemTypes': types,
-      'MinPremiereDate': DateTime.now().toUtc().toIso8601String(),
+      'MinPremiereDate': bannerUpcomingFrom(DateTime.now()),
       'SortBy': 'PremiereDate,SortName',
       'SortOrder': 'Ascending',
       'Limit': limit.toString(),

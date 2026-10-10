@@ -79,3 +79,12 @@ List<BannerSlide> interleaveBanner(List<BannerSlide> fresh, List<BannerSlide> up
   }
   return result;
 }
+
+/// The banner's "upcoming" cut-off for `MinPremiereDate`: today's local
+/// calendar day at midnight UTC, the way release dates are stored, so a title
+/// stays upcoming through its release day instead of leaving the evening
+/// before (PlezyFin PLAN_SHA_16 correction, 2026-10-10).
+String bannerUpcomingFrom(DateTime now) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${now.year.toString().padLeft(4, '0')}-${two(now.month)}-${two(now.day)}T00:00:00Z';
+}
