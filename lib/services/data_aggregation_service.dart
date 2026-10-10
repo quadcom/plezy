@@ -11,6 +11,7 @@ import '../exceptions/media_server_exceptions.dart';
 import '../utils/app_logger.dart';
 import '../utils/external_ids.dart';
 import '../utils/global_key_utils.dart';
+import '../utils/on_deck_split.dart';
 import '../utils/search_relevance.dart';
 import '../utils/media_server_http_client.dart';
 import 'local_playback_history.dart';
@@ -271,7 +272,9 @@ class DataAggregationService {
 
     filteredOnDeck = await _deduplicateContinueWatching(filteredOnDeck);
 
-    final items = limit != null && limit < filteredOnDeck.length ? filteredOnDeck.sublist(0, limit) : filteredOnDeck;
+    // Continue Watching and Next Up are separate rows: the limit applies to
+    // each, so recent Next Up episodes cannot push every started item out.
+    final items = limitOnDeckPerKind(filteredOnDeck, limit);
 
     appLogger.i('Fetched ${items.length} on deck items from all servers');
 
@@ -292,7 +295,7 @@ class DataAggregationService {
   Future<List<MediaItem>> mergeContinueWatching(List<MediaItem> existing, List<MediaItem> fresh, {int? limit}) async {
     final combined = [...existing, ...fresh]..sort((a, b) => b.recencySortKey.compareTo(a.recencySortKey));
     final deduped = await _deduplicateContinueWatching(combined);
-    return limit != null && limit < deduped.length ? deduped.sublist(0, limit) : deduped;
+    return limitOnDeckPerKind(deduped, limit);
   }
 
   Future<List<MediaItem>> _deduplicateContinueWatching(List<MediaItem> items) async {

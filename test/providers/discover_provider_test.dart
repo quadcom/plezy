@@ -21,6 +21,7 @@ import 'package:plezy/services/settings_service.dart';
 import 'package:plezy/utils/deletion_notifier.dart';
 import 'package:plezy/utils/watch_state_notifier.dart';
 import 'package:plezy/utils/library_content_notifier.dart';
+import 'package:plezy/utils/on_deck_split.dart';
 
 import '../test_helpers/prefs.dart';
 import '../test_helpers/media_items.dart';
@@ -97,7 +98,8 @@ class _FakeAggregationService extends DataAggregationService {
     if (gate != null) await gate;
     final items = onDeckResult();
     return (
-      items: limit != null && items.length > limit ? items.sublist(0, limit) : items,
+      // Like the real service: the limit applies to each row separately.
+      items: limitOnDeckPerKind(items, limit),
       observedItems: [for (final item in items) (item: item, clientScope: null)],
       succeededServerIds: onDeckSucceededServerIds ?? serverIds ?? const {'server_1'},
       cancelledServerIds: onDeckCancelledServerIds,
@@ -434,7 +436,9 @@ void main() {
 
   test('sub-threshold progress patches the row without refetching', () async {
     final playing = _item('ep-1').copyWith(durationMs: 100000, viewOffsetMs: 10000, viewCount: 0);
-    aggregation.onDeckResult = () => [playing, for (var i = 2; i <= 21; i++) _item('ep-$i')];
+    // One started item and 21 next episodes: each row keeps up to the preview
+    // limit, so Next Up is cut to 20 and Continue Watching keeps its one.
+    aggregation.onDeckResult = () => [playing, for (var i = 2; i <= 22; i++) _item('ep-$i')];
     aggregation.hubsResult = () => [_hub('hub-1')];
     await provider.load();
     await pumpEventQueue();
@@ -447,7 +451,7 @@ void main() {
 
     expect(provider.onDeck.first.viewOffsetMs, 30000);
     expect(provider.onDeck.first.isWatched, isFalse);
-    expect(provider.onDeck, hasLength(DiscoverProvider.continueWatchingPreviewLimit));
+    expect(provider.onDeck, hasLength(DiscoverProvider.continueWatchingPreviewLimit + 1));
     expect(provider.hasMoreContinueWatching, isTrue);
     expect(aggregation.onDeckCalls, onDeckCallsBefore);
     expect(aggregation.hubCalls, hubCallsBefore);

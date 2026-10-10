@@ -21,6 +21,7 @@ import '../utils/deletion_notifier.dart';
 import '../utils/media_event_keys.dart';
 import '../utils/global_key_utils.dart';
 import '../utils/media_hub_ordering.dart';
+import '../utils/on_deck_split.dart';
 import '../utils/watch_state_notifier.dart';
 import '../utils/library_content_notifier.dart';
 import '../utils/refresh_pacer.dart';
@@ -287,11 +288,9 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
   /// items Plex Media Bridge adds to Jellyfin carry a resume point but often
   /// no run time, and they went to Next Up (Adrian, 2026-10-09).
   static ({List<MediaItem> resume, List<MediaItem> nextUp}) splitOnDeck(List<MediaItem> items) => (
-    resume: List.unmodifiable(items.where(_isStarted)),
-    nextUp: List.unmodifiable(items.where((item) => !_isStarted(item))),
+    resume: List.unmodifiable(items.where(isOnDeckStarted)),
+    nextUp: List.unmodifiable(items.where((item) => !isOnDeckStarted(item))),
   );
-
-  static bool _isStarted(MediaItem item) => (item.viewOffsetMs ?? 0) > 0;
 
   /// The home sections in force (account, default or device).
   HomeLayout get home => _hiddenLibraries.home;
@@ -1020,9 +1019,11 @@ class DiscoverProvider extends ChangeNotifier with DisposableChangeNotifierMixin
     if (updatedHubs != null) _replaceHubs(updatedHubs);
   }
 
+  /// Keep up to the preview limit of each row: Continue Watching and Next Up
+  /// are cut separately, so one cannot crowd the other out.
   void _applyOnDeck(List<MediaItem> fetched) {
-    final hasMore = fetched.length > continueWatchingPreviewLimit;
-    _replaceOnDeck(hasMore ? fetched.take(continueWatchingPreviewLimit).toList() : fetched, hasMore: hasMore);
+    final hasMore = exceedsOnDeckPerKind(fetched, continueWatchingPreviewLimit);
+    _replaceOnDeck(hasMore ? limitOnDeckPerKind(fetched, continueWatchingPreviewLimit) : fetched, hasMore: hasMore);
   }
 
   void _replaceOnDeck(List<MediaItem> onDeck, {required bool hasMore}) {

@@ -2552,8 +2552,9 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     });
     final result = [for (final entry in ordered) entry.item];
 
-    if (limit != null && result.length > limit) return result.sublist(0, limit);
-    return result;
+    // Continue Watching and Next Up are separate rows: the limit applies to
+    // each, so recent Next Up episodes cannot push every resume item out.
+    return limitOnDeckPerKind(result, limit);
   }
 
   /// GET [path], optionally under a hub-surface transport policy ([retry]):
