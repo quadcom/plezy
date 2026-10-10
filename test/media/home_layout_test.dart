@@ -130,4 +130,12 @@ void main() {
       expect(home.withSections(HomeLayout.builtInOrder).rows, home.rows);
     });
   });
+
+  test('season posters are a card style of their own', () {
+    final home = HomeLayout.fromJson({
+      'cards': {'own/tv': 'season', 'own/movies': 'poster'},
+    });
+    expect(home.cards, {'own/tv': HomeCardStyle.season, 'own/movies': HomeCardStyle.poster});
+    expect((home.toJson()['cards'] as Map)['own/tv'], 'season');
+  });
 }

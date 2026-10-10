@@ -72,12 +72,14 @@ class MediaHub {
     return hubIdentifier != null && matches(hubIdentifier);
   }
 
-  /// The episode poster mode this row's cards use: screen grabs always show
-  /// episode stills, posters never do.
+  /// The episode poster mode this row's cards use: screen grabs show episode
+  /// stills, show posters the show's poster, season posters the season's; a
+  /// row with no choice follows the Episode Poster [setting].
   EpisodePosterMode cardPosterMode(EpisodePosterMode setting) => switch (cardStyle) {
     HomeCardStyle.thumb => EpisodePosterMode.episodeThumbnail,
-    HomeCardStyle.poster when setting == EpisodePosterMode.episodeThumbnail => EpisodePosterMode.seriesPoster,
-    _ => setting,
+    HomeCardStyle.poster => EpisodePosterMode.seriesPoster,
+    HomeCardStyle.season => EpisodePosterMode.seasonPoster,
+    null => setting,
   };
 
   /// Whether every card in this row is a screen grab, films and shows too.

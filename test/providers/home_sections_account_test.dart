@@ -115,9 +115,10 @@ void main() {
     expect(provider.home.sections, [HomeLayout.libraries, HomeLayout.resume, HomeLayout.hero, HomeLayout.nextUp]);
     expect(provider.home.isOn(HomeLayout.hero), isFalse);
     expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.resume)), HomeCardStyle.poster);
-    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.nextUp)), isNull);
+    // Rows neither sets fall back to the built-in style the web shows too.
+    expect(provider.cardStyleFor(provider.sectionCardKey(HomeLayout.nextUp)), HomeCardStyle.thumb);
     expect(provider.libraryCardStyle(_movies), HomeCardStyle.thumb);
-    expect(provider.libraryCardStyle(_master), isNull);
+    expect(provider.libraryCardStyle(_master), HomeCardStyle.poster);
   });
 
   test("a card choice saves the user's own home; the default's other cards still apply", () async {

@@ -126,18 +126,9 @@ class AppearanceSettingsScreen extends StatelessWidget {
               ),
             _continueWatchingActionSelector(),
             _episodeActionSelector(),
-            SettingSwitchTile(
-              pref: SettingsService.useGlobalHubs,
-              icon: Symbols.home_rounded,
-              title: t.settings.useGlobalHubs,
-              subtitle: t.settings.useGlobalHubsDescription,
-            ),
-            SettingSwitchTile(
-              pref: SettingsService.showServerNameOnHubs,
-              icon: Symbols.dns_rounded,
-              title: t.settings.showServerNameOnHubs,
-              subtitle: t.settings.showServerNameOnHubsDescription,
-            ),
+            // Use home layout and Show server names on hubs moved to Home
+            // sections (Adrian, 2026-10-10). Hosts without it keep them here.
+            if (!hasHomeSections) ...homeHubSwitches(),
           ],
         ),
 

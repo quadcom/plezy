@@ -1,8 +1,12 @@
 /// How a home row draws its cards (Adrian, 2026-10-09; plan
 /// `local/plans/settings-search-home-sections.md`).
 enum HomeCardStyle {
-  /// Posters; episodes use the series or season poster.
+  /// Posters; episodes use their show's poster.
   poster('poster'),
+
+  /// Posters; episodes use their season's poster, films their own (Adrian,
+  /// 2026-10-10: "Poster" alone did not say which).
+  season('season'),
 
   /// Screen grabs: films and shows use their backdrop, episodes their still.
   thumb('thumb');

@@ -355,12 +355,20 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// account the device's Show hero setting decides, as before.
   HomeLayout get home => (isAccountLayout ? _layout!.home ?? _defaults?.home : _deviceHome) ?? HomeLayout.standard;
 
-  /// [row]'s card style: a section id or a library layout key. Null keeps the
-  /// row's usual look.
+  /// [row]'s card style: a section id or a library layout key. Without an
+  /// account, null keeps the row's usual look. With one every row has a style:
+  /// the account's, else the admin default's, else screen grabs for Continue
+  /// Watching and Next Up and posters for libraries, as the web client shows
+  /// them (PlezyFin, 2026-10-10).
   HomeCardStyle? cardStyleFor(String row) {
     if (!isAccountLayout) return _deviceHome?.cards[row];
-    return _layout!.home?.cards[row] ?? _defaults?.home?.cards[row];
+    return _layout!.home?.cards[row] ?? _defaults?.home?.cards[row] ?? _builtInCardStyle(row);
   }
+
+  HomeCardStyle _builtInCardStyle(String row) =>
+      row == _entryKey(LayoutEntry.continueWatching) || row == _entryKey(LayoutEntry.nextUp)
+      ? HomeCardStyle.thumb
+      : HomeCardStyle.poster;
 
   /// [library]'s card style on home.
   HomeCardStyle? libraryCardStyle(MediaLibrary library) => cardStyleFor(_homeRowKey(library));

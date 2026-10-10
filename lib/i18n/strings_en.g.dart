@@ -1250,8 +1250,8 @@ class Translations$settings$en {
 	/// en: 'Home Sections'
 	String get homeSections => 'Home Sections';
 
-	/// en: 'Turn home rows on or off, move them, and pick posters or screen grabs'
-	String get homeSectionsDescription => 'Turn home rows on or off, move them, and pick posters or screen grabs';
+	/// en: 'Turn home rows on or off, move them, and pick how their cards look'
+	String get homeSectionsDescription => 'Turn home rows on or off, move them, and pick how their cards look';
 
 	/// en: 'Saved with your account, so every device follows'
 	String get homeSectionsSavedAccount => 'Saved with your account, so every device follows';
@@ -1294,6 +1294,27 @@ class Translations$settings$en {
 
 	/// en: 'Move down'
 	String get homeSectionMoveDown => 'Move down';
+
+	/// en: 'The big rotating banner at the top'
+	String get homeBannerDescription => 'The big rotating banner at the top';
+
+	/// en: 'The menu order, and which entries are Not shown, are set in Manage Libraries. An entry that is Not shown never appears here.'
+	String get homeRowsNote => 'The menu order, and which entries are Not shown, are set in Manage Libraries. An entry that is Not shown never appears here.';
+
+	/// en: 'Drag to move, or press to pick up and move with the arrow keys'
+	String get homeRowDragToMove => 'Drag to move, or press to pick up and move with the arrow keys';
+
+	/// en: 'Poster'
+	String get cardPoster => 'Poster';
+
+	/// en: 'Show poster'
+	String get cardShowPoster => 'Show poster';
+
+	/// en: 'Season poster'
+	String get cardSeasonPoster => 'Season poster';
+
+	/// en: 'Screenshot'
+	String get cardScreenshot => 'Screenshot';
 
 	/// en: 'Usual look'
 	String get cardsUsual => 'Usual look';
@@ -7815,7 +7836,7 @@ extension on Translations {
 			'settings.libraryAndCards' => 'Library & Cards',
 			'settings.homeScreen' => 'Home Screen',
 			'settings.homeSections' => 'Home Sections',
-			'settings.homeSectionsDescription' => 'Turn home rows on or off, move them, and pick posters or screen grabs',
+			'settings.homeSectionsDescription' => 'Turn home rows on or off, move them, and pick how their cards look',
 			'settings.homeSectionsSavedAccount' => 'Saved with your account, so every device follows',
 			'settings.homeSectionsSavedDevice' => 'Saved on this device',
 			'settings.homeSectionsRows' => 'Rows',
@@ -7830,6 +7851,13 @@ extension on Translations {
 			'settings.homeSectionTurnOff' => 'Turn off',
 			'settings.homeSectionMoveUp' => 'Move up',
 			'settings.homeSectionMoveDown' => 'Move down',
+			'settings.homeBannerDescription' => 'The big rotating banner at the top',
+			'settings.homeRowsNote' => 'The menu order, and which entries are Not shown, are set in Manage Libraries. An entry that is Not shown never appears here.',
+			'settings.homeRowDragToMove' => 'Drag to move, or press to pick up and move with the arrow keys',
+			'settings.cardPoster' => 'Poster',
+			'settings.cardShowPoster' => 'Show poster',
+			'settings.cardSeasonPoster' => 'Season poster',
+			'settings.cardScreenshot' => 'Screenshot',
 			'settings.cardsUsual' => 'Usual look',
 			'settings.cardsPosters' => 'Posters',
 			'settings.cardsScreenGrabs' => 'Screen grabs',
@@ -7931,6 +7959,8 @@ extension on Translations {
 			'fileInfo.sidecarFile' => 'Sidecar File',
 			'fileInfo.transportTimestamp' => 'Transport Timestamp',
 			'fileInfo.displayOffset' => 'Display Offset',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.previewFailureCode' => 'Preview Failure Code',
 			'fileInfo.previewRetries' => 'Preview Retries',
 			'fileInfo.aspectRatio' => 'Aspect Ratio',
@@ -7938,8 +7968,6 @@ extension on Translations {
 			'fileInfo.profile' => 'Profile',
 			'fileInfo.level' => 'Level',
 			'fileInfo.bitDepth' => 'Bit Depth',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.pixelFormat' => 'Pixel Format',
 			'fileInfo.colorSpace' => 'Color Space',
 			'fileInfo.colorRange' => 'Color Range',
@@ -8445,6 +8473,8 @@ extension on Translations {
 			'discover.minutesLeft' => ({required Object minutes}) => '${minutes} min left',
 			'discover.moreLikeThis' => 'More Like This',
 			'discover.titleCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} title', other: '${n} titles', ), 
+			_ => null,
+		} ?? switch (path) {
 			'errors.searchFailed' => ({required Object error}) => 'Search failed: ${error}',
 			'errors.searchUnavailable' => 'Search could not reach any media server.',
 			'errors.connectionTimeout' => ({required Object context}) => 'Connection timeout while loading ${context}',
@@ -8452,8 +8482,6 @@ extension on Translations {
 			'errors.unableToLoad' => ({required Object context}) => 'Unable to load ${context}. Please try again.',
 			'errors.noClientAvailable' => 'No client available',
 			'errors.pleaseEnterToken' => 'Please enter a token',
-			_ => null,
-		} ?? switch (path) {
 			'errors.invalidToken' => 'Invalid token',
 			'errors.failedToVerifyToken' => ({required Object error}) => 'Failed to verify token: ${error}',
 			'errors.failedToSwitchProfile' => ({required Object displayName}) => 'Failed to switch to ${displayName}',
@@ -8959,6 +8987,8 @@ extension on Translations {
 			'watchTogether.controlModeQuestion' => 'Who can control playback?',
 			'watchTogether.hostOnly' => 'Host Only',
 			'watchTogether.anyone' => 'Anyone',
+			_ => null,
+		} ?? switch (path) {
 			'watchTogether.hostingSession' => 'Hosting Session',
 			'watchTogether.inSession' => 'In Session',
 			'watchTogether.sessionCode' => 'Session Code',
@@ -8966,8 +8996,6 @@ extension on Translations {
 			'watchTogether.copySessionCode' => 'Copy session code',
 			'watchTogether.hostControlsPlayback' => 'Host controls playback',
 			'watchTogether.anyoneCanControl' => 'Anyone can control playback',
-			_ => null,
-		} ?? switch (path) {
 			'watchTogether.hostControls' => 'Host controls',
 			'watchTogether.anyoneControls' => 'Anyone controls',
 			'watchTogether.participants' => 'Participants',
@@ -9473,6 +9501,8 @@ extension on Translations {
 			'services.disconnectConfirmBody' => ({required Object service}) => 'Plezy will stop updating ${service}. Reconnect any time.',
 			'services.connectFailed' => ({required Object service}) => 'Couldn\'t connect to ${service}. Try again.',
 			'services.names.mal' => 'MyAnimeList',
+			_ => null,
+		} ?? switch (path) {
 			'services.names.anilist' => 'AniList',
 			'services.names.simkl' => 'Simkl',
 			'services.names.seerr' => 'Seerr',
@@ -9480,8 +9510,6 @@ extension on Translations {
 			'services.deviceCode.title' => ({required Object service}) => 'Activate Plezy on ${service}',
 			'services.deviceCode.instructions' => 'Scan the QR code, or visit the address below and enter this code:',
 			'services.deviceCode.openToActivate' => ({required Object service}) => 'Open ${service} to activate',
-			_ => null,
-		} ?? switch (path) {
 			'services.deviceCode.copyCode' => 'Copy activation code',
 			'services.deviceCode.waitingForAuthorization' => 'Waiting for authorization…',
 			'services.deviceCode.codeCopied' => 'Code copied',
