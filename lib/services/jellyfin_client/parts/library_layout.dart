@@ -81,13 +81,20 @@ mixin _JellyfinLibraryLayoutMethods on _JellyfinClientInternals {
 
   Future<void> _mirrorLayoutIntoConfiguration(LibraryLayout layout) async {
     final prefix = '$layoutServerId/';
-    final ordered = [
-      for (final key in layout.order)
-        if (key.startsWith(prefix)) key.substring(prefix.length),
-    ];
+    // Continue Watching, Next Up and Favourites are layout entries, not views:
+    // Jellyfin reads both lists as view ids and refuses the whole write with
+    // HTTP 400 when one is not an id (Adrian, 2026-10-10).
+    final entryIds = {for (final entry in LayoutEntry.values) entry.id};
+    String? viewIdOf(String key) {
+      if (!key.startsWith(prefix)) return null;
+      final id = key.substring(prefix.length);
+      return entryIds.contains(id) ? null : id;
+    }
+
+    final ordered = [for (final key in layout.order) ?viewIdOf(key)];
     final excluded = [
       for (final entry in layout.state.entries)
-        if (entry.key.startsWith(prefix) && entry.value != LibraryState.shown) entry.key.substring(prefix.length),
+        if (entry.value != LibraryState.shown) ?viewIdOf(entry.key),
     ];
     final readResponse = await _http.get(paths.currentUser);
     throwIfHttpError(readResponse);

@@ -129,6 +129,8 @@ void main() {
     expect(stored.order.take(2), ['$_own/continuewatching', '$_own/nextup']);
     // Folded and off libraries of the PlezyFin server are mirrored for other apps.
     expect(server.postedConfiguration!['MyMediaExcludes'], ['master', 'collections']);
+    // Layout entries are not views: Jellyfin refuses a non-id in either list.
+    expect(server.postedConfiguration!['OrderedViews'], ['movies', 'master', 'collections']);
   });
 
   test('Favourites starts shown, after the libraries', () async {
