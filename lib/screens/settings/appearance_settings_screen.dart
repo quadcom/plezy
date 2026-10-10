@@ -12,6 +12,7 @@ import '../../services/settings_service.dart' hide ThemeMode;
 import '../../services/settings_service.dart' as settings show ThemeMode;
 import '../../focus/focusable_slider.dart';
 import '../../services/device_performance.dart';
+import '../../utils/app_logger.dart';
 import '../../utils/platform_detector.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/setting_tile.dart';
@@ -51,7 +52,7 @@ class AppearanceSettingsScreen extends StatelessWidget {
             _viewModeSelector(),
             _densitySelector(),
             _gridSpacingSelector(),
-            _episodePosterModeSelector(),
+            _episodePosterModeSelector(context),
             SettingSwitchTile(
               pref: SettingsService.showEpisodeNumberOnCards,
               icon: Symbols.tag_rounded,
@@ -299,10 +300,21 @@ class AppearanceSettingsScreen extends StatelessWidget {
     ],
   );
 
-  Widget _episodePosterModeSelector() => SettingSegmentedTile<EpisodePosterMode>(
+  /// With a PlezyFin account the pick is saved with the account too, so the
+  /// web and every device follow it (PLAN_SHA_15).
+  Widget _episodePosterModeSelector(BuildContext context) => SettingSegmentedTile<EpisodePosterMode>(
     pref: SettingsService.episodePosterMode,
     icon: Symbols.image_rounded,
     title: t.settings.episodePosterMode,
+    onAfterWrite: (mode) async {
+      final layout = context.read<HiddenLibrariesProvider?>();
+      if (layout == null) return;
+      try {
+        await layout.saveAccountEpisodePoster(mode);
+      } catch (e, st) {
+        appLogger.w('Episode poster style: could not save it with the account', error: e, stackTrace: st);
+      }
+    },
     segments: [
       ButtonSegment(value: EpisodePosterMode.seriesPoster, label: Text(t.settings.seriesPoster)),
       ButtonSegment(value: EpisodePosterMode.seasonPoster, label: Text(t.settings.seasonPoster)),

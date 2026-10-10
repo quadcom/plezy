@@ -374,6 +374,35 @@ class LibraryLayout {
     );
   }
 
+  /// The account's Episode Poster Style from the record's top-level
+  /// `appearance.episodePoster` (PlezyFin PLAN_SHA_15): `poster`, `season`
+  /// or `thumb`; null when the person never picked one.
+  String? get episodePosterWire {
+    final appearance = extra['appearance'];
+    if (appearance is! Map) return null;
+    final value = appearance['episodePoster'];
+    return value is String && value.isNotEmpty ? value : null;
+  }
+
+  /// The next record with `appearance.episodePoster` set to [wire], keeping
+  /// every other key, unknown ones inside `appearance` included.
+  LibraryLayout withEpisodePoster(String wire, {required DateTime now}) {
+    final appearance = extra['appearance'];
+    return LibraryLayout(
+      rev: rev + 1,
+      updated: now.toUtc().toIso8601String(),
+      order: order,
+      state: state,
+      known: known,
+      titles: titles,
+      home: home,
+      extra: {
+        ...extra,
+        'appearance': {if (appearance is Map) ...appearance.cast<String, dynamic>(), 'episodePoster': wire},
+      },
+    );
+  }
+
   /// The home row title for [key]: this record's, else [defaults]', else null
   /// for "Recently Added in `<library name>`".
   String? titleFor(String key, {LibraryLayout? defaults}) => titles[key] ?? defaults?.titles[key];

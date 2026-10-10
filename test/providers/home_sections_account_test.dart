@@ -1,3 +1,4 @@
+import 'package:plezy/services/settings_service.dart';
 import 'dart:convert';
 
 import 'package:drift/native.dart';
@@ -374,6 +375,42 @@ void main() {
       expect(provider.accountLibrarySort(plex), isNull);
       await provider.saveAccountLibrarySort(plex, (by: 'titleSort', descending: false));
       expect((server.stored['sort'] as Map).keys, ['$_own/movies']);
+    });
+  });
+
+  group('episode poster style on the account (PLAN_SHA_15)', () {
+    setUp(() async {
+      SettingsService.resetForTesting();
+      await SettingsService.getInstance();
+    });
+
+    test("the account's style becomes this device's setting", () async {
+      await SettingsService.instance.write(SettingsService.episodePosterMode, EpisodePosterMode.episodeThumbnail);
+      final server = _FakePlezyFin(
+        storedLayout: jsonEncode({
+          'v': 1,
+          'rev': 1,
+          'known': {
+            _own: ['movies', 'master', 'continuewatching', 'nextup', 'favorites'],
+          },
+          'appearance': {'episodePoster': 'season'},
+        }),
+      );
+      final provider = await connect(server);
+
+      expect(provider.accountEpisodePoster, EpisodePosterMode.seasonPoster);
+      await Future<void>.delayed(Duration.zero);
+      expect(SettingsService.instance.read(SettingsService.episodePosterMode), EpisodePosterMode.seasonPoster);
+    });
+
+    test('a pick is saved with the account', () async {
+      final server = _FakePlezyFin();
+      final provider = await connect(server);
+      expect(provider.accountEpisodePoster, isNull);
+
+      await provider.saveAccountEpisodePoster(EpisodePosterMode.seriesPoster);
+      expect(server.stored['appearance'], {'episodePoster': 'poster'});
+      expect(provider.accountEpisodePoster, EpisodePosterMode.seriesPoster);
     });
   });
 }

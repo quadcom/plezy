@@ -11,6 +11,7 @@ import '../media/media_library.dart';
 import '../media/media_server_client.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
 import '../services/jellyfin_client.dart';
+import '../services/settings_service.dart';
 import '../services/storage_service.dart';
 import '../utils/app_logger.dart';
 
@@ -387,6 +388,52 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// Set [row]'s item order.
   Future<void> setRowSort(String row, HomeRowSort sort) => _saveHome((base) => base.withSort(row, sort));
 
+  /// The account's Episode Poster Style, or null without an account or when
+  /// the person never picked one there (PlezyFin PLAN_SHA_15).
+  EpisodePosterMode? get accountEpisodePoster =>
+      isAccountLayout ? _episodePosterFromWire(_layout!.episodePosterWire) : null;
+
+  static EpisodePosterMode? _episodePosterFromWire(String? wire) => switch (wire) {
+    'poster' => EpisodePosterMode.seriesPoster,
+    'season' => EpisodePosterMode.seasonPoster,
+    'thumb' => EpisodePosterMode.episodeThumbnail,
+    _ => null,
+  };
+
+  static String _episodePosterWire(EpisodePosterMode mode) => switch (mode) {
+    EpisodePosterMode.seriesPoster => 'poster',
+    EpisodePosterMode.seasonPoster => 'season',
+    EpisodePosterMode.episodeThumbnail => 'thumb',
+  };
+
+  /// Save the person's Episode Poster Style pick with the account; the
+  /// caller has written this device's setting already. Without an account,
+  /// nothing to do.
+  Future<void> saveAccountEpisodePoster(EpisodePosterMode mode) async {
+    await ensureInitialized();
+    if (isDisposed || !isAccountLayout) return;
+    final account = _account;
+    final ownServerId = _ownServerId!;
+    if (account == null) throw StateError('The PlezyFin server is not reachable');
+    final fresh = await account.fetchLibraryLayout() ?? _layout ?? LibraryLayout.empty;
+    final next = fresh.withEpisodePoster(_episodePosterWire(mode), now: DateTime.now());
+    await account.saveLibraryLayout(next);
+    if (isDisposed) return;
+    await _setAccount(account, ownServerId, next);
+  }
+
+  /// With an account that has an Episode Poster Style, this device's setting
+  /// follows it, so every episode card it draws (Plex ones too) matches the
+  /// web and the other devices. The device keeps that choice if the account
+  /// goes away (PlezyFin PLAN_SHA_15).
+  void _applyAccountAppearance() {
+    final mode = accountEpisodePoster;
+    final settings = SettingsService.instanceOrNull;
+    if (mode == null || settings == null) return;
+    if (settings.read(SettingsService.episodePosterMode) == mode) return;
+    unawaited(settings.write(SettingsService.episodePosterMode, mode));
+  }
+
   /// Whether [library]'s page sort is kept with the account: a library of the
   /// PlezyFin server itself. Plex and other servers keep it on the device
   /// (PlezyFin, 2026-10-10).
@@ -518,6 +565,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
         if (json is Map<String, dynamic> && json['own'] is String && json['layout'] is Map<String, dynamic>) {
           _ownServerId = json['own'] as String;
           _layout = LibraryLayout.fromJson(json['layout'] as Map<String, dynamic>);
+          _applyAccountAppearance();
         }
       } on FormatException {
         // A bad cache just means waiting for the server.
@@ -609,6 +657,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     _account = account;
     _ownServerId = ownServerId;
     _layout = layout;
+    _applyAccountAppearance();
     final storage = _storageService;
     if (storage != null) {
       await storage.saveAccountLibraryLayout(

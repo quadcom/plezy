@@ -170,4 +170,17 @@ void main() {
     });
     expect(next.withLibrarySort('own/b', null, now: DateTime(2026, 10, 10)).librarySortOf('own/b'), isNull);
   });
+
+  test('the episode poster style is kept in appearance beside unknown keys', () {
+    final layout = LibraryLayout.fromJson({
+      'v': 1,
+      'rev': 2,
+      'appearance': {'future': 1},
+    });
+    expect(layout.episodePosterWire, isNull);
+    final next = layout.withEpisodePoster('season', now: DateTime(2026, 10, 10));
+    expect(next.rev, 3);
+    expect(next.toJson()['appearance'], {'future': 1, 'episodePoster': 'season'});
+    expect(next.episodePosterWire, 'season');
+  });
 }
