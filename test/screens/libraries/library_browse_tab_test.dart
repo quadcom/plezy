@@ -176,6 +176,74 @@ void main() {
     debugDefaultTargetPlatformOverride = null;
   });
 
+  testWidgets('a random sort keeps its shuffle when the grid refreshes (Adrian, 2026-10-10)', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+
+    const sorts = [MediaSort(key: 'title', title: 'Title'), MediaSort(key: 'random', title: 'Random')];
+    final client = _BrowseClient('server-a', 'Library A', sortResponse: Future.value(sorts));
+    final harness = _BrowseHarness(clientA: client);
+    addTearDown(harness.dispose);
+
+    await _pumpHarness(tester, harness);
+    await _pumpUntil(tester, () => client.pageRequestCount >= 1);
+
+    LibraryPage<MediaItem> shuffled(List<String> titles) => LibraryPage<MediaItem>(
+      items: [
+        for (final title in titles)
+          testMediaItem(
+            id: title,
+            backend: MediaBackend.jellyfin,
+            kind: MediaKind.artist,
+            title: title,
+            serverId: client.serverId.value,
+            serverName: client.serverName,
+          ),
+      ],
+      totalCount: titles.length,
+    );
+    client.pageResponses.add(() async => shuffled(['Second', 'First']));
+
+    var requestsBefore = client.pageRequestCount;
+    await tester.tap(find.byType(FocusableFilterChip).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Random'));
+    await tester.pumpAndSettle();
+    await _pumpUntil(tester, () => client.pageRequestCount > requestsBefore);
+    await pumpRequestFrames(tester);
+
+    // One draw of the whole list; the grid pages through it.
+    expect(client.pageQueries.last.sort?.field, 'random');
+    expect(client.pageQueries.last.offset, 0);
+    expect(client.pageQueries.last.limit, 2000);
+    expect(find.text('Second'), findsOneWidget);
+    expect(find.text('First'), findsOneWidget);
+    expect(tester.getTopLeft(find.text('Second')).dx, lessThan(tester.getTopLeft(find.text('First')).dx));
+
+    // A server push (what coming back from a title replayed) refills the grid
+    // from the same draw: no new shuffle, same order.
+    requestsBefore = client.pageRequestCount;
+    LibraryContentNotifier().notifyChanged(
+      LibraryChangeEvent(serverId: ServerId('server-a'), libraryIds: const {'server-a-library'}, itemsAdded: true),
+    );
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump(const Duration(minutes: 2));
+    await pumpRequestFrames(tester);
+    expect(client.pageRequestCount, requestsBefore);
+    expect(tester.getTopLeft(find.text('Second')).dx, lessThan(tester.getTopLeft(find.text('First')).dx));
+
+    // Picking Random again shuffles again.
+    client.pageResponses.add(() async => shuffled(['First', 'Second']));
+    await tester.tap(find.byType(FocusableFilterChip).last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Random').last);
+    await tester.pumpAndSettle();
+    await _pumpUntil(tester, () => client.pageRequestCount > requestsBefore);
+    await pumpRequestFrames(tester);
+    expect(tester.getTopLeft(find.text('First')).dx, lessThan(tester.getTopLeft(find.text('Second')).dx));
+
+    debugDefaultTargetPlatformOverride = null;
+  });
+
   testWidgets('chips bar shows how many items the server reports', (tester) async {
     // The chips bar is the non-mobile browse chrome.
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

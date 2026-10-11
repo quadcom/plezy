@@ -160,6 +160,7 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     // If we have an item that matches the rating key exactly, remove it and rebuild indices
     final matchEntry = loadedItems.entries.where((e) => e.value.id == event.itemId).firstOrNull;
     if (matchEntry != null) {
+      _dropFromShuffle(matchEntry.value.id);
       setState(() {
         removeLoadedItemAndShift(matchEntry.key);
         reconcileGridFocusNodes({for (final entry in loadedItems.entries) entry.value.id: entry.key});
@@ -176,6 +177,7 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
         final item = parentEntry.value;
         final newLeafCount = (item.leafCount ?? 1) - event.leafCount;
         if (newLeafCount <= 0) {
+          _dropFromShuffle(item.id);
           setState(() {
             removeLoadedItemAndShift(parentEntry.key);
             reconcileGridFocusNodes({for (final entry in loadedItems.entries) entry.value.id: entry.key});
@@ -920,8 +922,64 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
     }
   }
 
+  /// Random sort: neither Plex nor Jellyfin can repeat a shuffle, so every
+  /// fetch drew a new one. Opening a title and coming back (a push-marked
+  /// refresh) reshuffled the grid, and later pages repeated titles and
+  /// skipped others (Adrian, 2026-10-10, Theater SHIELD). One shuffled list
+  /// is fetched instead and every page is a slice of it; it is drawn again
+  /// only when the sort or filters change (picking Random again counts), or
+  /// on refresh.
+  static const _shuffleCap = 2000;
+  Future<List<MediaItem>>? _shuffled;
+  (String, LibraryQuery)? _shuffledFor;
+
+  bool get _isRandomSort => _selectedSort?.key == 'random';
+
+  void _reshuffle() => _shuffled = null;
+
+  /// A deleted title leaves the shuffled list too, so later slices stay in
+  /// step with the grid it was removed from.
+  void _dropFromShuffle(String id) {
+    final pending = _shuffled;
+    if (pending != null) unawaited(pending.then((all) => all.removeWhere((item) => item.id == id), onError: (_) {}));
+  }
+
+  @override
+  void refresh() {
+    _reshuffle();
+    super.refresh();
+  }
+
+  Future<LibraryPage<MediaItem>> _shuffledPage(int start, int size, AbortController? abort) async {
+    final query = _buildQuery(clauses: _selectedFilters, offset: 0, limit: _shuffleCap);
+    final drawFor = (widget.library.globalKey, query);
+    if (_shuffled == null || _shuffledFor != drawFor) {
+      _shuffledFor = drawFor;
+      final client = context.getMediaClientForLibrary(widget.library);
+      _shuffled = client
+          .fetchLibraryPagedContent(widget.library.id, query: query, libraryKind: widget.library.kind, abort: abort)
+          .then((page) => List.of(page.items));
+    }
+    final pending = _shuffled!;
+    final List<MediaItem> all;
+    try {
+      all = await pending;
+    } catch (_) {
+      // A failed or aborted draw must not stick: the next page tries again.
+      if (identical(_shuffled, pending)) _shuffled = null;
+      rethrow;
+    }
+    final from = start.clamp(0, all.length);
+    return LibraryPage<MediaItem>(
+      items: all.sublist(from, (from + size).clamp(from, all.length)),
+      totalCount: all.length,
+      offset: start,
+    );
+  }
+
   @override
   Future<LibraryPage<MediaItem>> fetchPage(int start, int size, AbortController? abort) async {
+    if (_isRandomSort) return _shuffledPage(start, size, abort);
     final client = context.getMediaClientForLibrary(widget.library);
     return client.fetchLibraryPagedContent(
       widget.library.id,
@@ -1325,6 +1383,7 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
   /// selection didn't change, exactly like the sheet path always has.
   void _applySortSelection({required MediaSort? sort, required bool descending, required bool cleared}) {
     if (cleared) {
+      _reshuffle();
       setState(() {
         _selectedSort = null;
         _isSortDescending = false;
@@ -1338,6 +1397,9 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       });
       _saveAccountSort(null);
     } else if (sort != null && (sort.key != _selectedSort?.key || descending != _isSortDescending)) {
+      // Picking Random again flips its direction, so it lands here and
+      // shuffles again.
+      _reshuffle();
       setState(() {
         _selectedSort = sort;
         _isSortDescending = descending;
