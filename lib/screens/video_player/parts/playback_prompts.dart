@@ -19,6 +19,17 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       _logVideoCompleted('resolvingAdjacency');
       return;
     }
+    // Old School: the channel's next entry joins at its scheduled point; no
+    // Play Next prompt, autoplay countdown or sleep-timer stop.
+    if (widget.isOldSchool) {
+      _logVideoCompleted('oldSchool');
+      final duration = player?.state.duration;
+      unawaited(
+        _sendStoppedProgressOnce(positionOverride: duration != null && duration > Duration.zero ? duration : null),
+      );
+      _oldSchoolCarryOn();
+      return;
+    }
 
     // mpv does not flip the `pause` property on EOF, so _onPlayingStateChanged
     // never fires false.  Normalize all playback-dependent state.

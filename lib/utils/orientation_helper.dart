@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'platform_detector.dart';
 
 class OrientationHelper {
@@ -15,14 +17,32 @@ class OrientationHelper {
   /// not pin rotation itself, the app alone then renders upside down (#2401).
   static bool get _platformOwnsOrientation => PlatformDetector.isAutomotive() || PlatformDetector.isTV();
 
+  /// Whether the display is a tablet's: at least 600 logical pixels on its
+  /// short side and clearly oblong. The oblong test leaves out an unfolded
+  /// foldable, whose near-square inner screen is used either way up.
+  static bool get _isTabletDisplay {
+    final views = WidgetsBinding.instance.platformDispatcher.views;
+    if (views.isEmpty) return false;
+    final view = views.first;
+    final size = view.physicalSize / view.devicePixelRatio;
+    if (size.isEmpty) return false;
+    return size.shortestSide >= 600 && size.longestSide / size.shortestSide >= 1.25;
+  }
+
   /// Restores the app's default orientation preferences: every orientation
-  /// on every handheld. Phones rotate into the landscape shell (leading
-  /// navigation rail) like tablets do; the video player owns its own lock.
+  /// on a phone, landscape only on a tablet (Adrian, 2026-10-11: the tablet
+  /// sits sideways and the app should not turn with it). Phones rotate into
+  /// the landscape shell (leading navigation rail); the video player owns
+  /// its own lock.
   ///
   /// This should be called when leaving full-screen experiences like
   /// the video player to restore the app's default orientation behavior.
   static Future<void> restoreDefaultOrientations() async {
     if (_platformOwnsOrientation) return;
+    if (Platform.isAndroid && _isTabletDisplay) {
+      await lockLandscapeOrientation();
+      return;
+    }
     await SystemChrome.setPreferredOrientations(DeviceOrientation.values);
   }
 

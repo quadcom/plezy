@@ -272,6 +272,9 @@ class MpvPlayerCore private constructor(
   private var osdSurfaceView: SurfaceView? = null
   private var surfaceContainer: android.widget.FrameLayout? = null
 
+  /** Last rect from Flutter (left, top, right, bottom); re-applied when the container is built. */
+  private var videoRect: IntArray? = null
+
   @Volatile private var pendingOsdSurface: Surface? = null
 
   @Volatile private var attachedOsdSurface: Surface? = null
@@ -898,6 +901,7 @@ class MpvPlayerCore private constructor(
         }
 
         val contentView = PlayerSurfaceHost.attachToContent(activity, surfaceContainer!!)
+        PlayerSurfaceHost.placeContainer(surfaceContainer!!, videoRect)
         flutterOverlayApplied = PlayerSurfaceHost.ensureFlutterOverlayOnTop(contentView, surfaceContainer)
         ensureFlutterOverlayOnTop()
         overlayLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
@@ -2873,6 +2877,17 @@ class MpvPlayerCore private constructor(
         val p = player ?: throw IllegalStateException("MPV player unavailable")
         p.command(*args)
       }
+    }
+  }
+
+  override fun setVideoRect(left: Int, top: Int, right: Int, bottom: Int) {
+    // Audio-only: no render layer to place — tolerated no-op.
+    if (audioOnly || disposing) return
+    runOnMain {
+      if (disposing) return@runOnMain
+      val rect = intArrayOf(left, top, right, bottom)
+      videoRect = rect
+      surfaceContainer?.let { PlayerSurfaceHost.placeContainer(it, rect) }
     }
   }
 

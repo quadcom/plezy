@@ -5,6 +5,13 @@ extension _VideoPlayerSeekingMethods on VideoPlayerScreenState {
     final currentPlayer = player;
     if (!mounted || _shuttingDown || currentPlayer == null) return;
     final target = clampSeekPosition(currentPlayer, position);
+    // Old School plays like live TV: never ahead of where the programme is
+    // (PLAN_SHA_21). Half a second of slack lets a reconnect re-seek to a
+    // slightly stale position. Back to live seeks past this on purpose.
+    if (widget.isOldSchool && target > currentPlayer.state.position + const Duration(milliseconds: 500)) {
+      appLogger.d('Old School: forward seek refused');
+      return;
+    }
     // Declare intentional seeks before the delegate can unbind/reload at EOF.
     _activeWatchTogetherSession()?.onLocalSeek(target);
     await _performSeekPlayback(target);

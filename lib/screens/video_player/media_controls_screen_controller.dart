@@ -27,6 +27,7 @@ class MediaControlsScreenController {
     required this._player,
     required this._isMounted,
     required this.isLive,
+    this.isOldSchool = false,
     required this._hasLiveSeekWindow,
     required this._hasNextLiveChannel,
     required this._hasPreviousLiveChannel,
@@ -50,6 +51,10 @@ class MediaControlsScreenController {
   final Player? Function() _player;
   final bool Function() _isMounted;
   final bool isLive;
+
+  /// Old School (PLAN_SHA_21): no seeking, skipping or speed from the OS
+  /// media controls; play/pause only.
+  final bool isOldSchool;
 
   /// Whether the tuned stream has a capture buffer to skip through. Live TV
   /// without one (Jellyfin negotiates a session-less URL) can only play,
@@ -131,20 +136,20 @@ class MediaControlsScreenController {
       canPlayPause: canControlPlayback,
       canGoNext: hasNextItem && canNavigateMediaItems,
       canGoPrevious: hasPreviousItem && canNavigateMediaItems,
-      canSeek: contentCanSeek && canControlPlayback,
+      canSeek: contentCanSeek && canControlPlayback && !isOldSchool,
       canStop: true,
       // In-track skips work on live TV only through the capture buffer; a
       // channel without one (Jellyfin) has nothing to step through, and the
       // skip would fall through to the VOD accumulator as an absolute seek
       // against a live playhead.
-      canSkip: canControlPlayback && (!isLive || _hasLiveSeekWindow()),
+      canSkip: canControlPlayback && !isOldSchool && (!isLive || _hasLiveSeekWindow()),
       // Video claims the lock-screen / remote-card side slots for ±skip
       // (#1994); the step mirrors the in-player small skip. A mid-playback
       // seekTimeSmall change applies on the next availability sync.
       preferSkipOverTrackButtons: true,
       skipInterval: Duration(seconds: SettingsService.instance.read(SettingsService.seekTimeSmall)),
       // Rate changes don't apply to a live stream.
-      canSetSpeed: !isLive && canControlPlayback,
+      canSetSpeed: !isLive && !isOldSchool && canControlPlayback,
     );
   }
 

@@ -169,6 +169,7 @@ class ExoPlayerPlugin :
     playerCore = null
     coreInstanceId = null
     mpvCore = null
+    lastVideoRect = null
     usingMpvFallback = false
     fallbackInProgress = false
     backendSwitchPending = false
@@ -250,6 +251,7 @@ class ExoPlayerPlugin :
       "addSubtitleTrack" -> handleAddSubtitleTrack(call, result)
       "setVisible" -> handleSetVisible(call, result)
       "updateFrame" -> handleUpdateFrame(result)
+      "setVideoRect" -> handleSetVideoRect(call, result)
       "setVideoFrameRate" -> handleSetVideoFrameRate(call, result)
       "clearVideoFrameRate" -> handleClearVideoFrameRate(result)
       "requestAudioFocus" -> handleRequestAudioFocus(result)
@@ -348,6 +350,7 @@ class ExoPlayerPlugin :
           this.debugLoggingEnabled = this@ExoPlayerPlugin.debugLoggingEnabled
         }
         playerCore = core
+        applyLastVideoRect(core)
         coreInstanceId = call.argument<Number>("instanceId")?.toLong()
         val success = core.initialize(
           tunnelingEnabled = tunnelingEnabled,
@@ -603,6 +606,7 @@ class ExoPlayerPlugin :
     }
     replacementCore.delegate = MpvDelegate(replacementCore)
     mpvCore = replacementCore
+    applyLastVideoRect(replacementCore)
 
     val settled = AtomicBoolean(false)
     val timeout = Runnable {
@@ -1013,6 +1017,25 @@ class ExoPlayerPlugin :
 
     activeSurfaceCore?.setVisible(visible)
     result.success(null)
+  }
+
+  /** Old School's corner window (PLAN_SHA_21); kept for a core built later in the same session. */
+  private var lastVideoRect: IntArray? = null
+
+  private fun handleSetVideoRect(call: MethodCall, result: MethodChannel.Result) {
+    val rect = intArrayOf(
+      call.argument<Number>("left")?.toInt() ?: 0,
+      call.argument<Number>("top")?.toInt() ?: 0,
+      call.argument<Number>("right")?.toInt() ?: 0,
+      call.argument<Number>("bottom")?.toInt() ?: 0
+    )
+    lastVideoRect = rect
+    activeSurfaceCore?.setVideoRect(rect[0], rect[1], rect[2], rect[3])
+    result.success(null)
+  }
+
+  private fun applyLastVideoRect(core: SurfacePlayerCore) {
+    lastVideoRect?.let { core.setVideoRect(it[0], it[1], it[2], it[3]) }
   }
 
   private fun handleUpdateFrame(result: MethodChannel.Result) {
@@ -1494,6 +1517,7 @@ class ExoPlayerPlugin :
             val core = createMpvCore(act)
             core.delegate = MpvDelegate(core)
             mpvCore = core
+            applyLastVideoRect(core)
 
             val initializationSettled = AtomicBoolean(false)
             val timeout = Runnable {

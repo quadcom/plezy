@@ -11,6 +11,7 @@ import android.util.Log
 import com.edde746.plezy.exoplayer.supportedMpvSpdifCodecs
 import com.edde746.plezy.shared.PlayerChannelBinding
 import com.edde746.plezy.shared.PlayerDebugLog
+import com.edde746.plezy.shared.SurfacePlayerCore
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -165,6 +166,7 @@ open class MpvPlayerPlugin(
     val core = playerCore
     playerCore = null
     coreInstanceId = null
+    lastVideoRect = null
     cancelPendingInits()
     return core
   }
@@ -229,6 +231,7 @@ open class MpvPlayerPlugin(
       "command" -> handleCommand(call, result)
       "setVisible" -> handleSetVisible(call, result)
       "updateFrame" -> handleUpdateFrame(result)
+      "setVideoRect" -> handleSetVideoRect(call, result)
       "setVideoFrameRate" -> handleSetVideoFrameRate(call, result)
       "clearVideoFrameRate" -> handleClearVideoFrameRate(result)
       "requestAudioFocus" -> handleRequestAudioFocus(result)
@@ -331,6 +334,7 @@ open class MpvPlayerPlugin(
           delegate = this@MpvPlayerPlugin
         }
         playerCore = core
+        applyLastVideoRect(core)
         coreInstanceId = call.argument<Number>("instanceId")?.toLong()
       } catch (e: Exception) {
         Log.e(tag, "Failed to initialize: ${e.message}", e)
@@ -597,6 +601,25 @@ open class MpvPlayerPlugin(
 
     playerCore?.setVisible(visible)
     result.success(null)
+  }
+
+  /** Old School's corner window (PLAN_SHA_21); kept for a core built later in the same session. */
+  private var lastVideoRect: IntArray? = null
+
+  private fun handleSetVideoRect(call: MethodCall, result: MethodChannel.Result) {
+    val rect = intArrayOf(
+      call.argument<Number>("left")?.toInt() ?: 0,
+      call.argument<Number>("top")?.toInt() ?: 0,
+      call.argument<Number>("right")?.toInt() ?: 0,
+      call.argument<Number>("bottom")?.toInt() ?: 0
+    )
+    lastVideoRect = rect
+    playerCore?.setVideoRect(rect[0], rect[1], rect[2], rect[3])
+    result.success(null)
+  }
+
+  private fun applyLastVideoRect(core: SurfacePlayerCore) {
+    lastVideoRect?.let { core.setVideoRect(it[0], it[1], it[2], it[3]) }
   }
 
   private fun handleUpdateFrame(result: MethodChannel.Result) {

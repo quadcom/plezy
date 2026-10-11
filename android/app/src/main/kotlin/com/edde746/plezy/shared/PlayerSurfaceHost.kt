@@ -4,7 +4,9 @@ import android.app.Activity
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.view.SurfaceHolder
+import android.view.Gravity
 import android.view.SurfaceView
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import com.edde746.plezy.mpv.OsdPlanePolicy
@@ -75,6 +77,45 @@ internal object PlayerSurfaceHost {
         (view as SurfaceView).holder.setFixedSize(size.width, size.height)
       }
     }
+  }
+
+  /**
+   * Size and place [container] to [rect] (left, top, right, bottom in
+   * content-view pixels), or back to filling its parent when [rect] is null,
+   * empty, or covers the parent within a couple of pixels (ordinary
+   * full-screen playback, PiP). Everything inside follows from the cores'
+   * global-layout listeners: the video plane, the OSD plane and subtitles.
+   *
+   * Writes only on a change: those listeners fire on every layout, and an
+   * unconditional write would re-trigger layout forever.
+   */
+  fun placeContainer(container: FrameLayout, rect: IntArray?) {
+    val parent = container.parent as? View
+    val parentWidth = parent?.width ?: 0
+    val parentHeight = parent?.height ?: 0
+    val full = rect == null ||
+      rect[2] - rect[0] <= 0 ||
+      rect[3] - rect[1] <= 0 ||
+      (parentWidth > 0 && parentHeight > 0 &&
+        rect[0] <= 2 && rect[1] <= 2 && rect[2] >= parentWidth - 2 && rect[3] >= parentHeight - 2)
+    val width = if (full) FrameLayout.LayoutParams.MATCH_PARENT else rect!![2] - rect[0]
+    val height = if (full) FrameLayout.LayoutParams.MATCH_PARENT else rect!![3] - rect[1]
+    val left = if (full) 0 else rect!![0]
+    val top = if (full) 0 else rect!![1]
+    val lp = container.layoutParams as? FrameLayout.LayoutParams
+      ?: FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    val gravity = Gravity.TOP or Gravity.START
+    if (lp.width == width && lp.height == height && lp.leftMargin == left && lp.topMargin == top &&
+      lp.gravity == gravity && container.layoutParams === lp
+    ) {
+      return
+    }
+    lp.width = width
+    lp.height = height
+    lp.leftMargin = left
+    lp.topMargin = top
+    lp.gravity = gravity
+    container.layoutParams = lp
   }
 
   fun attachToContent(activity: Activity, container: FrameLayout): ViewGroup {

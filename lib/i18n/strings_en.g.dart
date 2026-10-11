@@ -93,6 +93,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$addServer$en addServer = Translations$addServer$en.internal(_root);
 	late final Translations$course$en course = Translations$course$en.internal(_root);
 	late final Translations$seasonPage$en seasonPage = Translations$seasonPage$en.internal(_root);
+	late final Translations$oldSchool$en oldSchool = Translations$oldSchool$en.internal(_root);
 }
 
 // Path: app
@@ -5897,6 +5898,102 @@ class Translations$seasonPage$en {
 	String get loadFailed => 'Could not load this season.';
 }
 
+// Path: oldSchool
+class Translations$oldSchool$en {
+	Translations$oldSchool$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Old School'
+	String get title => 'Old School';
+
+	/// en: 'Exit'
+	String get exit => 'Exit';
+
+	/// en: 'LIVE'
+	String get live => 'LIVE';
+
+	/// en: 'On now'
+	String get onNow => 'On now';
+
+	/// en: 'Up next'
+	String get upNext => 'Up next';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: '${done} of ${total} min'
+	String minutesOf({required Object done, required Object total}) => '${done} of ${total} min';
+
+	/// en: '${minutes} min left'
+	String minutesLeft({required Object minutes}) => '${minutes} min left';
+
+	/// en: 'Starts at ${time}'
+	String startsAt({required Object time}) => 'Starts at ${time}';
+
+	/// en: 'Channel ${number} · ${name}'
+	String channelLine({required Object number, required Object name}) => 'Channel ${number} · ${name}';
+
+	/// en: 'Press Back again to leave'
+	String get pressBackAgain => 'Press Back again to leave';
+
+	/// en: 'Pick something that's on now to start watching'
+	String get pickOnNow => 'Pick something that\'s on now to start watching';
+
+	/// en: 'Off the air'
+	String get nothingOn => 'Off the air';
+
+	/// en: 'Coming attraction'
+	String get comingAttraction => 'Coming attraction';
+
+	/// en: 'Back soon'
+	String get backSoon => 'Back soon';
+
+	/// en: 'Programmes resume shortly'
+	String get resumeShortly => 'Programmes resume shortly';
+
+	/// en: 'Couldn't load the guide.'
+	String get loadFailed => 'Couldn\'t load the guide.';
+
+	/// en: 'No channels yet. An admin can set them up on the web.'
+	String get noChannels => 'No channels yet. An admin can set them up on the web.';
+
+	/// en: 'Couldn't tune to that channel.'
+	String get tuneFailed => 'Couldn\'t tune to that channel.';
+
+	/// en: 'Back to live'
+	String get backToLive => 'Back to live';
+
+	/// en: 'Restart'
+	String get restart => 'Restart';
+
+	/// en: 'Guide'
+	String get guide => 'Guide';
+
+	/// en: 'Channel up'
+	String get channelUp => 'Channel up';
+
+	/// en: 'Channel down'
+	String get channelDown => 'Channel down';
+
+	/// en: 'Watch live'
+	String get watchLive => 'Watch live';
+
+	/// en: 'Full screen'
+	String get fullScreen => 'Full screen';
+
+	/// en: 'Old School plays like live TV: no skipping ahead'
+	String get seekLocked => 'Old School plays like live TV: no skipping ahead';
+
+	/// en: 'Old School can't be used during Watch Together.'
+	String get noWatchTogether => 'Old School can\'t be used during Watch Together.';
+
+	/// en: 'Old School always plays in Plezy's own player.'
+	String get noExternalPlayer => 'Old School always plays in Plezy\'s own player.';
+}
+
 // Path: common.ratingSource
 class Translations$common$ratingSource$en {
 	Translations$common$ratingSource$en.internal(this._root);
@@ -9646,6 +9743,35 @@ extension on Translations {
 			'seasonPage.episodeHeading' => ({required Object number, required Object title}) => 'Episode ${number}: ${title}',
 			'seasonPage.spoilerHidden' => 'The description shows once you\'ve watched it.',
 			'seasonPage.loadFailed' => 'Could not load this season.',
+			'oldSchool.title' => 'Old School',
+			'oldSchool.exit' => 'Exit',
+			'oldSchool.live' => 'LIVE',
+			'oldSchool.onNow' => 'On now',
+			'oldSchool.upNext' => 'Up next',
+			'oldSchool.today' => 'Today',
+			'oldSchool.minutesOf' => ({required Object done, required Object total}) => '${done} of ${total} min',
+			'oldSchool.minutesLeft' => ({required Object minutes}) => '${minutes} min left',
+			'oldSchool.startsAt' => ({required Object time}) => 'Starts at ${time}',
+			'oldSchool.channelLine' => ({required Object number, required Object name}) => 'Channel ${number} · ${name}',
+			'oldSchool.pressBackAgain' => 'Press Back again to leave',
+			'oldSchool.pickOnNow' => 'Pick something that\'s on now to start watching',
+			'oldSchool.nothingOn' => 'Off the air',
+			'oldSchool.comingAttraction' => 'Coming attraction',
+			'oldSchool.backSoon' => 'Back soon',
+			'oldSchool.resumeShortly' => 'Programmes resume shortly',
+			'oldSchool.loadFailed' => 'Couldn\'t load the guide.',
+			'oldSchool.noChannels' => 'No channels yet. An admin can set them up on the web.',
+			'oldSchool.tuneFailed' => 'Couldn\'t tune to that channel.',
+			'oldSchool.backToLive' => 'Back to live',
+			'oldSchool.restart' => 'Restart',
+			'oldSchool.guide' => 'Guide',
+			'oldSchool.channelUp' => 'Channel up',
+			'oldSchool.channelDown' => 'Channel down',
+			'oldSchool.watchLive' => 'Watch live',
+			'oldSchool.fullScreen' => 'Full screen',
+			'oldSchool.seekLocked' => 'Old School plays like live TV: no skipping ahead',
+			'oldSchool.noWatchTogether' => 'Old School can\'t be used during Watch Together.',
+			'oldSchool.noExternalPlayer' => 'Old School always plays in Plezy\'s own player.',
 			_ => null,
 		};
 	}

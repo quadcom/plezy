@@ -15,6 +15,7 @@ import 'widgets/content_strip.dart';
 import 'widgets/content_strip_panel.dart';
 import 'widgets/first_frame_guard.dart';
 import 'widgets/play_pause_stream_builder.dart';
+import 'old_school_controls.dart';
 import 'widgets/live_timeline_bar.dart';
 import 'widgets/video_controls_header.dart';
 import 'widgets/video_timeline_bar.dart';
@@ -61,6 +62,9 @@ class MobileVideoControls extends StatefulWidget {
 
   /// Whether this is a live TV stream
   final bool isLive;
+
+  /// Old School mode: no seeking ahead, its own buttons (PLAN_SHA_21).
+  final OldSchoolControls? oldSchool;
 
   final String? liveChannelName;
 
@@ -112,6 +116,7 @@ class MobileVideoControls extends StatefulWidget {
     this.hasFirstFrame,
     this.thumbnailDataBuilder,
     this.isLive = false,
+    this.oldSchool,
     this.liveChannelName,
     this.captureBuffer,
     this.isAtLiveEdge = true,
@@ -349,14 +354,54 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
     );
   }
 
+  /// Old School's side buttons have no tooltip on touch screens, so a short
+  /// word sits under each. It hangs below the button, outside the layout, so
+  /// the row stays centred on the play/pause button.
+  Widget _captioned(String caption, Widget button) {
+    return Stack(
+      clipBehavior: Clip.none,
+      alignment: Alignment.center,
+      children: [
+        button,
+        Positioned(
+          bottom: -22,
+          child: ExcludeSemantics(
+            child: Text(
+              caption,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.8,
+                shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPlaybackControlsContent(BuildContext _) {
     return PlayPauseStreamBuilder(
       player: widget.player,
       builder: (context, isPlaying) {
+        final oldSchool = widget.oldSchool;
         return Row(
           mainAxisAlignment: .center,
           children: [
-            if (!widget.isLive) ...[
+            if (oldSchool != null) ...[
+              _captioned(
+                t.oldSchool.restart,
+                CircularControlButton(
+                  semanticLabel: t.oldSchool.restart,
+                  icon: Symbols.replay_rounded,
+                  iconSize: 44,
+                  onPressed: oldSchool.onRestart,
+                ),
+              ),
+              const SizedBox(width: 24),
+            ] else if (!widget.isLive) ...[
               CircularControlButton(
                 semanticLabel: t.videoControls.previousButton,
                 icon: Symbols.skip_previous_rounded,
@@ -378,7 +423,18 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
                 }
               },
             ),
-            if (!widget.isLive) ...[
+            if (oldSchool != null) ...[
+              const SizedBox(width: 24),
+              _captioned(
+                t.oldSchool.live,
+                CircularControlButton(
+                  semanticLabel: t.oldSchool.backToLive,
+                  icon: Symbols.stream_rounded,
+                  iconSize: 44,
+                  onPressed: oldSchool.onBackToLive,
+                ),
+              ),
+            ] else if (!widget.isLive) ...[
               const SizedBox(width: 24),
               CircularControlButton(
                 semanticLabel: t.videoControls.nextButton,
@@ -431,6 +487,59 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
   }
 
   Widget _buildBottomBarContent(BuildContext context) {
+    final oldSchool = widget.oldSchool;
+    if (oldSchool != null) {
+      return _conditionalSafeArea(
+        context: context,
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: .min,
+            children: [
+              VideoTimelineBar(
+                player: widget.player,
+                chapters: widget.chapters,
+                chaptersLoaded: widget.chaptersLoaded,
+                showChapterMarkersOnTimeline: false,
+                onSeek: widget.onSeek,
+                onSeekEnd: widget.onSeekEnd,
+                horizontalLayout: false,
+                // Shows where the programme is; Old School can't be scrubbed ahead.
+                enabled: false,
+                showFinishTime: true,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: .center,
+                children: [
+                  CircularControlButton(
+                    semanticLabel: t.oldSchool.channelDown,
+                    icon: Symbols.keyboard_arrow_down_rounded,
+                    iconSize: 32,
+                    onPressed: oldSchool.onChannelDown,
+                  ),
+                  const SizedBox(width: 24),
+                  CircularControlButton(
+                    semanticLabel: t.oldSchool.guide,
+                    icon: Symbols.view_list_rounded,
+                    iconSize: 32,
+                    onPressed: oldSchool.onGuide,
+                  ),
+                  const SizedBox(width: 24),
+                  CircularControlButton(
+                    semanticLabel: t.oldSchool.channelUp,
+                    icon: Symbols.keyboard_arrow_up_rounded,
+                    iconSize: 32,
+                    onPressed: oldSchool.onChannelUp,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return _conditionalSafeArea(
       context: context,
       top: false, // Only respect bottom safe area when in portrait

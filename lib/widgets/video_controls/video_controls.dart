@@ -91,6 +91,7 @@ import '../../providers/shader_provider.dart';
 import '../../services/shader_service.dart';
 import '../../watch_together/providers/watch_together_provider.dart';
 import '../../utils/error_message_utils.dart';
+import 'old_school_controls.dart';
 
 part 'parts/key_events.dart';
 part 'parts/markers.dart';
@@ -660,6 +661,10 @@ class PlexVideoControls extends StatefulWidget {
 
   final VoidCallback? onJumpToLive;
 
+  /// Old School mode (PLAN_SHA_21): no seeking ahead, no skip-intro or
+  /// item skipping, and its own buttons.
+  final OldSchoolControls? oldSchool;
+
   /// Whether ambient lighting is enabled (passed to settings sheet)
   final bool isAmbientLightingEnabled;
 
@@ -741,6 +746,7 @@ class PlexVideoControls extends StatefulWidget {
     this.onLiveSeek,
     this.onLiveSeekBy,
     this.onJumpToLive,
+    this.oldSchool,
     this.isAmbientLightingEnabled = false,
     this.onToggleAmbientLighting,
   });
@@ -856,8 +862,9 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
   // Position subscription for marker tracking
   StreamSubscription<Duration>? _positionSubscription;
   // Skip-marker state
-  SkipMarkerMode _skipModeFor(MediaMarker marker) =>
-      _settings.read(marker.isCredits ? SettingsService.skipCreditsMode : SettingsService.skipIntroMode);
+  SkipMarkerMode _skipModeFor(MediaMarker marker) => widget.oldSchool != null
+      ? SkipMarkerMode.off
+      : _settings.read(marker.isCredits ? SettingsService.skipCreditsMode : SettingsService.skipIntroMode);
   int get _autoSkipDelay => _settings.read(SettingsService.autoSkipDelay);
   Timer? _autoSkipTimer;
   final ValueNotifier<double> _autoSkipProgress = ValueNotifier<double>(0.0);
@@ -1341,6 +1348,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                                                       hasFirstFrame: widget.hasFirstFrame,
                                                       thumbnailDataBuilder: widget.thumbnailDataBuilder,
                                                       isLive: widget.isLive,
+                                                      oldSchool: widget.oldSchool,
                                                       liveChannelName: widget.liveChannelName,
                                                       captureBuffer: widget.captureBuffer,
                                                       isAtLiveEdge: widget.isAtLiveEdge,

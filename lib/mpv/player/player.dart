@@ -4,6 +4,7 @@ import '../../media/playback_rate.dart';
 import '../models.dart';
 import 'audio_rendering_mode.dart';
 import 'platform/player_android.dart';
+import 'platform/player_android_mpv.dart';
 import 'player_native.dart';
 import 'player_state.dart';
 import 'player_streams.dart';
@@ -389,7 +390,7 @@ abstract class Player {
       if (useExo) {
         return PlayerAndroid(); // ExoPlayer (opt-in)
       }
-      return PlayerNative(hardwareDecoding: hardwareDecoding); // MPV (default)
+      return PlayerAndroidMpv(hardwareDecoding: hardwareDecoding); // MPV (default)
     }
     if (Platform.isMacOS || Platform.isIOS) {
       return PlayerNative();

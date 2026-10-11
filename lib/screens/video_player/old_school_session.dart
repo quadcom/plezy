@@ -1,0 +1,58 @@
+import 'dart:async';
+
+import '../../screens/old_school/old_school_controller.dart';
+
+/// Launch parameters for an Old School session (PLAN_SHA_21). A
+/// [VideoPlayerScreen] plays Old School iff it was built with one of these.
+///
+/// Old School plays ordinary library items from a scheduled point, as if
+/// live: no skipping ahead, nothing counted as watched, frame-rate matching
+/// off, and the guide on the same page with the video in its corner.
+class OldSchoolSessionArgs {
+  /// The guide's state, carried over from the guide page. The player owns it
+  /// from here on and disposes it.
+  final OldSchoolController controller;
+
+  const OldSchoolSessionArgs({required this.controller});
+}
+
+/// The player's Old School state.
+class OldSchoolPlayerState {
+  /// Video full screen (true) or in the guide's corner window (false).
+  bool fullScreen = true;
+
+  /// When "Press Back again to leave" was shown; a second Back before
+  /// [backAgainWindow] has passed leaves.
+  DateTime? backNoteShownAt;
+  Timer? backNoteTimer;
+
+  /// The channel-change card shows until this time.
+  DateTime? cardUntil;
+  Timer? cardTimer;
+
+  /// Waits out an off-the-air gap, then tunes again.
+  Timer? standbyTimer;
+
+  /// A tune is in flight (channel change, carry-on or Back to live).
+  bool tuning = false;
+  int tuneGeneration = 0;
+
+  static const backAgainWindow = Duration(seconds: 3);
+  static const cardTime = Duration(seconds: 3);
+
+  bool get backNoteVisible {
+    final shown = backNoteShownAt;
+    return shown != null && DateTime.now().difference(shown) < backAgainWindow;
+  }
+
+  bool get cardVisible {
+    final until = cardUntil;
+    return until != null && DateTime.now().isBefore(until);
+  }
+
+  void dispose() {
+    backNoteTimer?.cancel();
+    cardTimer?.cancel();
+    standbyTimer?.cancel();
+  }
+}

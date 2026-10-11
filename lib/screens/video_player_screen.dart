@@ -112,6 +112,13 @@ import 'video_player/open_http_503_watchdog.dart';
 import 'video_player/open_failure_log.dart';
 import 'video_player/live_tv_session_args.dart';
 import 'video_player/live_tv_session_state.dart';
+import 'video_player/old_school_session.dart';
+import 'old_school/old_school_controller.dart';
+import 'old_school/old_school_guide_view.dart';
+import 'old_school/old_school_layout.dart';
+import 'old_school/old_school_overlays.dart';
+import '../models/old_school.dart';
+import '../widgets/video_controls/old_school_controls.dart';
 import 'video_player/tv_background_suspend_policy.dart';
 import 'video_player/tv_background_suspend_state.dart';
 import 'video_player/visual_effects_controller.dart';
@@ -138,6 +145,7 @@ part 'video_player/parts/episode_queue.dart';
 part 'video_player/parts/errors.dart';
 part 'video_player/parts/lifecycle.dart';
 part 'video_player/parts/live_tv.dart';
+part 'video_player/parts/old_school.dart';
 part 'video_player/parts/pip.dart';
 part 'video_player/parts/playback_open.dart';
 part 'video_player/parts/playback_prompts.dart';
@@ -478,6 +486,12 @@ class VideoPlayerScreen extends StatefulWidget {
 
   bool get isLive => live != null;
 
+  /// Present iff this screen plays Old School (PLAN_SHA_21): scheduled
+  /// library items as if live, with the guide on the same page.
+  final OldSchoolSessionArgs? oldSchool;
+
+  bool get isOldSchool => oldSchool != null;
+
   const VideoPlayerScreen({
     super.key,
     required this.metadata,
@@ -491,6 +505,7 @@ class VideoPlayerScreen extends StatefulWidget {
     this.selectedQualityPreset,
     this.selectedAudioStreamId,
     this.live,
+    this.oldSchool,
     this.watchTogetherLease,
     this.initialPosition,
     this.strictMediaSelection = false,
@@ -699,6 +714,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   late MediaItem _currentMetadata;
   final EpisodeSessionState _episode = EpisodeSessionState();
+  final OldSchoolPlayerState _os = OldSchoolPlayerState();
 
   // In-flight media-source transition. At most one can run at a time: reloads
   // and channel switches are mutually exclusive.
@@ -923,6 +939,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     player: () => player,
     isMounted: () => mounted && !_shuttingDown,
     isLive: widget.isLive,
+    isOldSchool: widget.isOldSchool,
     hasLiveSeekWindow: () => _live.captureBuffer != null,
     hasNextLiveChannel: () => _hasNextChannel,
     hasPreviousLiveChannel: () => _hasPreviousChannel,
@@ -1038,7 +1055,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     // Every successful open passes through here (never live TV), making it
     // the chokepoint for the local last-played history. Offline plays are
     // excluded — like version prefs, the history describes online intent.
-    if (!session.isOffline) {
+    // Old School plays leave no local history either (PLAN_SHA_21).
+    if (!session.isOffline && !widget.isOldSchool) {
       unawaited(LocalPlaybackHistory.recordPlayback(session.metadata));
     }
   }
@@ -2204,6 +2222,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   Future<void> _handleBackButton({bool navigateHome = false}) async {
     final acceptedExit = _routeExitOperation;
     if (acceptedExit != null) return acceptedExit;
+    if (widget.isOldSchool && !navigateHome && _playbackFailureMessage == null && _playerInitializationError == null) {
+      _oldSchoolBack();
+      return;
+    }
     if (!navigateHome && (_episode.showPlayNextDialog || _showStillWatchingPrompt)) {
       _dismissPlaybackPromptForBack();
       return;
@@ -2274,6 +2296,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         return;
       }
     }
+    if (widget.isOldSchool &&
+        (navigationKey == PlayerNavigationKey.back || navigationKey == PlayerNavigationKey.physicalEscape)) {
+      unawaited(_handleBackButton());
+      return;
+    }
     _playerNavigationCoordinator.handle(navigationKey);
   }
 
@@ -2318,6 +2345,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     _retireLaunchObserver();
     _playerInitializationGeneration++;
     _frameRate.dispose();
+    _os.dispose();
+    widget.oldSchool?.controller.dispose();
     WidgetsBinding.instance.removeObserver(this);
     CarUxRestrictionsService.instance.listenable.removeListener(_handleCarRestrictionsChanged);
 
@@ -2902,6 +2931,15 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
             navigationKey,
             () => _handleScreenPlayerNavigation(navigationKey),
           );
+        }
+        // Old School: the remote's channel keys change channel wherever focus
+        // is (full screen or the guide's corner window).
+        if (widget.isOldSchool &&
+            (event.logicalKey == LogicalKeyboardKey.channelUp || event.logicalKey == LogicalKeyboardKey.channelDown)) {
+          if (event is KeyDownEvent) {
+            unawaited(_oldSchoolChannelStep(event.logicalKey == LogicalKeyboardKey.channelUp ? 1 : -1));
+          }
+          return KeyEventResult.handled;
         }
         // Hardware media transport must act even when focus rests on this
         // node or a sibling overlay — otherwise the key only reveals the

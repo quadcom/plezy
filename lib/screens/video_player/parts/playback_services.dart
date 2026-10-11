@@ -85,9 +85,7 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
       unawaited(progressTracker.sendProgress('playing'));
     }
 
-    if (Platform.isAndroid &&
-        (settingsService.read(SettingsService.matchContentFrameRate) ||
-            settingsService.read(SettingsService.matchContentResolution))) {
+    if (Platform.isAndroid && (_matchesFrameRate(settingsService) || _matchesResolution(settingsService))) {
       await _applyFrameRateMatching();
     }
 
@@ -229,6 +227,12 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         _lastLogError = null;
         _fatalHttpStatuses.clear();
         _resetLiveLadderOnPlaybackRestart();
+        // The PiP shape is the video's: an in-place swap (Old School carries
+        // on from a 2.39:1 film to a 4:3 episode) set it before the new file
+        // had a size, so the window kept the old shape. Now it has one.
+        if (_autoPipEnabled && currentPlayer.state.playing) {
+          unawaited(_updateAutoPipState(isPlaying: true));
+        }
         await _markFirstFrameReady(currentPlayer, settingsService);
       }),
     );
@@ -430,10 +434,18 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
     if (mediaClient != null) {
       // Discord renders a timeline the live placeholder does not have; the
       // tracker coordinator takes the live decision itself.
-      if (!widget.isLive) {
-        unawaited(DiscordRPCService.instance.startPlayback(metadata, mediaClient));
+      if (widget.isOldSchool) {
+        // Old School plays aren't counted anywhere (PLAN_SHA_21): no presence
+        // and no scrobbles. A live start resets the coordinator, so every
+        // later update, pause and stop in this screen does nothing.
+        unawaited(DiscordRPCService.instance.stopPlayback());
+        unawaited(TrackerCoordinator.instance.startPlayback(metadata, mediaClient, isLive: true));
+      } else {
+        if (!widget.isLive) {
+          unawaited(DiscordRPCService.instance.startPlayback(metadata, mediaClient));
+        }
+        unawaited(TrackerCoordinator.instance.startPlayback(metadata, mediaClient, isLive: widget.isLive));
       }
-      unawaited(TrackerCoordinator.instance.startPlayback(metadata, mediaClient, isLive: widget.isLive));
     }
   }
 
@@ -473,24 +485,27 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
         canReportPlayback: () => _firstFrame.rendered && !_hasFatalPlaybackError,
         hasRenderedPlayback: () => _firstFrame.rendered,
         subtitleOffIsDeliberate: () => _playbackSession?.subtitleSelection.declinedPreference == null,
+        recordWatchState: !widget.isOldSchool,
         onPausedKeepalive: mediaClient is PlexClient && effectivePlayMethod == 'Transcode'
             ? () => mediaClient.pingTranscodeSession(_playbackTranscodeSessionId)
             : null,
-        onScrobbled: () async {
-          // Other episodes of a Plex multi-episode file share this item's
-          // part — watching the file watched them too (#1500). Reusing
-          // markWatchedFromPlaybackStop keeps the local watched-event
-          // emission and the Jellyfin double-scrobble guard (#1287); the
-          // trackers hear about a sibling the same way any other watched mark
-          // reaches them, since no playback session was ever opened for it.
-          final siblings = playbackState.sameFileSiblings(metadata, playedPartId: mediaInfo?.partId?.toString());
-          for (final sibling in siblings) {
-            if (sibling.isWatched) continue;
-            await mediaClient.markWatchedFromPlaybackStop(sibling);
-            await TrackerCoordinator.instance.markWatched(sibling, mediaClient);
-            appLogger.d('Scrobbled same-file sibling ${sibling.id} of ${metadata.id}');
-          }
-        },
+        onScrobbled: widget.isOldSchool
+            ? null
+            : () async {
+                // Other episodes of a Plex multi-episode file share this item's
+                // part — watching the file watched them too (#1500). Reusing
+                // markWatchedFromPlaybackStop keeps the local watched-event
+                // emission and the Jellyfin double-scrobble guard (#1287); the
+                // trackers hear about a sibling the same way any other watched mark
+                // reaches them, since no playback session was ever opened for it.
+                final siblings = playbackState.sameFileSiblings(metadata, playedPartId: mediaInfo?.partId?.toString());
+                for (final sibling in siblings) {
+                  if (sibling.isWatched) continue;
+                  await mediaClient.markWatchedFromPlaybackStop(sibling);
+                  await TrackerCoordinator.instance.markWatched(sibling, mediaClient);
+                  appLogger.d('Scrobbled same-file sibling ${sibling.id} of ${metadata.id}');
+                }
+              },
       );
       _progressTracker!.startTracking();
     } else if (_isOfflinePlayback) {

@@ -280,6 +280,9 @@ class KeyboardShortcutsService extends ChangeNotifier {
     /// each press rebases off `player.state.position`, which a slow backend
     /// has not applied yet.
     ValueChanged<int>? onSeekBy,
+
+    /// Old School (PLAN_SHA_21): shortcuts that jump ahead do nothing.
+    bool forwardSeekLocked = false,
   }) {
     final isRepeat = event is KeyRepeatEvent;
     if (event is! KeyDownEvent && !isRepeat) return KeyEventResult.ignored;
@@ -381,7 +384,7 @@ class KeyboardShortcutsService extends ChangeNotifier {
         case ShortcutAction.speedReset:
           applyRate(1.0);
         case ShortcutAction.subSeekNext:
-          player.command(['sub-seek', '1']);
+          if (!forwardSeekLocked) player.command(['sub-seek', '1']);
         case ShortcutAction.subSeekPrev:
           player.command(['sub-seek', '-1']);
         case ShortcutAction.shaderToggle:

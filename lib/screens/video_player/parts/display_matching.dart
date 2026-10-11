@@ -1,6 +1,16 @@
 part of '../../video_player_screen.dart';
 
 extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
+  /// The user's frame-rate matching setting, off in Old School: trailers
+  /// between programmes would blank the TV at every switch (Adrian,
+  /// PLAN_SHA_21). The display stays as it was, so nothing needs restoring.
+  bool _matchesFrameRate(SettingsService settingsService) =>
+      !widget.isOldSchool && settingsService.read(SettingsService.matchContentFrameRate);
+
+  /// The user's resolution matching setting, off in Old School likewise.
+  bool _matchesResolution(SettingsService settingsService) =>
+      !widget.isOldSchool && settingsService.read(SettingsService.matchContentResolution);
+
   /// The Android display-mode request [output] yields under the user's
   /// matching settings, or null when neither setting produces a target. A
   /// null [fps] is a resolution-only switch: the native side keeps the
@@ -9,8 +19,8 @@ extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
     SettingsService settingsService,
     PlayerOutputFormat output,
   ) {
-    final fps = settingsService.read(SettingsService.matchContentFrameRate) ? output.fps : null;
-    final matchResolution = settingsService.read(SettingsService.matchContentResolution);
+    final fps = _matchesFrameRate(settingsService) ? output.fps : null;
+    final matchResolution = _matchesResolution(settingsService);
     if (matchResolution && !output.hasDimensions) {
       appLogger.d('Display matching: no decoded dimensions for resolution matching');
     }
@@ -72,7 +82,7 @@ extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
       final output = await PlayerOutputFormat.read(player!);
       if (!mounted || player == null) return;
 
-      if (settingsService.read(SettingsService.matchContentFrameRate) && !output.hasFrameRate) {
+      if (_matchesFrameRate(settingsService) && !output.hasFrameRate) {
         // ExoPlayer detects FPS from frame timestamps after ~8 rendered frames.
         // STATE_READY fires before frames render, so retry until detection
         // completes — also with resolution matching on, so one switch can

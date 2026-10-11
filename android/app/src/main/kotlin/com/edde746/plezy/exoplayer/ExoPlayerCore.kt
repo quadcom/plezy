@@ -185,6 +185,9 @@ class ExoPlayerCore(private val activity: Activity) :
 
   private var surfaceView: SurfaceView? = null
   private var surfaceContainer: FrameLayout? = null
+
+  /** Last rect from Flutter (left, top, right, bottom); re-applied when the container is built. */
+  private var videoRect: IntArray? = null
   private var videoAspectContainer: AspectRatioFrameLayout? = null
   private var subtitleView: SubtitleView? = null
   private var bitmapSubtitleView: SubtitleView? = null
@@ -661,6 +664,7 @@ class ExoPlayerCore(private val activity: Activity) :
       Log.d(TAG, "SubtitleViews created and added to surfaceContainer")
 
       val contentView = PlayerSurfaceHost.attachToContent(activity, surfaceContainer!!)
+      PlayerSurfaceHost.placeContainer(surfaceContainer!!, videoRect)
 
       ensureFlutterOverlayOnTop()
       overlayLayoutListener = ViewTreeObserver.OnGlobalLayoutListener {
@@ -3974,6 +3978,16 @@ class ExoPlayerCore(private val activity: Activity) :
     "webvtt", "vtt" -> MimeTypes.TEXT_VTT
     "ttml" -> MimeTypes.APPLICATION_TTML
     else -> null
+  }
+
+  override fun setVideoRect(left: Int, top: Int, right: Int, bottom: Int) {
+    if (disposing) return
+    activity.runOnUiThread {
+      if (disposing) return@runOnUiThread
+      val rect = intArrayOf(left, top, right, bottom)
+      videoRect = rect
+      surfaceContainer?.let { PlayerSurfaceHost.placeContainer(it, rect) }
+    }
   }
 
   override fun setVisible(visible: Boolean) {

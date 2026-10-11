@@ -30,6 +30,7 @@ import 'widgets/video_controls_header.dart';
 import 'widgets/video_timeline_bar.dart';
 import 'widgets/volume_control.dart';
 import 'widgets/track_chapter_controls.dart';
+import 'old_school_controls.dart';
 import 'video_control_button.dart';
 
 /// Desktop-specific video controls layout with top bar and bottom controls
@@ -85,6 +86,9 @@ class DesktopVideoControls extends StatefulWidget {
   /// and debounces, and reports back the seconds it actually applied.
   final LiveSeekBy? onLiveSeekBy;
   final VoidCallback? onJumpToLive;
+
+  /// Old School mode: no seeking ahead, its own buttons (PLAN_SHA_21).
+  final OldSchoolControls? oldSchool;
 
   /// Whether to use dpad navigation for content strip (TV or keyboard nav mode)
   final bool useDpadNavigation;
@@ -147,6 +151,7 @@ class DesktopVideoControls extends StatefulWidget {
     this.onLiveSeek,
     this.onLiveSeekBy,
     this.onJumpToLive,
+    this.oldSchool,
     required this.useDpadNavigation,
     this.serverId,
     this.showQueueTab = false,
@@ -176,6 +181,9 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
   late final FocusNode _nextChapterFocusNode;
   late final FocusNode _nextItemFocusNode;
   late final FocusNode _goToLiveFocusNode;
+  late final FocusNode _channelDownFocusNode;
+  late final FocusNode _channelUpFocusNode;
+  late final FocusNode _guideFocusNode;
   late final FocusNode _timelineFocusNode;
 
   late final FocusNode _volumeFocusNode;
@@ -214,6 +222,9 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
     _nextChapterFocusNode = FocusNode(debugLabel: 'NextChapter');
     _nextItemFocusNode = FocusNode(debugLabel: 'NextItem');
     _goToLiveFocusNode = FocusNode(debugLabel: 'GoToLive');
+    _channelDownFocusNode = FocusNode(debugLabel: 'ChannelDown');
+    _channelUpFocusNode = FocusNode(debugLabel: 'ChannelUp');
+    _guideFocusNode = FocusNode(debugLabel: 'Guide');
     _timelineFocusNode = FocusNode(debugLabel: 'Timeline');
     _volumeFocusNode = FocusNode(debugLabel: 'Volume');
 
@@ -229,6 +240,9 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
       _nextChapterFocusNode,
       _nextItemFocusNode,
       _goToLiveFocusNode,
+      _channelDownFocusNode,
+      _channelUpFocusNode,
+      _guideFocusNode,
     ];
     _bindChapterLabelStreams();
     widget.chromeController?.addListener(_onChromeControllerChanged);
@@ -286,6 +300,9 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
     _nextChapterFocusNode.dispose();
     _nextItemFocusNode.dispose();
     _goToLiveFocusNode.dispose();
+    _channelDownFocusNode.dispose();
+    _channelUpFocusNode.dispose();
+    _guideFocusNode.dispose();
     _timelineFocusNode.dispose();
     _volumeFocusNode.dispose();
     for (final node in _trackControlFocusNodes) {
@@ -488,7 +505,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
   KeyEventResult _handleVolumeKeyEvent(FocusNode _, KeyEvent event) {
     return _handleDirectionalNavigation(
       event,
-      leftTarget: _nextItemFocusNode,
+      leftTarget: widget.oldSchool != null ? _guideFocusNode : _nextItemFocusNode,
       rightTarget: _trackControlFocusNodes.isNotEmpty ? _trackControlFocusNodes.first : null,
     );
   }
@@ -735,7 +752,8 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
               focusNode: _timelineFocusNode,
               onKeyEvent: _handleTimelineKeyEvent,
               onFocusChange: _onFocusChange,
-              enabled: canInteract,
+              // Old School shows the timeline but can't be scrubbed ahead.
+              enabled: canInteract && widget.oldSchool == null,
               thumbnailDataBuilder: widget.thumbnailDataBuilder,
               showKeyRepeatThumbnail: _showKeyRepeatThumbnail,
               previewPosition: _timelineSeek.pendingPosition,
@@ -746,7 +764,16 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
             skipTraversal: true,
             child: Row(
               children: [
-                if (!_isLive) ...[
+                if (widget.oldSchool case final oldSchool?)
+                  _buildFocusableButton(
+                    focusNode: _prevItemFocusNode,
+                    index: 0,
+                    icon: Symbols.replay_rounded,
+                    onPressed: _canControl ? oldSchool.onRestart : null,
+                    semanticLabel: t.oldSchool.restart,
+                    tooltip: t.oldSchool.restart,
+                  ),
+                if (!_isLive && widget.oldSchool == null) ...[
                   Opacity(
                     opacity: _canControl ? 1.0 : 0.5,
                     child: _buildFocusableButton(
@@ -808,7 +835,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
                     },
                   ),
                 ),
-                if (!_isLive || widget.captureBuffer != null) ...[
+                if ((!_isLive || widget.captureBuffer != null) && widget.oldSchool == null) ...[
                   // Skip forward
                   Opacity(
                     opacity: _canControl ? 1.0 : 0.5,
@@ -832,7 +859,41 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
                     tooltip: t.liveTv.goToLive,
                   ),
                 ],
-                if (!_isLive) ...[
+                if (widget.oldSchool case final oldSchool?) ...[
+                  _buildFocusableButton(
+                    focusNode: _goToLiveFocusNode,
+                    index: 7,
+                    icon: Symbols.stream_rounded,
+                    onPressed: _canControl ? oldSchool.onBackToLive : null,
+                    semanticLabel: t.oldSchool.backToLive,
+                    tooltip: t.oldSchool.backToLive,
+                  ),
+                  _buildFocusableButton(
+                    focusNode: _channelDownFocusNode,
+                    index: 8,
+                    icon: Symbols.keyboard_arrow_down_rounded,
+                    onPressed: oldSchool.onChannelDown,
+                    semanticLabel: t.oldSchool.channelDown,
+                    tooltip: t.oldSchool.channelDown,
+                  ),
+                  _buildFocusableButton(
+                    focusNode: _channelUpFocusNode,
+                    index: 9,
+                    icon: Symbols.keyboard_arrow_up_rounded,
+                    onPressed: oldSchool.onChannelUp,
+                    semanticLabel: t.oldSchool.channelUp,
+                    tooltip: t.oldSchool.channelUp,
+                  ),
+                  _buildFocusableButton(
+                    focusNode: _guideFocusNode,
+                    index: 10,
+                    icon: Symbols.view_list_rounded,
+                    onPressed: oldSchool.onGuide,
+                    semanticLabel: t.oldSchool.guide,
+                    tooltip: t.oldSchool.guide,
+                  ),
+                ],
+                if (!_isLive && widget.oldSchool == null) ...[
                   // Next chapter
                   StreamBuilder<String?>(
                     stream: _nextChapterLabelStream,

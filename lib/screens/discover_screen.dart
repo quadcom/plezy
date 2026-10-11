@@ -66,6 +66,7 @@ import '../theme/mono_tokens.dart';
 import 'libraries/content_state_builder.dart';
 import 'libraries/state_messages.dart';
 import 'main_screen.dart';
+import 'old_school/old_school_screen.dart';
 import '../navigation/settings_shortcut.dart';
 import '../watch_together/watch_together.dart';
 import '../providers/companion_remote_provider.dart';
@@ -944,6 +945,16 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 onNavigateLeft: _navigateToSidebar,
                 onNavigateDown: _focusContentFromAppBar,
                 actions: [
+                  // Old School (PLAN_SHA_21): phones and tablets have no side
+                  // rail, so its way in is here, beside Refresh (Adrian,
+                  // 2026-10-10).
+                  if (PlatformDetector.isMobile(context) && oldSchoolAvailable(context))
+                    FocusableAction(
+                      icon: Symbols.tv_rounded,
+                      iconColor: foregroundColor,
+                      tooltip: t.oldSchool.title,
+                      onPressed: () => unawaited(openOldSchool(context)),
+                    ),
                   FocusableAction(icon: Symbols.refresh_rounded, iconColor: foregroundColor, onPressed: manualRefresh),
                   // Watch Together
                   FocusableAction(

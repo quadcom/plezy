@@ -18,6 +18,7 @@ import '../mixins/mounted_set_state_mixin.dart';
 import '../navigation/navigation_tabs.dart';
 import '../providers/catalog_sources_provider.dart';
 import '../providers/hidden_libraries_provider.dart';
+import '../screens/old_school/old_school_screen.dart';
 import '../media/library_layout.dart';
 import '../services/jellyfin_client.dart';
 import '../utils/favorites_navigation.dart';
@@ -480,6 +481,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
   static const _kNowPlaying = 'nowPlaying';
   static const _kLibraries = 'libraries';
   static const _kSearch = 'search';
+  static const _kOldSchool = 'oldSchool';
   static const _kDownloads = 'downloads';
   static const _kSettings = 'settings';
   static const _kReconnect = 'reconnect';
@@ -685,9 +687,11 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     required bool hasLiveTv,
     required bool hasNowPlaying,
     required bool hasExplore,
+    required bool hasOldSchool,
   }) {
     return {
       _kHome,
+      if (hasOldSchool) _kOldSchool,
       if (hasNowPlaying) _kNowPlaying,
       _kLibraries,
       if (hasExplore) _kExplore,
@@ -768,12 +772,14 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     required bool hasLiveTv,
     required bool hasNowPlaying,
     required bool hasExplore,
+    required bool hasOldSchool,
     required bool isCollapsed,
   }) {
     return [
       if (widget.isOfflineMode && widget.onReconnect != null) _kReconnect,
       if (!widget.isOfflineMode) ...[
         _kSearch,
+        if (hasOldSchool) _kOldSchool,
         _kHome,
         if (hasNowPlaying) _kNowPlaying,
         // A collapsed rail shows one Libraries icon in place of the rows; keep
@@ -880,6 +886,9 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     final t = tokens(context);
     final librariesProvider = context.watch<LibrariesProvider>();
     final hiddenLibrariesProvider = context.watch<HiddenLibrariesProvider>();
+    // Old School (PLAN_SHA_21): between Search and Home, only with a PlezyFin
+    // server that offers it.
+    final hasOldSchool = hiddenLibrariesProvider.oldSchoolClient != null && !widget.isOfflineMode;
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
     final offKeys = hiddenLibrariesProvider.offLibraryKeys;
 
@@ -994,6 +1003,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
             hasLiveTv: hasLiveTv,
             hasNowPlaying: nowPlayingTrack != null,
             hasExplore: hasExplore,
+            hasOldSchool: hasOldSchool,
           ),
         );
         final focusOrder = _buildFocusOrder(
@@ -1003,6 +1013,7 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
           hasLiveTv: hasLiveTv,
           hasNowPlaying: nowPlayingTrack != null,
           hasExplore: hasExplore,
+          hasOldSchool: hasOldSchool,
           isCollapsed: isCollapsed,
         );
         _debugAssertUniqueFocusOrder(focusOrder);
@@ -1097,6 +1108,18 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                         isCollapsed: isCollapsed,
                                       ),
                                       const SizedBox(height: _itemGap),
+                                      if (hasOldSchool) ...[
+                                        _buildNavItem(
+                                          icon: Symbols.tv_rounded,
+                                          selectedIcon: Symbols.tv_rounded,
+                                          label: Translations.of(context).oldSchool.title,
+                                          isSelected: false,
+                                          onTap: () => unawaited(openOldSchool(context)),
+                                          focusNode: _focusTracker.get(_kOldSchool),
+                                          isCollapsed: isCollapsed,
+                                        ),
+                                        const SizedBox(height: _itemGap),
+                                      ],
                                       _buildNavItem(
                                         icon: Symbols.home_rounded,
                                         selectedIcon: Symbols.home_rounded,

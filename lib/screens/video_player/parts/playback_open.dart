@@ -167,7 +167,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       extraDelayMs: delaySec * 1000,
       videoWidth: videoWidth,
       videoHeight: videoHeight,
-      matchResolution: settingsService.read(SettingsService.matchContentResolution),
+      matchResolution: _matchesResolution(settingsService),
     );
   }
 
@@ -183,8 +183,8 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     int height = 0,
   }) {
     if (!Platform.isAndroid) return false;
-    final rateEligible = settingsService.read(SettingsService.matchContentFrameRate) && fps != null && fps > 0;
-    final resolutionEligible = settingsService.read(SettingsService.matchContentResolution) && width > 0 && height > 0;
+    final rateEligible = _matchesFrameRate(settingsService) && fps != null && fps > 0;
+    final resolutionEligible = _matchesResolution(settingsService) && width > 0 && height > 0;
     return rateEligible || resolutionEligible;
   }
 
@@ -244,9 +244,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     final isAndroidMpv = currentPlayer.needsDecoderRefreshAfterDisplaySwitch;
     if (isAndroidMpv || PlatformDetector.isAppleTV()) {
       final plan = _FrameRateStartupPlan(fps: null);
-      final matchingEnabled =
-          settingsService.read(SettingsService.matchContentFrameRate) ||
-          settingsService.read(SettingsService.matchContentResolution);
+      final matchingEnabled = _matchesFrameRate(settingsService) || _matchesResolution(settingsService);
       // Apple TV matching is a system setting (AVDisplayManager); the gate
       // only exists to keep playback from running through the HDMI blank.
       plan.needsFirstFrameSwitch = hasVideoUrl && (!isAndroidMpv || matchingEnabled);
@@ -255,7 +253,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
 
     // Rate-match only when the user opted in; the plan's fps drives the
     // switch calls, so a resolution-only open passes 0 to the native side.
-    final rateMatchFps = settingsService.read(SettingsService.matchContentFrameRate) ? preKnownFps : null;
+    final rateMatchFps = _matchesFrameRate(settingsService) ? preKnownFps : null;
     final plan = _FrameRateStartupPlan(fps: rateMatchFps, width: preKnownWidth, height: preKnownHeight);
     final willAutoSwitch = _shouldAutoSwitchDisplayModeForOpen(
       settingsService,
@@ -714,7 +712,8 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       showMessage: (message, {duration}) {
         if (mounted) showAppSnackBar(context, message, duration: duration);
       },
-      playbackRateOwnedExternally: _watchTogetherOwnsPlaybackRate,
+      // Old School keeps real time: no saved faster default speed.
+      playbackRateOwnedExternally: () => widget.isOldSchool || _watchTogetherOwnsPlaybackRate(),
     );
   }
 

@@ -51,6 +51,8 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
   void _seekByWithFeedback(Duration delta) {
     if (!widget.canControl || delta == Duration.zero) return;
     final forward = !delta.isNegative;
+    // Old School plays like live TV: nothing ahead to skip to.
+    if (forward && widget.oldSchool != null) return;
 
     // Live TV: relative epoch-based skips go through the parent accumulator —
     // an absolute target is meaningless against a moving live edge (#1253).
@@ -774,6 +776,7 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
   /// a seek to a Watch Together room and re-poke the end-of-item trigger.
   void _handleDoubleTapSkip({required bool isForward}) {
     if (!widget.canControl) return;
+    if (isForward && widget.oldSchool != null) return;
 
     // This tap supersedes any burst the keyboard/D-pad left pending, and it
     // shares the badge with it. Retire that burst first, or its abandonment —

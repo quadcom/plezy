@@ -187,6 +187,12 @@ class PlaybackProgressTracker {
 
   static const Duration _progressNotifyDelta = Duration(seconds: 30);
 
+  /// False for plays that must leave no trace in the app's own watch state
+  /// (Old School, PLAN_SHA_21): the server still gets its start, progress
+  /// and stopped reports, but nothing is marked watched, no resume point or
+  /// Continue Watching change is announced, and nothing is queued offline.
+  final bool recordWatchState;
+
   /// Built in the constructor body so the delivery callback can bind `this`.
   late final PlaybackReportSession? _reportSession;
 
@@ -205,6 +211,7 @@ class PlaybackProgressTracker {
     this.canReportPlayback,
     this.hasRenderedPlayback,
     this.subtitleOffIsDeliberate,
+    this.recordWatchState = true,
     this.updateInterval = const Duration(seconds: 10),
   }) : assert(!isOffline || offlineWatchService != null, 'offlineWatchService is required when isOffline is true'),
        assert(isOffline || client != null, 'client is required when isOffline is false') {
@@ -436,7 +443,7 @@ class PlaybackProgressTracker {
   }
 
   Future<void> _queueOnlineFailureProgress(Duration position, Duration duration) async {
-    if (!queueOnOnlineFailure || offlineWatchService == null) return;
+    if (!recordWatchState || !queueOnOnlineFailure || offlineWatchService == null) return;
     if (duration.inMilliseconds == 0) return;
     try {
       await _sendOfflineProgress(_clampPosition(position, duration), duration);
@@ -469,7 +476,7 @@ class PlaybackProgressTracker {
     bool force = false,
     required bool serverAcknowledged,
   }) {
-    if (_scrobbled) return;
+    if (!recordWatchState || _scrobbled) return;
     if (position.inMilliseconds <= 0 || duration.inMilliseconds <= 0) return;
     if (force) {
       if (_stopProgressNotified) return;
@@ -513,7 +520,7 @@ class PlaybackProgressTracker {
     );
     final accepted = await session.report(snapshot);
 
-    if (accepted && allowScrobble) {
+    if (accepted && allowScrobble && recordWatchState) {
       await _maybeScrobble(c, position, duration);
     }
 

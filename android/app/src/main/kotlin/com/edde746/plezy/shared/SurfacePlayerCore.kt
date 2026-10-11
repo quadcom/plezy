@@ -11,6 +11,13 @@ package com.edde746.plezy.shared
  */
 interface SurfacePlayerCore {
   fun setVisible(visible: Boolean)
+
+  /**
+   * Place the video in [left], [top], [right], [bottom] (physical pixels in
+   * the content view, the same as Flutter's) or fill the screen when the rect
+   * covers it. Old School's corner window uses this (PLAN_SHA_21).
+   */
+  fun setVideoRect(left: Int, top: Int, right: Int, bottom: Int)
   fun updateFrame()
   fun onPipModeChanged(isInPipMode: Boolean)
   fun requestAudioFocus(): Boolean

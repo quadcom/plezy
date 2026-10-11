@@ -123,7 +123,9 @@ extension _VideoPlayerWatchTogetherMethods on VideoPlayerScreenState {
   bool _canControlPlayback() => !_shuttingDown && (_activeWatchTogetherSession()?.canControl() ?? true);
 
   /// Choosing another queue item or episode is host-only in every room mode.
-  bool _canNavigateMediaItems() => !_shuttingDown && (_activeWatchTogetherSession()?.isHost ?? true);
+  /// Old School never moves to another item by request (PLAN_SHA_21).
+  bool _canNavigateMediaItems() =>
+      !_shuttingDown && !widget.isOldSchool && (_activeWatchTogetherSession()?.isHost ?? true);
 
   void _commitWatchTogetherSelection(
     WatchTogetherProvider? watchTogether,
@@ -147,6 +149,8 @@ extension _VideoPlayerWatchTogetherMethods on VideoPlayerScreenState {
   /// long-press 2x, media controls) goes through here; the sync layer never
   /// infers rate intent from the player's own rate stream.
   Future<void> _setPlaybackRate(double rate) {
+    // Faster than real time would run ahead of the schedule in Old School.
+    if (widget.isOldSchool && rate > 1.0) rate = 1.0;
     final currentPlayer = player;
     if (!mounted || currentPlayer == null) return Future<void>.value();
     final generation = _transitionGate.generation;
