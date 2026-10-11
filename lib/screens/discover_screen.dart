@@ -1281,6 +1281,34 @@ class _DiscoverScreenState extends State<DiscoverScreen>
           child: Stack(
             clipBehavior: Clip.none,
             children: [
+              // The art of the slide on screen, fading into its neighbour's
+              // in step with the swipe, under pages that carry only the text.
+              Positioned.fill(
+                child: ClipRect(
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_heroController, _heroIndex]),
+                    builder: (context, _) {
+                      final slides = _heroSlides;
+                      if (slides.isEmpty) return const SizedBox.shrink();
+                      final position = _heroController.hasClients && _heroController.position.hasContentDimensions
+                          ? (_heroController.page ?? _heroIndex.value.toDouble())
+                          : _heroIndex.value.toDouble();
+                      final page = position.clamp(0.0, (slides.length - 1).toDouble());
+                      final lower = page.floor();
+                      final upper = page.ceil();
+                      final mix = page - lower;
+                      Widget layer(int index, double opacity) => KeyedSubtree(
+                        key: ValueKey(index),
+                        child: Opacity(opacity: opacity, child: _buildSlideBackdrop(slides[index], heroHeight)),
+                      );
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [layer(lower, 1), if (upper != lower && mix > 0) layer(upper, mix)],
+                      );
+                    },
+                  ),
+                ),
+              ),
               PageView.builder(
                 controller: _heroController,
                 itemCount: _heroSlides.length,
@@ -1401,8 +1429,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final isEpisode = heroItem.isEpisode;
     final showName = heroItem.grandparentTitle ?? heroItem.displayTitle;
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final heroAspectRatio = screenWidth / heroHeight;
-    final heroArtPaths = heroItem.heroArtCandidates(containerAspectRatio: heroAspectRatio);
     final isLargeScreen = ScreenBreakpoints.isWideTabletOrLarger(screenWidth);
     final isTv = PlatformDetector.isTV();
     final alignLeft = isTv || isLargeScreen;
@@ -1437,6 +1463,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       hint: t.accessibility.tapToPlay,
       child: ClickableCursor(
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () {
             appLogger.d('Activating hero item: ${heroItem.title}');
             navigateToMediaItem(context, heroItem, playDirectly: true);
@@ -1445,78 +1472,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
             fit: StackFit.expand,
             clipBehavior: Clip.none,
             children: [
-              // Background Image with fade/zoom animation and parallax
-              if (heroArtPaths.isNotEmpty)
-                ClipRect(
-                  child: AnimatedBuilder(
-                    animation: _scrollController,
-                    builder: (context, child) {
-                      final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-                      return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
-                    },
-                    child: TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0.0, end: 1.0),
-                      duration: const Duration(milliseconds: 800),
-                      curve: Curves.easeOut,
-                      builder: (context, value, child) {
-                        return Transform.scale(
-                          scale: 1.0 + (0.1 * (1 - value)),
-                          child: Opacity(opacity: value, child: child),
-                        );
-                      },
-                      child: Builder(
-                        builder: (context) {
-                          // heroClient resolves to the actual server's client
-                          // (Plex or Jellyfin) so each backend's transcoder
-                          // builds sized URLs.
-                          return blurArtwork(
-                            CyclingMediaBackdrop(
-                              mediaKey: heroItem.globalKey,
-                              imagePaths: heroItem.heroRotationPaths(containerAspectRatio: heroAspectRatio),
-                              fallbackImagePaths: heroArtPaths,
-                              client: heroClient,
-                              active: _isTabVisible,
-                              width: screenWidth,
-                              height: heroHeight,
-                              fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ColoredBox(color: colorScheme.surfaceContainerHighest),
-
-              // Gradient Overlay - blends into scaffold background
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: -4, // Extend past stack bounds to ensure coverage
-                child: IgnorePointer(
-                  child: Builder(
-                    builder: (context) {
-                      final bgColor = Theme.of(context).scaffoldBackgroundColor;
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            // Reach full bg before the bottom edge so the hero
-                            // blends seamlessly into the content below and the
-                            // page dots sit on a solid band.
-                            colors: [Colors.transparent, bgColor.withValues(alpha: 0.9), bgColor, bgColor],
-                            stops: isTv ? const [0.25, 0.78, 0.94, 1.0] : const [0.5, 0.85, 0.94, 1.0],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-
               // Content with responsive alignment
               Positioned(
                 bottom: isTv
@@ -1664,6 +1619,168 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     );
   }
 
+  /// Slide [index]'s background: its art with the scrims, drawn behind the
+  /// sliding pages so that a swipe fades one into the next while only the
+  /// text and poster slide (Adrian, 2026-10-11).
+  Widget _buildSlideBackdrop(BannerSlide slide, double heroHeight) =>
+      slide.kind == BannerKind.onDeck || PlatformDetector.isTV()
+      ? _buildHeroBackdrop(slide.item, heroHeight)
+      : _buildBannerBackdrop(slide, heroHeight);
+
+  /// The art of [_buildHeroItem]: fan art that zooms in as it fades up, with
+  /// parallax, and a gradient into the page below.
+  Widget _buildHeroBackdrop(MediaItem heroItem, double heroHeight) {
+    final heroClient = _getMediaClientForItem(heroItem);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final heroAspectRatio = screenWidth / heroHeight;
+    final heroArtPaths = heroItem.heroArtCandidates(containerAspectRatio: heroAspectRatio);
+    final isTv = PlatformDetector.isTV();
+    final colorScheme = Theme.of(context).colorScheme;
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        // Background Image with fade/zoom animation and parallax
+        if (heroArtPaths.isNotEmpty)
+          ClipRect(
+            child: AnimatedBuilder(
+              animation: _scrollController,
+              builder: (context, child) {
+                final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
+              },
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 800),
+                curve: Curves.easeOut,
+                builder: (context, value, child) {
+                  return Transform.scale(
+                    scale: 1.0 + (0.1 * (1 - value)),
+                    child: Opacity(opacity: value, child: child),
+                  );
+                },
+                child: Builder(
+                  builder: (context) {
+                    // heroClient resolves to the actual server's client
+                    // (Plex or Jellyfin) so each backend's transcoder
+                    // builds sized URLs.
+                    return blurArtwork(
+                      CyclingMediaBackdrop(
+                        mediaKey: heroItem.globalKey,
+                        imagePaths: heroItem.heroRotationPaths(containerAspectRatio: heroAspectRatio),
+                        fallbackImagePaths: heroArtPaths,
+                        client: heroClient,
+                        active: _isTabVisible,
+                        width: screenWidth,
+                        height: heroHeight,
+                        fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          )
+        else
+          ColoredBox(color: colorScheme.surfaceContainerHighest),
+
+        // Gradient Overlay - blends into scaffold background
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: -4, // Extend past stack bounds to ensure coverage
+          child: IgnorePointer(
+            child: Builder(
+              builder: (context) {
+                final bgColor = Theme.of(context).scaffoldBackgroundColor;
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      // Reach full bg before the bottom edge so the hero
+                      // blends seamlessly into the content below and the
+                      // page dots sit on a solid band.
+                      colors: [Colors.transparent, bgColor.withValues(alpha: 0.9), bgColor, bgColor],
+                      stops: isTv ? const [0.25, 0.78, 0.94, 1.0] : const [0.5, 0.85, 0.94, 1.0],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// The art of [_buildBannerSlide]: fan art under a 35% black layer, with a
+  /// gradient into the page below.
+  Widget _buildBannerBackdrop(BannerSlide slide, double heroHeight) {
+    final item = slide.item;
+    final client = _getMediaClientForItem(item);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final heroAspectRatio = screenWidth / heroHeight;
+    final artPaths = item.heroArtCandidates(containerAspectRatio: heroAspectRatio);
+    return Stack(
+      fit: StackFit.expand,
+      clipBehavior: Clip.none,
+      children: [
+        if (artPaths.isNotEmpty)
+          ClipRect(
+            child: AnimatedBuilder(
+              animation: _scrollController,
+              builder: (context, child) {
+                final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+                return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
+              },
+              child: blurArtwork(
+                CyclingMediaBackdrop(
+                  mediaKey: item.globalKey,
+                  imagePaths: item.heroRotationPaths(containerAspectRatio: heroAspectRatio),
+                  fallbackImagePaths: artPaths,
+                  client: client,
+                  active: _isTabVisible,
+                  width: screenWidth,
+                  height: heroHeight,
+                  fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                ),
+              ),
+            ),
+          )
+        else
+          ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
+        // "A slight darkening overlay" (Adrian): 35% black over the art.
+        const IgnorePointer(child: ColoredBox(color: Color(0x59000000))),
+        // Blend into the page below, as the banner always did.
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: -4,
+          child: IgnorePointer(
+            child: Builder(
+              builder: (context) {
+                final bgColor = Theme.of(context).scaffoldBackgroundColor;
+                return DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Colors.transparent, bgColor.withValues(alpha: 0.85), bgColor],
+                      stops: const [0.6, 0.93, 1.0],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Tapping a banner slide: a PlezyFin slide opens the item's details page,
   /// a new episode its own page, as on the web; only its button plays
   /// (Adrian, 2026-10-10). A Continue Watching slide plays, as it always did.
@@ -1704,8 +1821,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final item = slide.item;
     final client = _getMediaClientForItem(item);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final heroAspectRatio = screenWidth / heroHeight;
-    final artPaths = item.heroArtCandidates(containerAspectRatio: heroAspectRatio);
     final narrow = screenWidth <= 700;
     // The look was set at 1920x1080; smaller windows scale it down.
     final viewportHeight = MediaQuery.sizeOf(context).height;
@@ -1918,64 +2033,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       hint: t.accessibility.tapToOpenDetails,
       child: ClickableCursor(
         child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => _activateSlide(slide),
-          child: Stack(
-            fit: StackFit.expand,
-            clipBehavior: Clip.none,
-            children: [
-              if (artPaths.isNotEmpty)
-                ClipRect(
-                  child: AnimatedBuilder(
-                    animation: _scrollController,
-                    builder: (context, child) {
-                      final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-                      return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
-                    },
-                    child: blurArtwork(
-                      CyclingMediaBackdrop(
-                        mediaKey: item.globalKey,
-                        imagePaths: item.heroRotationPaths(containerAspectRatio: heroAspectRatio),
-                        fallbackImagePaths: artPaths,
-                        client: client,
-                        active: _isTabVisible,
-                        width: screenWidth,
-                        height: heroHeight,
-                        fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
-              // "A slight darkening overlay" (Adrian): 35% black over the art.
-              const IgnorePointer(child: ColoredBox(color: Color(0x59000000))),
-              // Blend into the page below, as the banner always did.
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: -4,
-                child: IgnorePointer(
-                  child: Builder(
-                    builder: (context) {
-                      final bgColor = Theme.of(context).scaffoldBackgroundColor;
-                      return DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Colors.transparent, bgColor.withValues(alpha: 0.85), bgColor],
-                            stops: const [0.6, 0.93, 1.0],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-              ),
-              foreground,
-            ],
-          ),
+          child: Stack(fit: StackFit.expand, clipBehavior: Clip.none, children: [foreground]),
         ),
       ),
     );
