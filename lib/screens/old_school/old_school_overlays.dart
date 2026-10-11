@@ -110,7 +110,10 @@ class OldSchoolChannelCard extends StatelessWidget {
                         if (entry != null)
                           Text(
                             [
-                              if (entry.isProgramme && entry.subtitle.isNotEmpty) entry.subtitle,
+                              if (entry.kind == OldSchoolEntryKind.musicVideo)
+                                t.oldSchool.musicVideo
+                              else if (entry.isProgramme && entry.subtitle.isNotEmpty)
+                                entry.subtitle,
                               '${formatClockTime(entry.start.toLocal(), is24Hour: is24)} – ${formatClockTime(entry.end.toLocal(), is24Hour: is24)}',
                               if (left != null && !left.isNegative)
                                 t.oldSchool.minutesLeft(minutes: '${left.inMinutes + 1}'),

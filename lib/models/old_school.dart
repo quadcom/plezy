@@ -12,9 +12,17 @@ enum OldSchoolEntryKind {
   movie,
   episode,
 
+  /// A music video as a programme (channel 33, Rock the Box): kind "show"
+  /// with item type MusicVideo, named "Artist - Title".
+  musicVideo,
+
   /// A trailer filling a break between programmes; it carries the trailer's
   /// own item id (always a local file).
   trailer,
+
+  /// A music video filling what is left of a break after the trailers; a
+  /// break like a trailer, with its own item id.
+  music,
 
   /// Nothing to play: a gap the server could not fill. No item id.
   standby,
@@ -27,6 +35,8 @@ enum OldSchoolEntryKind {
       'movie' || 'film' => movie,
       'episode' => episode,
       'trailer' => trailer,
+      'musicvideo' => musicVideo,
+      'music' => music,
       'standby' => standby,
       _ => unknown,
     };
@@ -149,7 +159,8 @@ class OldSchoolEntry {
 
   bool get isPlayable => itemId != null && kind != OldSchoolEntryKind.standby;
 
-  bool get isProgramme => kind == OldSchoolEntryKind.movie || kind == OldSchoolEntryKind.episode;
+  bool get isProgramme =>
+      kind == OldSchoolEntryKind.movie || kind == OldSchoolEntryKind.episode || kind == OldSchoolEntryKind.musicVideo;
 
   /// Whether the entry is on at [at].
   bool isOnAt(DateTime at) => !start.isAfter(at) && end.isAfter(at);
@@ -170,9 +181,9 @@ class OldSchoolEntry {
     return parts.join(' · ');
   }
 
-  /// PlezyFin sends `kind` as show / trailer / standby with the item's own
-  /// type in `itemType` (Movie, Episode, Trailer); a plain Movie / Episode
-  /// kind is read too.
+  /// PlezyFin sends `kind` as show / trailer / music / standby with the
+  /// item's own type in `itemType` (Movie, Episode, MusicVideo, Trailer); a
+  /// plain Movie / Episode kind is read too.
   static OldSchoolEntryKind _kindOf(Map<String, dynamic> map) {
     final raw = _string(map, 'Kind') ?? _string(map, 'Type');
     final kind = OldSchoolEntryKind.parse(raw);

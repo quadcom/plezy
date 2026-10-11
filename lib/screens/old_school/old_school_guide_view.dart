@@ -259,10 +259,12 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   static String _entryTitle(OldSchoolEntry entry) =>
       entry.kind == OldSchoolEntryKind.standby ? t.oldSchool.backSoon : entry.title;
 
-  /// The small line: "Coming attraction" for a trailer, "Programmes resume
-  /// shortly" for standby, else season and episode or year and rating.
+  /// The small line: "Coming attraction" for a trailer, "Music video" for a
+  /// music video, "Programmes resume shortly" for standby, else season and
+  /// episode or year and rating.
   static String _entrySubtitle(OldSchoolEntry entry) => switch (entry.kind) {
     OldSchoolEntryKind.trailer => t.oldSchool.comingAttraction,
+    OldSchoolEntryKind.music || OldSchoolEntryKind.musicVideo => t.oldSchool.musicVideo,
     OldSchoolEntryKind.standby => t.oldSchool.resumeShortly,
     _ => entry.subtitle,
   };

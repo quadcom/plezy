@@ -101,8 +101,11 @@ void main() {
       expect(episode.subtitle, 'S6 E1 · The Beginning');
       expect(episode.backdrop!.tag, 'b1');
       expect(OldSchoolEntry.fromJson(show('Movie'))!.kind, OldSchoolEntryKind.movie);
+      final musicVideo = OldSchoolEntry.fromJson(show('MusicVideo'))!;
+      expect(musicVideo.kind, OldSchoolEntryKind.musicVideo);
+      expect(musicVideo.isProgramme, isTrue);
       // An item type this build doesn't know still counts as a programme.
-      expect(OldSchoolEntry.fromJson(show('MusicVideo'))!.isProgramme, isTrue);
+      expect(OldSchoolEntry.fromJson(show('Featurette'))!.isProgramme, isTrue);
       expect(OldSchoolEntry.fromJson(show(null))!.isProgramme, isTrue);
     });
 
@@ -113,6 +116,20 @@ void main() {
         'End': '2026-10-11T00:30:00Z',
       })!;
       expect(entry.isPlayable, isFalse);
+      expect(entry.isProgramme, isFalse);
+    });
+
+    test('a music video in a break plays but is not a programme', () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'music',
+        'itemType': 'MusicVideo',
+        'itemId': 'm1',
+        'name': 'Artist - Title',
+        'start': '2026-10-11T00:26:00Z',
+        'end': '2026-10-11T00:30:00Z',
+      })!;
+      expect(entry.kind, OldSchoolEntryKind.music);
+      expect(entry.isPlayable, isTrue);
       expect(entry.isProgramme, isFalse);
     });
 

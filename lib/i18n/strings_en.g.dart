@@ -5948,6 +5948,9 @@ class Translations$oldSchool$en {
 	/// en: 'Coming attraction'
 	String get comingAttraction => 'Coming attraction';
 
+	/// en: 'Music video'
+	String get musicVideo => 'Music video';
+
 	/// en: 'Back soon'
 	String get backSoon => 'Back soon';
 
@@ -9757,6 +9760,7 @@ extension on Translations {
 			'oldSchool.pickOnNow' => 'Pick something that\'s on now to start watching',
 			'oldSchool.nothingOn' => 'Off the air',
 			'oldSchool.comingAttraction' => 'Coming attraction',
+			'oldSchool.musicVideo' => 'Music video',
 			'oldSchool.backSoon' => 'Back soon',
 			'oldSchool.resumeShortly' => 'Programmes resume shortly',
 			'oldSchool.loadFailed' => 'Couldn\'t load the guide.',
