@@ -353,6 +353,7 @@ class JellyfinClient
     http.Client Function()? endpointProbeHttpClientFactory,
     FavoriteChannelsRepository? favoritesRepository,
     void Function()? onAllEndpointsExhausted,
+    bool plezyFinRoutes = false,
   }) {
     _registerConnectionDiagnostics(connection);
     final endpointDiscovery = JellyfinEndpointDiscovery(
@@ -372,6 +373,8 @@ class JellyfinClient
       client: httpClient,
     );
     client = JellyfinClient._(connection: connection, http: mediaHttp, favoritesRepository: favoritesRepository);
+    // A test server is plain Jellyfin unless the test says it is PlezyFin.
+    client._noPlezyFinContinueWatching = !plezyFinRoutes;
     return client;
   }
 

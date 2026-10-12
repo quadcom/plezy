@@ -50,6 +50,9 @@ class CompanionRemoteReceiver {
   /// specific library item. Both are the server's own identifiers.
   void Function(String serverId, String ratingKey)? onPlayMedia;
 
+  /// Sends a `playMediaResult` back to the peer that asked.
+  void Function(Map<String, dynamic> result)? onPlayMediaResult;
+
   void handleCommand(RemoteCommand command, BuildContext? _) {
     appLogger.d('CompanionRemoteReceiver: Handling command: ${command.type}');
 
@@ -154,6 +157,7 @@ class CompanionRemoteReceiver {
         final ratingKey = data?['ratingKey'] as String?;
         if (serverId == null || serverId.isEmpty || ratingKey == null || ratingKey.isEmpty) {
           appLogger.w('CompanionRemoteReceiver: playMedia needs both serverId and ratingKey');
+          onPlayMediaResult?.call({'serverId': ?serverId, 'ratingKey': ?ratingKey, 'ok': false, 'reason': 'invalid'});
           break;
         }
         onPlayMedia?.call(serverId, ratingKey);
@@ -164,6 +168,7 @@ class CompanionRemoteReceiver {
       case RemoteCommandType.deviceInfo:
       case RemoteCommandType.disconnect:
       case RemoteCommandType.syncState:
+      case RemoteCommandType.playMediaResult:
         break;
 
       default:
@@ -183,7 +188,8 @@ bool _isViewerInput(RemoteCommandType type) => switch (type) {
   RemoteCommandType.syncState ||
   // A peer naming an item to play says nothing about whether THIS device has
   // a pointer, so it must not flip the host into keyboard mode.
-  RemoteCommandType.playMedia => false,
+  RemoteCommandType.playMedia ||
+  RemoteCommandType.playMediaResult => false,
   RemoteCommandType.dpadUp ||
   RemoteCommandType.dpadDown ||
   RemoteCommandType.dpadLeft ||

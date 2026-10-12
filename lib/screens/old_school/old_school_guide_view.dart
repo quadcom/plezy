@@ -25,7 +25,9 @@ enum _Zone { exit, window, grid }
 /// anything plays) and the channel grid.
 ///
 /// D-pad: up/down move between channels, left/right through time, OK tunes
-/// a programme that's on now or shows a later one's details. Back is left to
+/// a programme that's on now or shows a later one's details. Play/Pause, or
+/// Left twice more once at now, goes back to the channel full screen. Back
+/// is left to
 /// the page (it shrinks the video or asks "Press Back again to leave").
 class OldSchoolGuideView extends StatefulWidget {
   final OldSchoolController controller;
@@ -72,6 +74,10 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   OldSchoolEntry? _focused;
   DateTime? _viewStart;
   bool _placedInitialFocus = false;
+
+  /// Left presses made with nowhere further left to go; two return to the
+  /// channel full screen.
+  int _leftPressesAtNow = 0;
 
   OldSchoolController get _c => widget.controller;
   OldSchoolLayout get _layout => widget.layout;
@@ -134,7 +140,8 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
       if (_start.isBefore(_earliestStart)) _viewStart = _earliestStart;
       final focused = _focused;
       if (focused != null && !focused.end.isAfter(_c.serverNow)) {
-        _focused = _channelAt(_row) == null ? null : _c.currentOrNextProgramme(_channelAt(_row)!.id);
+        final channel = _channelAt(_row);
+        _focused = channel == null ? null : _blockFor(channel, _c.currentOrNextProgramme(channel.id));
       }
     });
   }
@@ -169,11 +176,18 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
         _placedInitialFocus = true;
         final tuned = _c.indexOfChannel(_c.tunedChannelId);
         _row = tuned >= 0 ? tuned : 0;
-        _focused = _c.currentOrNextProgramme(channels[_row].id);
+        _focused = _blockFor(channels[_row], _c.currentOrNextProgramme(channels[_row].id));
         if (widget.videoActive) _zone = _Zone.grid;
         WidgetsBinding.instance.addPostFrameCallback((_) => _revealRow(_row, animate: false));
       }
     });
+  }
+
+  /// The guide block holding [entry]: the music block a music video sits
+  /// in, or [entry] itself when it is a block of its own.
+  OldSchoolEntry? _blockFor(OldSchoolChannel channel, OldSchoolEntry? entry) {
+    if (entry == null) return null;
+    return _c.guideEntriesFor(channel.id).where((b) => b.isOnAt(entry.start)).firstOrNull ?? entry;
   }
 
   OldSchoolChannel? _channelAt(int index) {
@@ -208,25 +222,29 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     _revealRow(next);
   }
 
-  void _moveTime(int delta) {
+  /// Move along the row; false when there is nowhere to go (left of what's
+  /// on now, or past the guide's end).
+  bool _moveTime(int delta) {
     final channel = _channelAt(_row);
-    if (channel == null) return;
+    if (channel == null) return false;
     final programmes = _c.guideEntriesFor(channel.id);
     final focused = _focused;
     if (focused == null) {
       final first = _programmeNear(channel, _start);
-      if (first != null) setState(() => _focused = first);
-      return;
+      if (first == null) return false;
+      setState(() => _focused = first);
+      return true;
     }
     final index = programmes.indexWhere((p) => p.start == focused.start);
     final target = index < 0
         ? null
         : (index + delta >= 0 && index + delta < programmes.length ? programmes[index + delta] : null);
-    if (target == null || !target.end.isAfter(_c.serverNow)) return;
+    if (target == null || !target.end.isAfter(_c.serverNow)) return false;
     setState(() {
       _focused = target;
       _revealEntry(target);
     });
+    return true;
   }
 
   void _revealRow(int index, {bool animate = true}) {
@@ -254,10 +272,14 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     unawaited(_showDetails(channel, entry));
   }
 
-  /// The big line for a cell, as the web guide words it: standby reads
-  /// "Back soon"; a trailer keeps its own name.
-  static String _entryTitle(OldSchoolEntry entry) =>
-      entry.kind == OldSchoolEntryKind.standby ? t.oldSchool.backSoon : entry.title;
+  /// The big line for a cell, as the web guide words it: a break reads
+  /// "Intermission", standby "Back soon"; anything else keeps its own name.
+  static String _entryTitle(OldSchoolEntry entry) => switch (entry.kind) {
+    OldSchoolEntryKind.intermission => t.oldSchool.intermission,
+    OldSchoolEntryKind.musicVideos => t.oldSchool.musicVideos,
+    OldSchoolEntryKind.standby => t.oldSchool.backSoon,
+    _ => entry.title,
+  };
 
   /// The small line: "Coming attraction" for a trailer, "Music video" for a
   /// music video, "Programmes resume shortly" for standby, else season and
@@ -266,8 +288,46 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     OldSchoolEntryKind.trailer => t.oldSchool.comingAttraction,
     OldSchoolEntryKind.music || OldSchoolEntryKind.musicVideo => t.oldSchool.musicVideo,
     OldSchoolEntryKind.standby => t.oldSchool.resumeShortly,
+    OldSchoolEntryKind.intermission || OldSchoolEntryKind.musicVideos => '',
     _ => entry.subtitle,
   };
+
+  /// The longer text under a selected entry: an intermission lists what it
+  /// plays, a music block the videos still to come, one per line; anything
+  /// else has its overview.
+  String? _entryDetail(OldSchoolEntry entry) {
+    final now = _c.serverNow;
+    return switch (entry.kind) {
+      OldSchoolEntryKind.intermission => entry.breakItemNames.join('\n'),
+      OldSchoolEntryKind.musicVideos => _musicVideosAfter(
+        entry,
+        now,
+      ).where((v) => !v.isOnAt(now)).map((v) => v.name).join('\n'),
+      _ => entry.overview,
+    };
+  }
+
+  /// A music block's videos not yet finished at [at], in order.
+  static Iterable<OldSchoolEntry> _musicVideosAfter(OldSchoolEntry block, DateTime at) =>
+      block.breakItems.where((p) => p.kind == OldSchoolEntryKind.musicVideo && p.end.isAfter(at));
+
+  /// The time line for [entry]: "Until 10:45 PM" for an intermission (the
+  /// next programme's start); for a music block the video playing now, or
+  /// when the block starts; else its subtitle and time span.
+  String _entryTimeLine(OldSchoolEntry entry, {required bool is24}) {
+    final end = formatClockTime(entry.end.toLocal(), is24Hour: is24);
+    if (entry.kind == OldSchoolEntryKind.intermission) return t.oldSchool.intermissionUntil(time: end);
+    if (entry.kind == OldSchoolEntryKind.musicVideos) {
+      final now = _c.serverNow;
+      final playing = _musicVideosAfter(entry, now).where((v) => v.isOnAt(now)).firstOrNull;
+      if (playing != null) return t.oldSchool.nowPlayingVideo(title: playing.name);
+      return t.oldSchool.musicFrom(time: formatClockTime(entry.start.toLocal(), is24Hour: is24));
+    }
+    return [
+      if (_entrySubtitle(entry).isNotEmpty) _entrySubtitle(entry),
+      '${formatClockTime(entry.start.toLocal(), is24Hour: is24)} – $end',
+    ].join(' · ');
+  }
 
   Future<void> _showDetails(OldSchoolChannel channel, OldSchoolEntry entry) async {
     final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
@@ -288,16 +348,10 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
                   style: theme.textTheme.labelLarge,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  [
-                    if (_entrySubtitle(entry).isNotEmpty) _entrySubtitle(entry),
-                    '${formatClockTime(entry.start.toLocal(), is24Hour: is24)} – ${formatClockTime(entry.end.toLocal(), is24Hour: is24)}',
-                  ].join(' · '),
-                  style: theme.textTheme.bodyMedium,
-                ),
-                if (entry.overview != null) ...[
+                Text(_entryTimeLine(entry, is24: is24), style: theme.textTheme.bodyMedium),
+                if (_entryDetail(entry) case final detail? when detail.isNotEmpty) ...[
                   const SizedBox(height: 12),
-                  Text(entry.overview!, style: theme.textTheme.bodyMedium, maxLines: 8, overflow: .ellipsis),
+                  Text(detail, style: theme.textTheme.bodyMedium, maxLines: 8, overflow: .ellipsis),
                 ],
               ],
             ),
@@ -321,7 +375,14 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
       if (SelectKeyUpSuppressor.consumeIfSuppressed(event)) return KeyEventResult.handled;
       return handleOneShotSelect(event, _activateZone);
     }
+    // Play/Pause on the remote: straight back to the channel full screen,
+    // wherever the guide's focus has wandered.
+    if (widget.videoActive && (key == LogicalKeyboardKey.mediaPlayPause || key == LogicalKeyboardKey.mediaPlay)) {
+      if (event is KeyDownEvent) widget.onEnlarge();
+      return KeyEventResult.handled;
+    }
     if (!event.isActionable) return KeyEventResult.ignored;
+    if (!(key.isLeftKey && _zone == _Zone.grid)) _leftPressesAtNow = 0;
     switch (_zone) {
       case _Zone.exit:
         if (key.isRightKey && widget.videoActive && !_layout.isPortraitPhone) {
@@ -345,7 +406,15 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
         } else if (key.isDownKey) {
           _moveRow(1);
         } else if (key.isLeftKey) {
-          _moveTime(-1);
+          // Already at now: a second Left there goes back to the channel
+          // full screen (Adrian, 2026-10-11). Held-key repeats don't count.
+          if (_moveTime(-1)) {
+            _leftPressesAtNow = 0;
+          } else if (event is KeyDownEvent && widget.videoActive && ++_leftPressesAtNow >= 2) {
+            _leftPressesAtNow = 0;
+            widget.onEnlarge();
+          }
+          return KeyEventResult.handled;
         } else if (key.isRightKey) {
           _moveTime(1);
         } else {
@@ -489,12 +558,8 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     final accent = const Color(0xFFF5B400);
     final label = ['${channel.number}', channel.name, if (onNow) t.oldSchool.onNow].join(' · ').toUpperCase();
 
-    final timeLine = entry == null
-        ? t.oldSchool.nothingOn
-        : [
-            if (_entrySubtitle(entry).isNotEmpty) _entrySubtitle(entry),
-            '${formatClockTime(entry.start.toLocal(), is24Hour: is24)} – ${formatClockTime(entry.end.toLocal(), is24Hour: is24)}',
-          ].join(' · ');
+    final timeLine = entry == null ? t.oldSchool.nothingOn : _entryTimeLine(entry, is24: is24);
+    final detail = entry == null ? null : _entryDetail(entry);
 
     if (layout.isPortraitPhone) {
       return Padding(
@@ -567,14 +632,33 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
             const SizedBox(height: 8),
             _progress(context, entry, runTime),
           ],
-          if (entry?.overview != null) ...[
+          if (detail != null && detail.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Flexible(
-              child: Text(entry!.overview!, style: theme.textTheme.bodyMedium, maxLines: 3, overflow: .ellipsis),
-            ),
+            Flexible(child: _overviewText(context, detail)),
           ],
         ],
       ),
+    );
+  }
+
+  /// Up to three lines of the overview, but only as many whole lines as the
+  /// panel has room for, so a short TV panel ends on "..." rather than a
+  /// line cut through the middle.
+  Widget _overviewText(BuildContext context, String overview) {
+    final style = Theme.of(context).textTheme.bodyMedium;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          text: TextSpan(text: 'Ag', style: style),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        final lineHeight = painter.height;
+        painter.dispose();
+        final lines = math.min(3, (constraints.maxHeight / lineHeight).floor());
+        if (lines < 1) return const SizedBox.shrink();
+        return Text(overview, style: style, maxLines: lines, overflow: .ellipsis);
+      },
     );
   }
 
@@ -890,9 +974,10 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     final fg = focused ? theme.colorScheme.onPrimary : tk.text;
     final muted = focused ? theme.colorScheme.onPrimary.withValues(alpha: 0.75) : tk.textMuted;
     final radius = BorderRadius.circular(tk.radiusSm);
-    // Trailers and standby are faded like the web's break cells (opacity
-    // 0.6); the focused cell stays solid so the remote's place is clear.
-    final faded = !p.isProgramme && !focused;
+    // Intermissions are faded like the web's break cells (opacity 0.6); a
+    // music block is solid like a programme. The focused cell stays solid so
+    // the remote's place is clear.
+    final faded = p.kind == OldSchoolEntryKind.intermission && !focused;
     return Positioned(
       left: left,
       width: width,

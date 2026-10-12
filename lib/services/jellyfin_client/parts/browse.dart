@@ -258,6 +258,33 @@ const _detailFields =
 const jellyfinFavoritesHubId = 'plezyfin.favorites';
 
 mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
+  /// PlezyFin's own Continue Watching (PLAN_SHA_29): the resume rows with the
+  /// server's library rules applied, so this row and Home Assistant's match.
+  static const _plezyFinContinueWatchingPath = '/PlezyFin/ContinueWatching';
+
+  /// Set once the server answers 404: it isn't PlezyFin, or is older.
+  bool _noPlezyFinContinueWatching = false;
+
+  /// Runs [fetch] on PlezyFin's Continue Watching route, or on the plain
+  /// resume route when the server lacks it or that request fails. [fetch]
+  /// must throw on an HTTP error for the PlezyFin path, so a failure can fall
+  /// back. Only for the whole-server row: the route takes no ParentId and no
+  /// StartIndex yet.
+  Future<T> _withContinueWatchingPath<T>(Future<T> Function(String path) fetch) async {
+    if (_noPlezyFinContinueWatching) return fetch(paths.resumeItems);
+    try {
+      return await fetch(_plezyFinContinueWatchingPath);
+    } catch (e) {
+      if (e is MediaServerHttpException && e.isCancellation) rethrow;
+      if (e is MediaServerHttpException && e.statusCode == 404) {
+        _noPlezyFinContinueWatching = true;
+      } else {
+        appLogger.w('JellyfinClient: PlezyFin Continue Watching failed, using the resume route', error: e);
+      }
+      return fetch(paths.resumeItems);
+    }
+  }
+
   List<String> _allViewIds = const [];
 
   /// Every view the last library load returned, collections and playlists
@@ -1650,7 +1677,9 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     }
 
     final results = await Future.wait([
-      _fetchItemsArray(paths.resumeItems, _resumeItemsQuery(limit: count), retry: _continueWatchingRetry),
+      _withContinueWatchingPath(
+        (path) => _fetchItemsArray(path, _resumeItemsQuery(limit: count), retry: _continueWatchingRetry),
+      ),
       _safeFetchItemsArray('/Shows/NextUp', _nextUpQuery(limit: count), retry: _continueWatchingRetry),
     ]);
 
@@ -1973,12 +2002,23 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     final Future<List<Map<String, dynamic>>> resumeRowsFuture;
     final Future<List<Map<String, dynamic>>> nextUpRowsFuture;
     if (dialect.resumeReturnsOnlyStartedItems) {
-      resumeRowsFuture = _safeFetchItemsArray(
-        paths.resumeItems,
-        _resumeItemsQuery(limit: limit, parentId: parentId),
-        retry: retry,
-        diagnostics: diagnostics,
-      );
+      resumeRowsFuture = parentId == null
+          ? _withContinueWatchingPath(
+              (path) => path == paths.resumeItems
+                  ? _safeFetchItemsArray(
+                      path,
+                      _resumeItemsQuery(limit: limit),
+                      retry: retry,
+                      diagnostics: diagnostics,
+                    )
+                  : _fetchItemsArray(path, _resumeItemsQuery(limit: limit), retry: retry),
+            )
+          : _safeFetchItemsArray(
+              paths.resumeItems,
+              _resumeItemsQuery(limit: limit, parentId: parentId),
+              retry: retry,
+              diagnostics: diagnostics,
+            );
       nextUpRowsFuture = includeNextUp
           ? _safeFetchItemsArray(
               '/Shows/NextUp',

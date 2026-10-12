@@ -17,6 +17,8 @@ import '../main_screen.dart';
 import '../../mixins/mounted_set_state_mixin.dart';
 import '../../mixins/refreshable.dart';
 import '../../providers/account_preferences_controller.dart';
+import '../../providers/companion_remote_provider.dart';
+import '../../services/companion_remote/remote_pairing.dart';
 import '../../providers/hidden_libraries_provider.dart';
 import '../../providers/download_provider.dart';
 import '../../providers/libraries_provider.dart';
@@ -109,6 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
   static const _kVideoPlayerControls = 'video_player_controls';
   static const _kVideoPlayerNavigation = 'video_player_navigation';
   static const _kCompanionRemoteServer = 'companion_remote_server';
+  static const _kPairedRemotes = 'paired_remotes';
   static const _kCrashReporting = 'crash_reporting';
   static const _kDebugLogging = 'debug_logging';
   static const _kAutoHidePerformanceOverlay = 'auto_hide_performance_overlay';
@@ -548,11 +551,50 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           title: t.settings.companionRemoteServer,
           subtitle: t.settings.companionRemoteServerDescription,
         ),
+      if (PlatformDetector.shouldActAsRemoteHost(context) &&
+          context.select<CompanionRemoteProvider, bool>((remote) => remote.pairedRemotes.isNotEmpty))
+        SettingNavigationTile(
+          focusNode: _focusTracker.get(_kPairedRemotes),
+          icon: Symbols.link_rounded,
+          title: t.companionRemote.paired.devices,
+          subtitle: t.companionRemote.paired.devicesDescription,
+          onTap: _showPairedRemotes,
+        ),
     ];
     // Keyboard platforms render nothing until the shortcuts service loads; an
     // empty SettingsGroup would paint a bare section title.
     if (children.isEmpty) return const SizedBox.shrink();
     return SettingsGroup(title: t.settings.controls, children: children);
+  }
+
+  /// Paired remotes (Home Assistant): pick one to remove it.
+  Future<void> _showPairedRemotes() async {
+    final remote = context.read<CompanionRemoteProvider>();
+    final localizations = MaterialLocalizations.of(context);
+    final picked = await showOptionPickerDialog<PairedRemote>(
+      context,
+      title: t.companionRemote.paired.devices,
+      options: [
+        for (final paired in remote.pairedRemotes)
+          (
+            icon: Symbols.link_rounded,
+            label:
+                '${paired.deviceName} · '
+                '${t.companionRemote.paired.pairedOn(date: localizations.formatMediumDate(paired.pairedAt.toLocal()))}',
+            value: paired,
+          ),
+      ],
+    );
+    if (picked == null || !mounted) return;
+    final confirmed = await showConfirmDialog(
+      context,
+      title: t.companionRemote.paired.removeTitle(device: picked.deviceName),
+      message: t.companionRemote.paired.removeMessage(device: picked.deviceName),
+      confirmText: t.companionRemote.paired.remove,
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    await remote.removePairedRemote(picked.clientIdentifier);
   }
 
   Widget _buildAdvancedSection() {

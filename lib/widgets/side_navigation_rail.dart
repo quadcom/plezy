@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'package:collection/collection.dart';
 import 'dart:ui' show lerpDouble;
 import '../media/ids.dart';
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:plezy/widgets/app_icon.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:flutter/services.dart';
@@ -823,7 +825,12 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
     final isUp = event.logicalKey == LogicalKeyboardKey.arrowUp;
     if (!isDown && !isUp) return KeyEventResult.ignored;
 
-    final currentKey = _focusTracker.lastFocusedKey;
+    // Start from the row that really holds focus; the remembered key is only
+    // a fallback, since a stale one would aim at the row already focused and
+    // DOWN would look stuck.
+    final currentKey =
+        focusOrder.firstWhereOrNull((key) => _focusTracker.nodeFor(key)?.hasFocus ?? false) ??
+        _focusTracker.lastFocusedKey;
     if (currentKey == null) return KeyEventResult.ignored;
 
     final currentIndex = focusOrder.indexOf(currentKey);
@@ -1089,6 +1096,11 @@ class SideNavigationRailState extends State<SideNavigationRail> with MountedSetS
                                 curve: expandCurve,
                                 child: ListView(
                                   padding: EdgeInsets.zero,
+                                  // Keep every row built: D-pad UP/DOWN can
+                                  // only move to rows that are mounted, and a
+                                  // row beyond the default cache would be
+                                  // skipped or leave DOWN with nowhere to go.
+                                  scrollCacheExtent: const ScrollCacheExtent.pixels(100000),
                                   clipBehavior: Clip.hardEdge,
                                   children: [
                                     if (widget.isOfflineMode && widget.onReconnect != null) ...[

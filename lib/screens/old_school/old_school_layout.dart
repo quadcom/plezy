@@ -74,8 +74,11 @@ class OldSchoolLayout {
     final info = Rect.fromLTRB(0, 0, window.left, topHeight);
     final grid = Rect.fromLTRB(0, topHeight, size.width, size.height);
     final timeHeader = (size.height * 0.04).clamp(28.0, 44.0);
-    // About 7.5 rows below the time header.
-    final row = ((grid.height - timeHeader) / 7.5).clamp(40.0, 76.0);
+    // About 7.5 rows below the time header, but never shorter than a
+    // programme's title and year line need: a 1080p TV is only 540 tall to
+    // Flutter, and 40 cut both lines in half (Theater SHIELD, 2026-10-11).
+    // Fewer rows show instead.
+    final row = ((grid.height - timeHeader) / 7.5).clamp(56.0, 76.0);
     return OldSchoolLayout._(
       size: size,
       isPortraitPhone: false,
@@ -83,7 +86,8 @@ class OldSchoolLayout {
       infoRect: info,
       gridRect: grid,
       visibleHours: 3,
-      channelColumnWidth: (size.width * 0.13).clamp(120.0, 260.0),
+      // Wide enough beside the logo and number for a short channel name.
+      channelColumnWidth: (size.width * 0.13).clamp(176.0, 260.0),
       rowHeight: row,
       timeHeaderHeight: timeHeader,
     );

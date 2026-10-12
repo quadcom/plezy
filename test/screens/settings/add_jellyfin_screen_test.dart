@@ -632,7 +632,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('Add Emby server'), findsOneWidget);
-    expect(find.text('Add Jellyfin server'), findsNothing);
+    expect(find.text('Add PlezyFin server'), findsNothing);
     final urlField = tester.widget<TextField>(find.byType(TextField).first);
     expect(urlField.decoration?.hintText, 'https://emby.example.com');
 
@@ -657,7 +657,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Add Jellyfin server'), findsOneWidget);
+    expect(find.text('Add PlezyFin server'), findsOneWidget);
     await tester.enterText(find.byType(TextField).first, 'https://jf.example.com');
     await tester.testTextInput.receiveAction(TextInputAction.go);
     await tester.pumpAndSettle();
@@ -931,7 +931,7 @@ void main() {
 
     final field = tester.widget<TextField>(find.byType(TextField).first);
     expect(field.controller?.text, contains('http://192.168.1.20:8096'));
-    expect(find.text('Jellyfin 10.9.0'), findsOneWidget);
+    expect(find.text('PlezyFin 10.9.0'), findsOneWidget);
   });
 
   testWidgets('D-pad can navigate through discovered Jellyfin servers', (tester) async {

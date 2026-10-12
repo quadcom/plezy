@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/widgets.dart';
 
 import '../connection/connection.dart';
@@ -18,6 +19,7 @@ import '../services/companion_remote/companion_remote_peer_service.dart';
 import '../services/companion_remote/lan_discovery_service.dart';
 import '../services/companion_remote/remote_auth_context.dart';
 import '../services/companion_remote/remote_auth_service.dart';
+import '../services/companion_remote/remote_pairing.dart';
 import '../utils/app_logger.dart';
 import '../utils/device_identity.dart';
 import '../utils/serial_future_queue.dart';
@@ -36,15 +38,21 @@ String _localizedRemoteError(Object error, String Function(String details) fallb
 }
 
 class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin, WidgetsBindingObserver {
-  CompanionRemoteProvider() : this._(CompanionRemotePeerService.new, LanDiscoveryService.new);
+  CompanionRemoteProvider() : this._(CompanionRemotePeerService.new, LanDiscoveryService.new, PairedRemoteStore());
 
   @visibleForTesting
   CompanionRemoteProvider.forTesting({
     required CompanionRemotePeerServiceFactory peerServiceFactory,
     LanDiscoveryServiceFactory discoveryServiceFactory = LanDiscoveryService.new,
-  }) : this._(peerServiceFactory, discoveryServiceFactory);
+    PairedRemoteStore? pairedRemoteStore,
+  }) : this._(
+         peerServiceFactory,
+         discoveryServiceFactory,
+         pairedRemoteStore ?? PairedRemoteStore(read: () async => '', write: (_) async {}),
+       );
 
-  CompanionRemoteProvider._(this._peerServiceFactory, this._discoveryServiceFactory) {
+  CompanionRemoteProvider._(this._peerServiceFactory, this._discoveryServiceFactory, this._pairedStore) {
+    _pairingHost = RemotePairingHost(onPaired: _savePairedRemote, onPairingDelivered: _scheduleAuthContextRefresh);
     WidgetsBinding.instance.addObserver(this);
     AppExitService.addBeforeExit(_releaseHostBeforeExit);
     _initializeDeviceInfo();
@@ -58,6 +66,12 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
 
   final CompanionRemotePeerServiceFactory _peerServiceFactory;
   final LanDiscoveryServiceFactory _discoveryServiceFactory;
+
+  // Remotes paired with this device (Home Assistant). A device setting: they
+  // join every profile's host identities.
+  final PairedRemoteStore _pairedStore;
+  late final RemotePairingHost _pairingHost;
+  List<PairedRemote>? _pairedRemotes;
   RemoteSession? _session;
   CompanionRemotePeerService? _peerService;
   CompanionRemotePeerService? _pendingRemotePeer;
@@ -136,6 +150,51 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   bool get isPlayerActive => _isPlayerActive;
   bool get isHostServerRunning => _peerService?.isServerRunning ?? false;
   List<String> get hostServerAddresses => _hostServerAddresses;
+
+  /// The pairing the TV should be showing a code for, if any.
+  ValueListenable<PendingRemotePairing?> get pendingPairing => _pairingHost.pending;
+
+  void cancelPairing() => _pairingHost.cancel();
+
+  /// Paired remotes, newest last; empty until [loadPairedRemotes] has run.
+  List<PairedRemote> get pairedRemotes => _pairedRemotes ?? const [];
+
+  Future<List<PairedRemote>> loadPairedRemotes() async {
+    final loaded = _pairedRemotes;
+    if (loaded != null) return loaded;
+    try {
+      _pairedRemotes = await _pairedStore.load();
+    } catch (e) {
+      appLogger.w('CompanionRemote: Could not load paired remotes', error: e);
+      return const [];
+    }
+    safeNotifyListeners();
+    return _pairedRemotes!;
+  }
+
+  Future<void> _savePairedRemote(PairedRemote remote) async {
+    final next = [
+      for (final existing in await loadPairedRemotes())
+        if (existing.clientIdentifier != remote.clientIdentifier) existing,
+      remote,
+    ];
+    await _pairedStore.save(next);
+    _pairedRemotes = next;
+    safeNotifyListeners();
+  }
+
+  /// Forget a paired remote: its secret is deleted and the running host stops
+  /// offering it.
+  Future<void> removePairedRemote(String clientIdentifier) async {
+    final next = [
+      for (final existing in await loadPairedRemotes())
+        if (existing.clientIdentifier != clientIdentifier) existing,
+    ];
+    await _pairedStore.save(next);
+    _pairedRemotes = next;
+    safeNotifyListeners();
+    _scheduleAuthContextRefresh();
+  }
 
   Future<void> _initializeDeviceInfo() async {
     final identity = await DeviceIdentityService.resolve();
@@ -352,6 +411,10 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
       final connection = byId[pc.connectionId];
       if (connection == null) continue;
       await addConnection(connection, userUuid: pc.userIdentifier.isEmpty ? null : pc.userIdentifier);
+    }
+
+    for (final remote in await loadPairedRemotes()) {
+      addContext(await remote.toAuthContext());
     }
 
     return contexts;
@@ -610,6 +673,7 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
     appLogger.d('CompanionRemote: Starting host server');
 
     final peer = _peerService ??= _peerServiceFactory();
+    peer.pairingHost = _pairingHost;
     _setupPeerServiceListeners(peer, _remoteGeneration);
 
     try {
@@ -671,6 +735,7 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
   });
 
   Future<void> _stopHostServerLocked() async {
+    _pairingHost.cancel();
     final stopGeneration = _remoteGeneration;
     final peer = _peerService;
     _markIntentionalDisconnect(peer, stopGeneration);
@@ -1227,6 +1292,7 @@ class CompanionRemoteProvider with ChangeNotifier, DisposableChangeNotifierMixin
     }
     _profileServiceSubs.clear();
     _discoveryService?.dispose();
+    _pairingHost.dispose();
     unawaited(_disposeDetachedPeers((current: current, pending: pending)));
     RemoteAuthService.instance.clearCache();
     super.dispose();

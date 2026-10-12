@@ -1005,6 +1005,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     readProvider: () => context.read<CompanionRemoteProvider>(),
     serverId: () => _currentMetadata.serverId,
     itemId: () => _currentMetadata.id,
+    sessionDeviceId: () => switch (mounted ? _getMediaServerClient(context) : null) {
+      final JellyfinClient client => client.connection.deviceId,
+      _ => null,
+    },
   );
 
   /// Backend-neutral lookup. Returns whichever client (Plex or Jellyfin)

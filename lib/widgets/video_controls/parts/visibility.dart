@@ -48,10 +48,12 @@ extension _PlexVideoControlsVisibilityMethods on _PlexVideoControlsState {
     });
   }
 
-  /// Listen to completed stream to show controls when video ends
+  /// Listen to completed stream to show controls when video ends. Not in Old
+  /// School: the channel's next entry follows at once, and controls popping
+  /// up at every change spoilt the picture (Adrian, 2026-10-11).
   void _listenToCompleted() {
     _completedSubscription = widget.player.streams.completed.listen((completed) {
-      if (completed && mounted) {
+      if (completed && mounted && widget.oldSchool == null) {
         if (_isLongPressing) {
           _handleLongPressCancel();
         }

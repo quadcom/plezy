@@ -120,6 +120,7 @@ List<SettingsSearchEntry> settingsSearchEntries() {
       s.autoPip,
       s.matchContentFrameRate,
       s.matchContentResolution,
+      s.oldSchoolFilmRate,
       s.matchRefreshRate,
       s.matchDynamicRange,
       s.displaySwitchDelay,

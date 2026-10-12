@@ -96,7 +96,7 @@ void main() {
       expect(restored.id, 'orphan');
       expect(restored.baseUrl, '');
       expect(restored.baseUrls, isEmpty);
-      expect(restored.serverName, 'Jellyfin');
+      expect(restored.serverName, 'PlezyFin');
       expect(restored.accessToken, '');
     });
 

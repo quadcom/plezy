@@ -48,6 +48,7 @@ class CompanionRemoteBinding {
     required this._readProvider,
     required this._serverId,
     required this._itemId,
+    this._sessionDeviceId,
   });
 
   final Player? Function() _player;
@@ -68,6 +69,10 @@ class CompanionRemoteBinding {
   final CompanionRemoteProvider Function() _readProvider;
   final String? Function() _serverId;
   final String Function() _itemId;
+
+  /// The DeviceId this player gives its media server (Jellyfin/Emby), so a
+  /// remote can find this device's own entry in the server's `/Sessions`.
+  final String? Function()? _sessionDeviceId;
 
   /// A position jump larger than this, between two consecutive
   /// [PlayerStreams.position] ticks, is read as a landed seek.
@@ -156,6 +161,14 @@ class CompanionRemoteBinding {
     _positionSubscription = player.streams.position.listen(_onPositionTick);
   }
 
+  /// The screen swapped to another item in place (next episode, an Old School
+  /// programme or promo): tell the remote now, so its title follows the
+  /// screen instead of waiting for a seek jump or the 10 s tick.
+  void itemChanged() {
+    _lastPosition = null;
+    _sendSyncState();
+  }
+
   void _onPositionTick(Duration position) {
     final last = _lastPosition;
     _lastPosition = position;
@@ -181,6 +194,8 @@ class CompanionRemoteBinding {
       data['durationMs'] = state.duration.inMilliseconds > 0 ? state.duration.inMilliseconds : 0;
       data['serverId'] = serverId;
       data['itemId'] = _itemId();
+      final deviceId = _sessionDeviceId?.call();
+      if (deviceId != null && deviceId.isNotEmpty) data['deviceId'] = deviceId;
       data['sentAt'] = DateTime.now().millisecondsSinceEpoch;
     }
     return data;

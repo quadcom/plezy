@@ -1,11 +1,22 @@
 part of '../../video_player_screen.dart';
 
+/// 23.976: most of the library is 24p film (2026-10-11 count: about 83% of
+/// viewing hours).
+const double _oldSchoolFilmFps = 24000 / 1001;
+
 extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
-  /// The user's frame-rate matching setting, off in Old School: trailers
+  /// The user's frame-rate matching setting. Old School ignores it: trailers
   /// between programmes would blank the TV at every switch (Adrian,
-  /// PLAN_SHA_21). The display stays as it was, so nothing needs restoring.
-  bool _matchesFrameRate(SettingsService settingsService) =>
-      !widget.isOldSchool && settingsService.read(SettingsService.matchContentFrameRate);
+  /// PLAN_SHA_21). It has its own setting instead, which holds the TV at
+  /// [_oldSchoolFilmFps] whatever plays, so only the first open switches and
+  /// leaving restores the TV's mode as any player exit does.
+  bool _matchesFrameRate(SettingsService settingsService) => widget.isOldSchool
+      ? settingsService.read(SettingsService.oldSchoolFilmRate)
+      : settingsService.read(SettingsService.matchContentFrameRate);
+
+  /// The rate a frame-rate switch aims for: the content's own, or film rate
+  /// in Old School.
+  double? _matchTargetFps(double? contentFps) => widget.isOldSchool ? _oldSchoolFilmFps : contentFps;
 
   /// The user's resolution matching setting, off in Old School likewise.
   bool _matchesResolution(SettingsService settingsService) =>
@@ -19,7 +30,7 @@ extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
     SettingsService settingsService,
     PlayerOutputFormat output,
   ) {
-    final fps = _matchesFrameRate(settingsService) ? output.fps : null;
+    final fps = _matchesFrameRate(settingsService) ? _matchTargetFps(output.fps) : null;
     final matchResolution = _matchesResolution(settingsService);
     if (matchResolution && !output.hasDimensions) {
       appLogger.d('Display matching: no decoded dimensions for resolution matching');

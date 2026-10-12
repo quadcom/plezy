@@ -724,6 +724,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
 
         if (isItemChange) {
           unawaited(_reapplyScopedPlayerPrefsForItemChange(previousMetadata: previousMetadata, metadata: metadata));
+          _companionRemote.itemChanged();
         }
 
         _setPlayerState(() {

@@ -49,9 +49,10 @@ enum MediaBrowserDialect {
   };
 
   /// Product name, used verbatim in UI that names the backend. These are
-  /// trademarks, so they are not localized.
+  /// trademarks, so they are not localized. Jellyfin shows as PlezyFin, the
+  /// household's own Jellyfin fork (Adrian, 2026-10-12).
   String get productName => switch (this) {
-    MediaBrowserDialect.jellyfin => 'Jellyfin',
+    MediaBrowserDialect.jellyfin => 'PlezyFin',
     MediaBrowserDialect.emby => 'Emby',
   };
 

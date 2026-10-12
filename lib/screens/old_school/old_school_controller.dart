@@ -64,11 +64,11 @@ class OldSchoolController extends ChangeNotifier {
   /// [channelId]'s entries in start order (programmes, trailers and standby).
   List<OldSchoolEntry> entriesFor(String channelId) => _entries[channelId] ?? const [];
 
-  /// What the grid shows as blocks: programmes, and each trailer and standby
-  /// gap as its own faded cell at its real span, as the web guide does
-  /// (Adrian, 2026-10-11).
+  /// What the grid shows as blocks: programmes, and each break (its
+  /// trailers, music and standby together) as one Intermission block, one
+  /// stop for the remote (PLAN_SHA_28, replacing a cell per trailer).
   List<OldSchoolEntry> guideEntriesFor(String channelId) =>
-      entriesFor(channelId).where((e) => e.kind != OldSchoolEntryKind.unknown).toList(growable: false);
+      OldSchoolEntry.joinBreaks(entriesFor(channelId).where((e) => e.kind != OldSchoolEntryKind.unknown));
 
   /// [channelId]'s programmes only.
   List<OldSchoolEntry> programmesFor(String channelId) =>

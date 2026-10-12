@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../connection/connection_registry.dart';
 import '../../database/app_database.dart';
+import '../../database/download_operations.dart';
 import '../../i18n/strings.g.dart';
 import '../../profiles/active_profile_binder.dart';
 import '../../profiles/active_profile_provider.dart';
@@ -250,19 +251,34 @@ Future<bool> confirmAndSignOutPlexAccount(BuildContext context, {required String
 
   final scope = SessionTeardownScope.of(context);
   try {
-    final removal = await planPlexAccountConnectionRemoval(
-      account: account,
-      profileConnections: scope.profileConnections,
-    );
     final endedOwner = await _activeProfileUsingConnection(scope, accountConnectionId);
+    final accountServerIds = {for (final server in account.servers) server.clientIdentifier};
     final navigatedAway = await withEndedProfileSession(scope, endedOwner, () async {
+      // Plex Home profiles that also hold a PlezyFin (or other) connection
+      // become local profiles first and keep it; only the Plex side goes.
+      await scope.cleanup.keepPlexHomeProfilesWithOtherConnections(
+        account: account,
+        homeUsers: scope.plexHome.current[account.id] ?? const [],
+        profileRegistry: scope.profileRegistry,
+        activeProfileId: endedOwner,
+        moveDownloads: (fromProfileId, toProfileId) async {
+          await scope.downloads.releaseDownloadsForProfileServers(fromProfileId, accountServerIds);
+          await scope.database.moveDownloadOwnersToProfile(fromProfileId: fromProfileId, toProfileId: toProfileId);
+          await scope.database.deleteSyncRulesForProfile(fromProfileId);
+          await scope.database.deleteWatchActionsForProfile(fromProfileId);
+          await scope.database.deleteMusicSessionForProfile(fromProfileId);
+        },
+      );
+      final removal = await planPlexAccountConnectionRemoval(
+        account: account,
+        profileConnections: scope.profileConnections,
+      );
       // Physical download cleanup can fail. Finish it while the account and
       // every ownership join still exist so a retry can resolve the same plan
       // instead of stranding files without an owner.
       for (final profileId in removal.removedVirtualProfileIds) {
         await scope.downloads.deleteDownloadsForProfile(profileId);
       }
-      final accountServerIds = {for (final server in account.servers) server.clientIdentifier};
       for (final profileId in removal.borrowerProfileIds) {
         await scope.downloads.releaseDownloadsForProfileServers(profileId, accountServerIds);
       }

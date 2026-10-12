@@ -28,7 +28,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in with Plex'), findsOneWidget);
-    expect(find.text('Connect to Jellyfin'), findsOneWidget);
+    expect(find.text('Connect to PlezyFin'), findsOneWidget);
     expect(find.text('Connect to Emby'), findsOneWidget);
 
     final badges = tester.widgetList<BackendBadge>(find.byType(BackendBadge)).map((b) => b.backend).toList();
@@ -60,9 +60,9 @@ void main() {
     await tester.pumpWidget(app(const AddConnectionScreen()));
     await tester.pumpAndSettle();
 
-    final screen = await tapCard(tester, 'Connect to Jellyfin');
+    final screen = await tapCard(tester, 'Connect to PlezyFin');
     expect(screen.dialect, MediaBrowserDialect.jellyfin);
-    expect(find.text('Add Jellyfin server'), findsOneWidget);
+    expect(find.text('Add PlezyFin server'), findsOneWidget);
   });
 
   testWidgets('the Plex card is unaffected by the new option', (tester) async {
@@ -83,7 +83,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to your Emby server. Binds to Living Room.'), findsOneWidget);
-    expect(find.text('Sign in to your Jellyfin server. Binds to Living Room.'), findsOneWidget);
+    expect(find.text('Sign in to your PlezyFin server. Binds to Living Room.'), findsOneWidget);
 
     final screen = await tapCard(tester, 'Connect to Emby');
     expect(screen.dialect, MediaBrowserDialect.emby);

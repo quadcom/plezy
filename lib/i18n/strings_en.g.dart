@@ -1077,6 +1077,12 @@ class Translations$settings$en {
 	/// en: 'Switch the display to the video's native resolution so your TV handles upscaling. Menus and subtitles are upscaled too during playback'
 	String get matchContentResolutionDescription => 'Switch the display to the video\'s native resolution so your TV handles upscaling. Menus and subtitles are upscaled too during playback';
 
+	/// en: 'Old School at Film Rate (24 Hz)'
+	String get oldSchoolFilmRate => 'Old School at Film Rate (24 Hz)';
+
+	/// en: 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don't blank the screen'
+	String get oldSchoolFilmRateDescription => 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don\'t blank the screen';
+
 	/// en: 'Match Refresh Rate'
 	String get matchRefreshRate => 'Match Refresh Rate';
 
@@ -4843,6 +4849,8 @@ class Translations$companionRemote$en {
 
 	/// en: 'The connection closed before authentication'
 	String get closedBeforeAuth => 'The connection closed before authentication';
+
+	late final Translations$companionRemote$paired$en paired = Translations$companionRemote$paired$en.internal(_root);
 }
 
 // Path: videoSettings
@@ -5956,6 +5964,21 @@ class Translations$oldSchool$en {
 
 	/// en: 'Programmes resume shortly'
 	String get resumeShortly => 'Programmes resume shortly';
+
+	/// en: 'Intermission'
+	String get intermission => 'Intermission';
+
+	/// en: 'Until ${time}'
+	String intermissionUntil({required Object time}) => 'Until ${time}';
+
+	/// en: 'Music Videos'
+	String get musicVideos => 'Music Videos';
+
+	/// en: 'Now playing: ${title}'
+	String nowPlayingVideo({required Object title}) => 'Now playing: ${title}';
+
+	/// en: 'From ${time}'
+	String musicFrom({required Object time}) => 'From ${time}';
 
 	/// en: 'Couldn't load the guide.'
 	String get loadFailed => 'Couldn\'t load the guide.';
@@ -7449,6 +7472,39 @@ class Translations$companionRemote$errors$en {
 	String get connectionLost => 'Connection lost';
 }
 
+// Path: companionRemote.paired
+class Translations$companionRemote$paired$en {
+	Translations$companionRemote$paired$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Pair with ${device}?'
+	String requestTitle({required Object device}) => 'Pair with ${device}?';
+
+	/// en: 'Type this code into ${device}. It works once, for 2 minutes.'
+	String requestBody({required Object device}) => 'Type this code into ${device}. It works once, for 2 minutes.';
+
+	/// en: 'Paired Devices'
+	String get devices => 'Paired Devices';
+
+	/// en: 'Remotes such as Home Assistant that paired with a code'
+	String get devicesDescription => 'Remotes such as Home Assistant that paired with a code';
+
+	/// en: 'Paired ${date}'
+	String pairedOn({required Object date}) => 'Paired ${date}';
+
+	/// en: 'Remove ${device}?'
+	String removeTitle({required Object device}) => 'Remove ${device}?';
+
+	/// en: '${device} won't be able to control Plezy until it pairs again.'
+	String removeMessage({required Object device}) => '${device} won\'t be able to control Plezy until it pairs again.';
+
+	/// en: 'Remove'
+	String get remove => 'Remove';
+}
+
 // Path: services.names
 class Translations$services$names$en {
 	Translations$services$names$en.internal(this._root);
@@ -7917,6 +7973,8 @@ extension on Translations {
 			'settings.matchContentFrameRateDescription' => 'Match display refresh rate to video content',
 			'settings.matchContentResolution' => 'Match Content Resolution',
 			'settings.matchContentResolutionDescription' => 'Switch the display to the video\'s native resolution so your TV handles upscaling. Menus and subtitles are upscaled too during playback',
+			'settings.oldSchoolFilmRate' => 'Old School at Film Rate (24 Hz)',
+			'settings.oldSchoolFilmRateDescription' => 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don\'t blank the screen',
 			'settings.matchRefreshRate' => 'Match Refresh Rate',
 			'settings.matchRefreshRateDescription' => 'Match display refresh rate in fullscreen',
 			'settings.matchDynamicRange' => 'Match Dynamic Range',
@@ -8096,10 +8154,10 @@ extension on Translations {
 			'fileInfo.bitrate' => 'Bitrate',
 			'fileInfo.frameRate' => 'Frame Rate',
 			'fileInfo.rotation' => 'Rotation',
-			'fileInfo.comment' => 'Comment',
-			'fileInfo.audioDescription' => 'Audio Description',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.comment' => 'Comment',
+			'fileInfo.audioDescription' => 'Audio Description',
 			'fileInfo.headerCompression' => 'Header Compression',
 			'fileInfo.sidecarFile' => 'Sidecar File',
 			'fileInfo.transportTimestamp' => 'Transport Timestamp',
@@ -8610,10 +8668,10 @@ extension on Translations {
 			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
 			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
 			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
-			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
-			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
 			_ => null,
 		} ?? switch (path) {
+			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
+			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
 			'discover.overview' => 'Overview',
 			'discover.cast' => 'Cast',
@@ -9124,10 +9182,10 @@ extension on Translations {
 			'music.repeatOne' => 'Repeat one',
 			'music.instantMixNoServer' => 'No server is available for an instant mix',
 			'music.instantMixFailed' => 'Failed to load the instant mix',
-			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
-			'music.noAudioUrl' => ({required Object track}) => 'No audio URL is available for ${track}',
 			_ => null,
 		} ?? switch (path) {
+			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
+			'music.noAudioUrl' => ({required Object track}) => 'No audio URL is available for ${track}',
 			'music.discography.singlesAndEps' => 'Singles & EPs',
 			'music.discography.live' => 'Live',
 			'music.discography.compilations' => 'Compilations',
@@ -9405,6 +9463,14 @@ extension on Translations {
 			'companionRemote.errors.connectionLostAfterAttempts' => ({required Object attempts}) => 'Connection lost after ${attempts} attempts',
 			'companionRemote.errors.connectionLost' => 'Connection lost',
 			'companionRemote.closedBeforeAuth' => 'The connection closed before authentication',
+			'companionRemote.paired.requestTitle' => ({required Object device}) => 'Pair with ${device}?',
+			'companionRemote.paired.requestBody' => ({required Object device}) => 'Type this code into ${device}. It works once, for 2 minutes.',
+			'companionRemote.paired.devices' => 'Paired Devices',
+			'companionRemote.paired.devicesDescription' => 'Remotes such as Home Assistant that paired with a code',
+			'companionRemote.paired.pairedOn' => ({required Object date}) => 'Paired ${date}',
+			'companionRemote.paired.removeTitle' => ({required Object device}) => 'Remove ${device}?',
+			'companionRemote.paired.removeMessage' => ({required Object device}) => '${device} won\'t be able to control Plezy until it pairs again.',
+			'companionRemote.paired.remove' => 'Remove',
 			'videoSettings.playbackSpeed' => 'Playback Speed',
 			'videoSettings.normalSpeed' => 'Normal',
 			'videoSettings.sleepTimerActive' => ({required Object duration}) => 'Active (${duration})',
@@ -9630,6 +9696,8 @@ extension on Translations {
 			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
 			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',
 			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
+			_ => null,
+		} ?? switch (path) {
 			'seerr.invalidUrl' => 'Enter a server address like https://seerr.example.com',
 			'seerr.quickConnectUnsupported' => 'This Seerr instance does not support Quick Connect. It needs Seerr 3.4 or newer.',
 			'seerr.notInitialized' => 'This Seerr instance has not completed first-run setup',
@@ -9640,8 +9708,6 @@ extension on Translations {
 			'seerr.freshCookieRejected' => 'Seerr rejected the new session cookie',
 			'seerr.noUserInformation' => 'Seerr did not return user information',
 			'seerr.sessionRejectedAfterReauth' => 'The session was rejected after signing in again',
-			_ => null,
-		} ?? switch (path) {
 			'seerr.permissionDenied' => 'Seerr denied this action: your account no longer has the required permission',
 			'seerr.permissionRevoked' => 'You no longer have permission to request this',
 			'services.title' => 'Services',
@@ -9763,6 +9829,11 @@ extension on Translations {
 			'oldSchool.musicVideo' => 'Music video',
 			'oldSchool.backSoon' => 'Back soon',
 			'oldSchool.resumeShortly' => 'Programmes resume shortly',
+			'oldSchool.intermission' => 'Intermission',
+			'oldSchool.intermissionUntil' => ({required Object time}) => 'Until ${time}',
+			'oldSchool.musicVideos' => 'Music Videos',
+			'oldSchool.nowPlayingVideo' => ({required Object title}) => 'Now playing: ${title}',
+			'oldSchool.musicFrom' => ({required Object time}) => 'From ${time}',
 			'oldSchool.loadFailed' => 'Couldn\'t load the guide.',
 			'oldSchool.noChannels' => 'No channels yet. An admin can set them up on the web.',
 			'oldSchool.tuneFailed' => 'Couldn\'t tune to that channel.',

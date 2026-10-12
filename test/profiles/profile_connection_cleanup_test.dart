@@ -346,6 +346,105 @@ void main() {
     });
   });
 
+  group('Plex sign-out keeps profiles that hold other connections', () {
+    late ProfileRegistry profileRegistry;
+
+    setUp(() {
+      profileRegistry = ProfileRegistry(db);
+    });
+
+    test('a Plex Home profile with PlezyFin becomes a local profile that keeps it', () async {
+      const uuid = 'aaaaaaaaaaaaaaaa';
+      final acct = _plex();
+      final jf = _jellyfin();
+      final vProfile = plexHomeProfileId(accountConnectionId: acct.id, homeUserUuid: uuid);
+      await connections.upsert(acct);
+      await connections.upsert(jf);
+      await profileConnections.upsert(_row(vProfile, acct, userIdentifier: uuid));
+      await profileConnections.upsert(_row(vProfile, jf, userIdentifier: 'user-a'));
+      await storage.savePlexHomeUsersCache(acct.id, [_homeUser(uuid).toJson()]);
+      final moved = <(String, String)>[];
+      final now = DateTime.fromMillisecondsSinceEpoch(5_000_000);
+
+      final kept = await cleanup.keepPlexHomeProfilesWithOtherConnections(
+        account: acct,
+        homeUsers: [_homeUser(uuid)],
+        profileRegistry: profileRegistry,
+        activeProfileId: vProfile,
+        now: () => now,
+        newProfileId: () => 'local-kept',
+        moveDownloads: (from, to) async => moved.add((from, to)),
+      );
+
+      expect(kept.keys, [vProfile]);
+      final local = kept[vProfile]!;
+      expect(local, isA<LocalProfile>());
+      expect(local.id, 'local-kept');
+      expect(local.displayName, _homeUser(uuid).displayName);
+      expect(moved, [(vProfile, 'local-kept')]);
+      expect(storage.getProfileLastUsed('local-kept'), now);
+
+      final removal = await cleanup.removePlexAccountConnection(acct);
+      // The virtual profile itself still goes, with only its Plex row left.
+      expect(removal.removedVirtualProfileIds, {vProfile});
+
+      expect(await connections.get(acct.id), isNull);
+      expect(await connections.get(jf.id), isNotNull);
+      final rows = await profileConnections.listAll();
+      expect(rows, hasLength(1));
+      expect(rows.single.profileId, 'local-kept');
+      expect(rows.single.connectionId, jf.id);
+      expect(rows.single.userIdentifier, 'user-a');
+
+      final after = await cleanup.resolvePostRemovalState(profileRegistry: profileRegistry, plexHomeUsers: const {});
+      expect(after.route, PostRemovalRoute.staySignedIn);
+      expect(after.profiles.map((p) => p.id), ['local-kept']);
+    });
+
+    test('a Plex Home profile with only Plex is removed as before', () async {
+      const uuid = 'aaaaaaaaaaaaaaaa';
+      final acct = _plex();
+      final vProfile = plexHomeProfileId(accountConnectionId: acct.id, homeUserUuid: uuid);
+      await connections.upsert(acct);
+      await profileConnections.upsert(_row(vProfile, acct, userIdentifier: uuid));
+
+      final kept = await cleanup.keepPlexHomeProfilesWithOtherConnections(
+        account: acct,
+        homeUsers: [_homeUser(uuid)],
+        profileRegistry: profileRegistry,
+        moveDownloads: (_, _) async => fail('nothing to move'),
+      );
+
+      expect(kept, isEmpty);
+      expect(await profileRegistry.list(), isEmpty);
+      final removal = await cleanup.removePlexAccountConnection(acct);
+      expect(removal.removedVirtualProfileIds, {vProfile});
+    });
+
+    test("another account's profiles are left alone", () async {
+      const uuid = 'aaaaaaaaaaaaaaaa';
+      final acct1 = _plex(id: 'plex-1');
+      final acct2 = _plex(id: 'plex-2');
+      final jf = _jellyfin();
+      final otherProfile = plexHomeProfileId(accountConnectionId: acct2.id, homeUserUuid: uuid);
+      await connections.upsert(acct1);
+      await connections.upsert(acct2);
+      await connections.upsert(jf);
+      await profileConnections.upsert(_row(otherProfile, acct2, userIdentifier: uuid));
+      await profileConnections.upsert(_row(otherProfile, jf));
+
+      final kept = await cleanup.keepPlexHomeProfilesWithOtherConnections(
+        account: acct1,
+        homeUsers: const [],
+        profileRegistry: profileRegistry,
+        moveDownloads: (_, _) async {},
+      );
+
+      expect(kept, isEmpty);
+      expect(await profileConnections.listForProfile(otherProfile), hasLength(2));
+    });
+  });
+
   group('resolvePostRemovalState', () {
     late ProfileRegistry profileRegistry;
 

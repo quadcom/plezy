@@ -612,6 +612,11 @@ class SettingsService extends BaseSharedPreferencesService {
   static const enableTraktWatchedSync = BoolPref('enable_trakt_watched_sync', defaultValue: true);
   static const matchContentFrameRate = BoolPref('match_content_frame_rate');
   static const matchContentResolution = BoolPref('match_content_resolution');
+
+  /// Old School holds the TV at 23.976 Hz while it is open (most of the
+  /// library is 24p), so programmes and channel changes never blank the TV.
+  /// Off keeps the TV's own mode. Old School ignores the two settings above.
+  static const oldSchoolFilmRate = BoolPref('old_school_film_rate');
   static const tunneledPlayback = BoolPref('tunneled_playback', defaultValue: false);
   static const dvConversionMode = EnumPref<DvConversionModePreference>(
     'dv_conversion_mode',
@@ -1329,6 +1334,7 @@ class SettingsService extends BaseSharedPreferencesService {
     for (final s in TrackerService.values) scrobblePref(s),
     matchContentFrameRate,
     matchContentResolution,
+    oldSchoolFilmRate,
     tunneledPlayback,
     dvConversionMode,
     musicVolume,

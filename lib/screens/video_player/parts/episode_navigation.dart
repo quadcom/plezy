@@ -16,8 +16,13 @@ extension _VideoPlayerEpisodeNavigationMethods on VideoPlayerScreenState {
   /// autofocus, dpad navigation would be stranded until the chrome is hidden
   /// and re-shown. Focusing play/pause is invisible in pointer mode (focus
   /// visuals are keyboard/dpad-gated).
+  ///
+  /// Old School changes programme the same way, like a TV channel: the next
+  /// programme starts on a clean picture (Adrian, 2026-10-12). Chrome already
+  /// up (a channel step from the controls) still gets its focus back.
   void _showChromeForSwappedItem() {
     if (!mounted) return;
+    if (widget.isOldSchool && !_chromeController.controlsVisible) return;
     _chromeController.show(focusPlayPause: true);
   }
 

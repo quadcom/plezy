@@ -53,6 +53,18 @@ extension DownloadDatabaseOperations on AppDatabase {
     );
   }
 
+  /// Hands every download [fromProfileId] owns to [toProfileId] (a Plex Home
+  /// profile that became a local profile on Plex sign-out). Its sync-rule
+  /// links stay behind: the old profile's rules are deleted with it.
+  Future<void> moveDownloadOwnersToProfile({required String fromProfileId, required String toProfileId}) {
+    return transaction(() async {
+      await (delete(syncRuleDownloads)..where((t) => t.profileId.equals(fromProfileId))).go();
+      await (update(
+        downloadOwners,
+      )..where((t) => t.profileId.equals(fromProfileId))).write(DownloadOwnersCompanion(profileId: Value(toProfileId)));
+    });
+  }
+
   Future<void> removeDownloadOwner({required String profileId, required String globalKey}) {
     return transaction(() async {
       await (delete(

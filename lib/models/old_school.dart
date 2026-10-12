@@ -27,6 +27,17 @@ enum OldSchoolEntryKind {
   /// Nothing to play: a gap the server could not fill. No item id.
   standby,
 
+  /// A whole break as the guide shows it: a run of trailers, music and
+  /// standby joined into one block (PLAN_SHA_28). Made by the client, never
+  /// sent by the server; the parts are in [OldSchoolEntry.breakItems].
+  intermission,
+
+  /// A run of music video programmes (Rock the Box) with the breaks between
+  /// them, as one solid block in the guide: dozens of four-minute slivers
+  /// were unreadable (Adrian, 2026-10-11). Client-made like [intermission];
+  /// the parts are in [OldSchoolEntry.breakItems].
+  musicVideos,
+
   unknown;
 
   static OldSchoolEntryKind parse(Object? raw) {
@@ -136,6 +147,9 @@ class OldSchoolEntry {
   /// [itemId] (an episode's series).
   final String? imageItemId;
 
+  /// An [OldSchoolEntryKind.intermission]'s parts, in order.
+  final List<OldSchoolEntry> breakItems;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -155,7 +169,67 @@ class OldSchoolEntry {
     this.logo,
     this.thumb,
     this.imageItemId,
+    this.breakItems = const [],
   });
+
+  /// One block for a break (or, with [kind] musicVideos, a run of music
+  /// videos): from the first part's start to the last one's end. [parts]
+  /// must be non-empty and in start order.
+  factory OldSchoolEntry.intermission(
+    List<OldSchoolEntry> parts, {
+    OldSchoolEntryKind kind = OldSchoolEntryKind.intermission,
+  }) => OldSchoolEntry(
+    kind: kind,
+    itemId: null,
+    start: parts.first.start,
+    end: parts.last.end,
+    name: '',
+    breakItems: List.unmodifiable(parts),
+  );
+
+  /// [entries] (in start order) as the guide's blocks: each run of break
+  /// entries (anything that is not a programme) joined into one intermission
+  /// (PLAN_SHA_28), and each run of music videos, with the breaks between
+  /// them, into one musicVideos block.
+  static List<OldSchoolEntry> joinBreaks(Iterable<OldSchoolEntry> entries) {
+    final joined = <OldSchoolEntry>[];
+    final run = <OldSchoolEntry>[];
+    void flush() {
+      if (run.isEmpty) return;
+      final music = run.any((e) => e.kind == OldSchoolEntryKind.musicVideo);
+      // A break before the first video or after the last stays its own
+      // intermission; only what lies between music videos joins them.
+      final first = music ? run.indexWhere((e) => e.kind == OldSchoolEntryKind.musicVideo) : run.length;
+      final last = music ? run.lastIndexWhere((e) => e.kind == OldSchoolEntryKind.musicVideo) : -1;
+      if (first > 0) joined.add(OldSchoolEntry.intermission(run.sublist(0, first)));
+      if (music) {
+        joined.add(OldSchoolEntry.intermission(run.sublist(first, last + 1), kind: OldSchoolEntryKind.musicVideos));
+        if (last + 1 < run.length) joined.add(OldSchoolEntry.intermission(run.sublist(last + 1)));
+      }
+      run.clear();
+    }
+
+    for (final entry in entries) {
+      if (entry.isProgramme && entry.kind != OldSchoolEntryKind.musicVideo) {
+        flush();
+        joined.add(entry);
+      } else {
+        run.add(entry);
+      }
+    }
+    flush();
+    return joined;
+  }
+
+  /// What a break plays, by name: trailers (a series' season-0 trailer by
+  /// the series name) and music videos; standby is left out.
+  List<String> get breakItemNames => [
+    for (final part in breakItems)
+      if (part.kind != OldSchoolEntryKind.standby)
+        part.kind == OldSchoolEntryKind.trailer && (part.seriesName?.isNotEmpty ?? false)
+            ? part.seriesName!
+            : part.name,
+  ];
 
   bool get isPlayable => itemId != null && kind != OldSchoolEntryKind.standby;
 

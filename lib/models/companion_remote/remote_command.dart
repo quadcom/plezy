@@ -57,6 +57,9 @@ enum RemoteCommandType {
   /// so a value inserted anywhere else renumbers every command after it and
   /// mispairs with peers running an older build.
   playMedia,
+
+  /// The host's answer to [playMedia]: `{serverId, ratingKey, ok, reason}`.
+  playMediaResult,
 }
 
 class _RemoteCommandTypeConverter extends IndexedEnumConverter<RemoteCommandType> {

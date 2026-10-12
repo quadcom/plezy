@@ -108,12 +108,14 @@ JellyfinClient testJellyfinClient({
   http.Client? httpClient,
   Future<http.Response> Function(http.Request request)? handler,
   void Function()? onAllEndpointsExhausted,
+  bool plezyFinRoutes = false,
 }) {
   assert(httpClient == null || handler == null, 'Provide either httpClient or handler, not both');
   return JellyfinClient.forTesting(
     connection: connection ?? testJellyfinConnection(),
     httpClient: httpClient ?? MockClient(handler ?? _defaultResponse),
     onAllEndpointsExhausted: onAllEndpointsExhausted,
+    plezyFinRoutes: plezyFinRoutes,
   );
 }
 

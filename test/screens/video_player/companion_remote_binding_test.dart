@@ -141,6 +141,45 @@ void main() {
       expect(provider.sent.single.value?['positionMs'], 20000);
     });
 
+    test('an in-place item change resends syncState with the new item at once', () {
+      final provider = _RecordingProvider();
+      addTearDown(provider.dispose);
+      final player = _FakePlayer(position: const Duration(seconds: 5), duration: const Duration(minutes: 3));
+      addTearDown(player.dispose);
+      var itemId = 'video-1';
+
+      final binding = _binding(provider: provider, player: () => player, serverId: () => 'srv-1', itemId: () => itemId);
+      addTearDown(binding.unbind);
+
+      binding.bind();
+      provider.sent.clear();
+      itemId = 'promo-1';
+      binding.itemChanged();
+
+      expect(provider.sent, hasLength(1));
+      expect(provider.sent.single.value?['itemId'], 'promo-1');
+    });
+
+    test('the server session DeviceId rides along when the player knows it', () {
+      final provider = _RecordingProvider();
+      addTearDown(provider.dispose);
+      final player = _FakePlayer(position: const Duration(seconds: 5), duration: const Duration(minutes: 3));
+      addTearDown(player.dispose);
+
+      final binding = _binding(
+        provider: provider,
+        player: () => player,
+        serverId: () => 'srv-1',
+        itemId: () => 'item-1',
+        sessionDeviceId: () => 'device-1',
+      );
+      addTearDown(binding.unbind);
+
+      binding.bind();
+
+      expect(provider.sent.single.value?['deviceId'], 'device-1');
+    });
+
     test('unbind sends only {playerActive: false}', () {
       final provider = _RecordingProvider();
       addTearDown(provider.dispose);
@@ -171,6 +210,7 @@ CompanionRemoteBinding _binding({
   required Player? Function() player,
   required String? Function() serverId,
   required String Function() itemId,
+  String? Function()? sessionDeviceId,
 }) {
   return CompanionRemoteBinding(
     player: player,
@@ -191,6 +231,7 @@ CompanionRemoteBinding _binding({
     readProvider: () => provider,
     serverId: serverId,
     itemId: itemId,
+    sessionDeviceId: sessionDeviceId,
   );
 }
 

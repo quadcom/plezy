@@ -219,4 +219,74 @@ void main() {
       );
     });
   });
+
+  group('OldSchoolEntry.joinBreaks', () {
+    OldSchoolEntry at(OldSchoolEntryKind kind, int startMin, int endMin, String name, {String? series}) =>
+        OldSchoolEntry(
+          kind: kind,
+          itemId: kind == OldSchoolEntryKind.standby ? null : name,
+          start: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: startMin)),
+          end: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: endMin)),
+          name: name,
+          seriesName: series,
+        );
+
+    test('a run of trailers, music and standby becomes one intermission', () {
+      final joined = OldSchoolEntry.joinBreaks([
+        at(OldSchoolEntryKind.movie, 0, 100, 'Heat'),
+        at(OldSchoolEntryKind.trailer, 100, 102, 'Trailer A'),
+        at(OldSchoolEntryKind.trailer, 102, 104, 'Pilot', series: 'The X-Files'),
+        at(OldSchoolEntryKind.music, 104, 108, 'Band - Song'),
+        at(OldSchoolEntryKind.standby, 108, 110, ''),
+        at(OldSchoolEntryKind.movie, 110, 200, 'Ronin'),
+      ]);
+      expect(joined.map((e) => e.kind), [
+        OldSchoolEntryKind.movie,
+        OldSchoolEntryKind.intermission,
+        OldSchoolEntryKind.movie,
+      ]);
+      final intermission = joined[1];
+      expect(intermission.start, DateTime.utc(2026, 10, 11, 23, 40));
+      expect(intermission.end, DateTime.utc(2026, 10, 11, 23, 50));
+      expect(intermission.isProgramme, isFalse);
+      expect(intermission.breakItemNames, ['Trailer A', 'The X-Files', 'Band - Song']);
+    });
+
+    test('a run of music videos and the breaks between them is one music block', () {
+      final joined = OldSchoolEntry.joinBreaks([
+        at(OldSchoolEntryKind.trailer, 0, 2, 'Lead-in'),
+        at(OldSchoolEntryKind.musicVideo, 2, 6, 'Artist - One'),
+        at(OldSchoolEntryKind.trailer, 6, 8, 'Between'),
+        at(OldSchoolEntryKind.musicVideo, 8, 12, 'Artist - Two'),
+        at(OldSchoolEntryKind.standby, 12, 20, ''),
+        at(OldSchoolEntryKind.movie, 20, 120, 'Heat'),
+      ]);
+      expect(joined.map((e) => e.kind), [
+        OldSchoolEntryKind.intermission,
+        OldSchoolEntryKind.musicVideos,
+        OldSchoolEntryKind.intermission,
+        OldSchoolEntryKind.movie,
+      ]);
+      final music = joined[1];
+      expect(music.start, DateTime.utc(2026, 10, 11, 22, 2));
+      expect(music.end, DateTime.utc(2026, 10, 11, 22, 12));
+      expect(music.breakItems.map((e) => e.name), ['Artist - One', 'Between', 'Artist - Two']);
+    });
+
+    test('a break at either end of a music run stays an intermission', () {
+      final joined = OldSchoolEntry.joinBreaks([
+        at(OldSchoolEntryKind.trailer, 0, 2, 'Lead-in'),
+        at(OldSchoolEntryKind.musicVideo, 2, 6, 'Artist - One'),
+        at(OldSchoolEntryKind.trailer, 6, 8, 'Between'),
+        at(OldSchoolEntryKind.musicVideo, 8, 12, 'Artist - Two'),
+        at(OldSchoolEntryKind.standby, 12, 20, ''),
+      ]);
+      expect(joined.map((e) => e.kind), [
+        OldSchoolEntryKind.intermission,
+        OldSchoolEntryKind.musicVideos,
+        OldSchoolEntryKind.intermission,
+      ]);
+      expect(joined.last.breakItemNames, isEmpty);
+    });
+  });
 }

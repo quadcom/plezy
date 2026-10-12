@@ -1,3 +1,5 @@
+import 'package:uuid/uuid.dart';
+
 import '../connection/connection.dart';
 import '../connection/connection_registry.dart';
 import '../media/ids.dart';
@@ -5,6 +7,7 @@ import '../models/plex/plex_home_user.dart';
 import '../services/multi_server_manager.dart';
 import '../services/storage_service.dart';
 import 'profile.dart';
+import 'profile_connection.dart';
 import 'profile_connection_registry.dart';
 import 'profile_merge.dart';
 import 'profile_registry.dart';
@@ -127,6 +130,61 @@ class ProfileConnectionCleanup {
     }
 
     return (removedVirtualProfileIds: removedVirtualProfileIds, borrowerProfileIds: borrowerProfileIds);
+  }
+
+  /// Plex Home profiles of [account] that also hold another connection (a
+  /// PlezyFin server, say) outlive a Plex sign-out as local profiles: same
+  /// name and picture, a new local id, every non-[account] connection moved
+  /// across, and [moveDownloads] called so their downloads follow. Only the
+  /// Plex side goes. Run before planning the removal, so the planner no
+  /// longer sees those connections on the virtual profile. Returns old id →
+  /// new local profile. (Adrian, 2026-10-12: signing out of Plex wiped the
+  /// PlezyFin connection he had just added to his Plex Home profile.)
+  Future<Map<String, Profile>> keepPlexHomeProfilesWithOtherConnections({
+    required PlexAccountConnection account,
+    required List<PlexHomeUser> homeUsers,
+    required ProfileRegistry profileRegistry,
+    required Future<void> Function(String fromProfileId, String toProfileId) moveDownloads,
+    String? activeProfileId,
+    DateTime Function() now = DateTime.now,
+    String Function()? newProfileId,
+  }) async {
+    final rowsByProfile = <String, List<ProfileConnection>>{};
+    for (final row in await profileConnections.listAll()) {
+      if (parsePlexHomeProfileId(row.profileId)?.accountConnectionId != account.id) continue;
+      rowsByProfile.putIfAbsent(row.profileId, () => []).add(row);
+    }
+
+    final kept = <String, Profile>{};
+    for (final MapEntry(key: oldId, value: rows) in rowsByProfile.entries) {
+      final others = rows.where((row) => row.connectionId != account.id).toList();
+      if (others.isEmpty) continue;
+      final homeUserUuid = parsePlexHomeProfileId(oldId)!.homeUserUuid;
+      final user = homeUsers.where((u) => u.uuid == homeUserUuid).firstOrNull;
+      final at = now();
+      final local = Profile.local(
+        id: newProfileId?.call() ?? 'local-${const Uuid().v4()}',
+        displayName: user?.displayName ?? account.displayLabel,
+        avatarThumbUrl: user != null && user.thumb.isNotEmpty ? user.thumb : null,
+        sortOrder: at.millisecondsSinceEpoch,
+        createdAt: at,
+      );
+      await profileRegistry.upsert(local);
+      for (final row in others) {
+        // The new row first, so the connection is never unreferenced.
+        await profileConnections.upsert(row.copyWith(profileId: local.id), makeDefault: row.isDefault);
+        await profileConnections.remove(oldId, row.connectionId);
+      }
+      await moveDownloads(oldId, local.id);
+      // The active profile's successor goes first in the picker, so the
+      // session lands back on it once the Plex side is gone.
+      final lastUsed = oldId == activeProfileId ? at : storage.getProfileLastUsed(oldId);
+      if (lastUsed != null) await storage.markProfileUsed(local.id, lastUsed);
+      await storage.clearProfileLastUsed(oldId);
+      await storage.clearUserScopedPreferencesForProfile(oldId);
+      kept[oldId] = local;
+    }
+    return kept;
   }
 
   /// In-session mirror of the boot guard (`main.dart`: "stored connections

@@ -16,6 +16,7 @@ import '../base_peer_service.dart';
 import '../trackers/future_coalescer.dart';
 import 'remote_auth_context.dart';
 import 'remote_auth_service.dart';
+import 'remote_pairing.dart';
 
 // Re-export so callers that import from here get the types.
 export '../base_peer_service.dart' show PeerError, PeerErrorType;
@@ -116,6 +117,10 @@ class CompanionRemotePeerService with KeepaliveMixin {
       stream: channel.stream,
     );
   }
+
+  /// Answers pairing requests from remotes with no server account (Home
+  /// Assistant). Null: pairing messages are refused like any non-`auth` one.
+  RemotePairingHost? pairingHost;
 
   final int _maxTotalHostConnections;
   final int _maxHostConnectionsPerSource;
@@ -517,6 +522,12 @@ class CompanionRemotePeerService with KeepaliveMixin {
       return;
     }
 
+    final pairing = pairingHost;
+    if (pairing != null && (message['type'] == 'pairRequest' || message['type'] == 'pairComplete')) {
+      await _handlePairingMessage(admission, pairing, message);
+      return;
+    }
+
     if (message['type'] != 'auth') {
       _rejectHostAuthentication(admission, closeCode: 4002, closeReason: 'Authentication required');
       return;
@@ -612,6 +623,45 @@ class CompanionRemotePeerService with KeepaliveMixin {
         hostPlatform: hostPlatform,
       ),
     );
+  }
+
+  /// A pairing message takes the place of `auth` on a fresh socket: answer it
+  /// in plain text and close. The socket never becomes a session.
+  Future<void> _handlePairingMessage(
+    _HostAdmission admission,
+    RemotePairingHost pairing,
+    Map<String, dynamic> message,
+  ) async {
+    final sourceIp = admission.sourceIp;
+    final isRequest = message['type'] == 'pairRequest';
+    final RemotePairingReply result;
+    try {
+      result = isRequest ? pairing.handleRequest(message, sourceIp) : await pairing.handleComplete(message, sourceIp);
+    } catch (e, stackTrace) {
+      appLogger.e('CompanionRemote: Pairing failed', error: e, stackTrace: stackTrace);
+      _rejectHostAuthentication(admission);
+      return;
+    }
+    if (admission.phase != _HostAdmissionPhase.authenticating) return;
+    admission.phase = _HostAdmissionPhase.terminal;
+    admission.authTimer?.cancel();
+    admission.authTimer = null;
+    if (result.countsAsFailure) _recordFailedAuth(sourceIp);
+
+    // The admission owns and closes this socket.
+    // ignore: close_sinks
+    final socket = admission.socket;
+    var sent = false;
+    if (socket != null && socket.readyState == WebSocket.open) {
+      try {
+        socket.add(jsonEncode(result.reply));
+        sent = true;
+      } catch (e) {
+        appLogger.d('CompanionRemote: Failed to send pairing reply', error: e);
+      }
+    }
+    await _closeHostAdmissionSocket(admission, code: 1000, reason: 'Pairing');
+    if (sent && result.reply['type'] == 'pairSecret') pairing.onPairingDelivered?.call();
   }
 
   Future<void> _serializeHostAuthenticationCommit(Future<void> Function() commit) => _hostAuthCommitQueue.run(commit);

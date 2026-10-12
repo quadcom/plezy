@@ -54,7 +54,10 @@ import '../services/offline_watch_sync_service.dart';
 import '../services/settings_service.dart';
 import '../providers/offline_mode_provider.dart';
 import '../services/companion_remote/companion_remote_host_controller.dart';
+import '../models/companion_remote/remote_command.dart';
 import '../services/companion_remote/companion_remote_receiver.dart';
+import '../services/companion_remote/remote_pairing.dart';
+import '../widgets/companion_remote/remote_pairing_dialog.dart';
 import '../services/fullscreen_state_manager.dart';
 import '../providers/companion_remote_provider.dart';
 import '../utils/desktop_window_padding.dart';
@@ -926,8 +929,11 @@ class _MainScreenState extends State<MainScreen>
   /// Resolves an item by server and rating key and opens the player on it.
   /// Shared by the launcher shelf deep link and the companion remote's
   /// playMedia command, which ask for the same thing by different routes.
-  Future<void> _playRequestedItem(ServerId serverId, String ratingKey, {required String source}) async {
-    if (!mounted) return;
+  ///
+  /// Returns null once the player is opening, else why not: `unknown_server`,
+  /// `not_found` or `error` (the companion remote's playMediaResult reasons).
+  Future<String?> _playRequestedItem(ServerId serverId, String ratingKey, {required String source}) async {
+    if (!mounted) return 'error';
 
     try {
       final multiServer = context.read<MultiServerProvider>();
@@ -935,16 +941,19 @@ class _MainScreenState extends State<MainScreen>
 
       if (client == null) {
         appLogger.w('$source: server $serverId not available');
-        return;
+        return 'unknown_server';
       }
 
       final metadata = await client.fetchItem(ratingKey);
 
-      if (metadata == null || !mounted) return;
+      if (metadata == null) return 'not_found';
+      if (!mounted) return 'error';
 
       unawaited(navigateToVideoPlayer(context, metadata: metadata));
+      return null;
     } catch (e) {
       appLogger.e('$source: failed to navigate to media', error: e);
+      return 'error';
     }
   }
 
@@ -963,6 +972,20 @@ class _MainScreenState extends State<MainScreen>
   }
 
   bool _companionRemoteSetup = false;
+  ValueListenable<PendingRemotePairing?>? _pairingListenable;
+
+  /// A remote (Home Assistant) asked to pair: show its code, over the player
+  /// if one is open.
+  void _onPairingRequested() {
+    final pending = _pairingListenable;
+    final pairing = pending?.value;
+    if (pending == null || pairing == null || !mounted) return;
+    final companionRemote = context.read<CompanionRemoteProvider>();
+    unawaited(
+      RemotePairingDialog.show(context, pairing: pairing, pending: pending, onCancel: companionRemote.cancelPairing),
+    );
+  }
+
   ValueChanged<String>? _systemShelfTapCallback;
 
   @override
@@ -1028,6 +1051,9 @@ class _MainScreenState extends State<MainScreen>
       }
     };
 
+    _pairingListenable = companionRemote.pendingPairing..addListener(_onPairingRequested);
+    unawaited(companionRemote.loadPairedRemotes());
+
     final receiver = CompanionRemoteReceiver.instance;
     receiver.navigationOwner = this;
     receiver.onTabNext = () {
@@ -1053,8 +1079,12 @@ class _MainScreenState extends State<MainScreen>
         if (mounted) _sideNavKey.currentState?.focusHomeItem();
       });
     };
-    receiver.onPlayMedia = (serverId, ratingKey) {
-      unawaited(_playRequestedItem(ServerId(serverId), ratingKey, source: 'Companion remote'));
+    void sendPlayMediaResult(Map<String, dynamic> result) =>
+        companionRemote.sendCommand(RemoteCommandType.playMediaResult, data: result);
+    receiver.onPlayMediaResult = sendPlayMediaResult;
+    receiver.onPlayMedia = (serverId, ratingKey) async {
+      final reason = await _playRequestedItem(ServerId(serverId), ratingKey, source: 'Companion remote');
+      sendPlayMediaResult({'serverId': serverId, 'ratingKey': ratingKey, 'ok': reason == null, 'reason': ?reason});
     };
     receiver.onSearchAction = (query) {
       final trimmed = query?.trim() ?? '';
@@ -1108,6 +1138,7 @@ class _MainScreenState extends State<MainScreen>
 
     // Clean up only callbacks still owned by this screen. A replacement
     // MainScreen may already have installed its callbacks this frame.
+    _pairingListenable?.removeListener(_onPairingRequested);
     if (_companionRemoteSetup) {
       final receiver = CompanionRemoteReceiver.instance;
       if (identical(receiver.navigationOwner, this)) {
@@ -1121,6 +1152,7 @@ class _MainScreenState extends State<MainScreen>
         receiver.onHome = null;
         receiver.onSearchAction = null;
         receiver.onPlayMedia = null;
+        receiver.onPlayMediaResult = null;
         receiver.navigationOwner = null;
       }
     }

@@ -1,11 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/models/companion_remote/remote_command.dart';
 import 'package:plezy/services/companion_remote/companion_remote_receiver.dart';
+import 'package:plezy/services/system_shelf_service.dart';
 
 void main() {
   group('playMedia command', () {
     tearDown(() {
       CompanionRemoteReceiver.instance.onPlayMedia = null;
+      CompanionRemoteReceiver.instance.onPlayMediaResult = null;
     });
 
     test('wire indexes of existing commands never move', () {
@@ -17,7 +19,10 @@ void main() {
       expect(RemoteCommandType.play.index, 7);
       expect(RemoteCommandType.ping.index, 34);
       expect(RemoteCommandType.syncState.index, 39);
-      expect(RemoteCommandType.playMedia.index, RemoteCommandType.values.length - 1);
+      expect(RemoteCommandType.playMedia.index, 40);
+      // ha-plezy reads the reply at 41 (local/plans/ha-theatre-remote.md).
+      expect(RemoteCommandType.playMediaResult.index, 41);
+      expect(RemoteCommandType.playMediaResult.index, RemoteCommandType.values.length - 1);
     });
 
     test('round-trips through JSON with its payload', () {
@@ -69,6 +74,49 @@ void main() {
       }
 
       expect(calls, 0);
+    });
+
+    test('a missing identifier is answered as invalid', () {
+      final results = <Map<String, dynamic>>[];
+      CompanionRemoteReceiver.instance.onPlayMediaResult = results.add;
+
+      CompanionRemoteReceiver.instance.handleCommand(
+        const RemoteCommand(type: RemoteCommandType.playMedia, data: {'serverId': 'abc123'}),
+        null,
+      );
+
+      expect(results, [
+        {'serverId': 'abc123', 'ok': false, 'reason': 'invalid'},
+      ]);
+    });
+
+    test('passes a PlezyFin server id and item id through unchanged', () {
+      const serverId = '793aa546b2ef4c8d865e9a59d4c294c2';
+      const itemId = '5b53182d46aa165b1e1eae5293db92e6';
+      String? seenServerId;
+      String? seenItemId;
+      CompanionRemoteReceiver.instance.onPlayMedia = (s, i) {
+        seenServerId = s;
+        seenItemId = i;
+      };
+
+      CompanionRemoteReceiver.instance.handleCommand(
+        const RemoteCommand(type: RemoteCommandType.playMedia, data: {'serverId': serverId, 'ratingKey': itemId}),
+        null,
+      );
+
+      expect(seenServerId, serverId);
+      expect(seenItemId, itemId);
+    });
+  });
+
+  group('deep link content id', () {
+    test('parses a PlezyFin server id and item id (HA cold start)', () {
+      final parsed = SystemShelfService.parseContentId(
+        'plezy_793aa546b2ef4c8d865e9a59d4c294c2_5b53182d46aa165b1e1eae5293db92e6',
+      );
+      expect(parsed?.$1.value, '793aa546b2ef4c8d865e9a59d4c294c2');
+      expect(parsed?.$2, '5b53182d46aa165b1e1eae5293db92e6');
     });
   });
 }

@@ -253,11 +253,11 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
 
     // Rate-match only when the user opted in; the plan's fps drives the
     // switch calls, so a resolution-only open passes 0 to the native side.
-    final rateMatchFps = _matchesFrameRate(settingsService) ? preKnownFps : null;
+    final rateMatchFps = _matchesFrameRate(settingsService) ? _matchTargetFps(preKnownFps) : null;
     final plan = _FrameRateStartupPlan(fps: rateMatchFps, width: preKnownWidth, height: preKnownHeight);
     final willAutoSwitch = _shouldAutoSwitchDisplayModeForOpen(
       settingsService,
-      fps: preKnownFps,
+      fps: _matchTargetFps(preKnownFps),
       width: preKnownWidth,
       height: preKnownHeight,
     );

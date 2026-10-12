@@ -22,19 +22,30 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       _os.backNoteShownAt = null;
     });
     if (full) {
-      // The guide that held focus is gone; put the remote on play/pause.
-      _chromeController.show(focusPlayPause: true);
+      // The guide that held focus is gone. Hand the remote to the player
+      // surface with the controls down, so the picture comes back clean; the
+      // first press brings the controls up (Adrian, 2026-10-11).
+      _chromeController.hide(ignoreHolds: true);
+      _screenFocusNode.requestFocus();
     } else {
       _chromeController.hide(ignoreHolds: true);
     }
   }
 
-  /// Back in Old School: full-screen video shrinks to the corner; with the
-  /// guide showing, the first Back shows "Press Back again to leave" for
-  /// about 3 seconds and a second one inside that time leaves.
+  /// Back in Old School: full-screen video first puts away the content strip
+  /// and the controls (and the stats with them), as Back does in any
+  /// playback, then shrinks to the corner; with the guide showing, the first
+  /// Back shows "Press Back again to leave" for about 3 seconds and a second
+  /// one inside that time leaves.
   void _oldSchoolBack() {
     if (_os.fullScreen) {
-      _oldSchoolSetFullScreen(false);
+      if (_chromeController.contentStripVisible) {
+        _chromeController.setContentStripVisible(false);
+      } else if (_chromeController.controlsVisible) {
+        _chromeController.hide();
+      } else {
+        _oldSchoolSetFullScreen(false);
+      }
       return;
     }
     if (_os.backNoteVisible) {
