@@ -117,6 +117,7 @@ import 'old_school/old_school_controller.dart';
 import 'old_school/old_school_guide_view.dart';
 import 'old_school/old_school_layout.dart';
 import 'old_school/old_school_overlays.dart';
+import 'media_detail_screen.dart';
 import '../models/old_school.dart';
 import '../widgets/video_controls/old_school_controls.dart';
 import 'video_player/tv_background_suspend_policy.dart';

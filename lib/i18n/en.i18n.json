@@ -2424,6 +2424,15 @@
     "fullScreen": "Full screen",
     "seekLocked": "Old School plays like live TV: no skipping ahead",
     "noWatchTogether": "Old School can't be used during Watch Together.",
-    "noExternalPlayer": "Old School always plays in Plezy's own player."
+    "noExternalPlayer": "Old School always plays in Plezy's own player.",
+    "promoComingSoon": "Coming soon",
+    "promoNewSeries": "New series",
+    "promoArrives": "Arrives ${date}",
+    "promoStarts": "Starts ${date}",
+    "promoWatchNow": "Watch it now",
+    "promoWholeCourse": "Watch the whole course",
+    "promoWhere": "${library} › ${title}",
+    "promoAlsoOn": "Also on ${number} ${name}, ${time}",
+    "promoOpenHint": "Press OK to open it"
   }
 }

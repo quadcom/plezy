@@ -145,6 +145,58 @@ void main() {
     });
   });
 
+  group('OldSchoolEntry promo (PLAN_SHA_43)', () {
+    test('a trailer for a film already in the library reads every field', () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'trailer',
+        'itemId': 't1',
+        'start': '2026-10-13T03:46:00Z',
+        'end': '2026-10-13T03:48:30Z',
+        'name': 'Blade Runner',
+        'promo': 'have',
+        'promoItemId': 'abc123',
+        'promoItemType': 'Movie',
+        'promoName': 'Blade Runner',
+        'promoLibrary': 'Films',
+        'promoOnAir': {
+          'channelId': 'c12',
+          'channelNumber': 12,
+          'channelName': 'Cinema Classics',
+          'start': '2026-10-16T01:00:00Z',
+        },
+      })!;
+      expect(entry.promo, OldSchoolPromo.have);
+      expect(entry.promoItemId, 'abc123');
+      expect(entry.promoItemType, 'Movie');
+      expect(entry.promoName, 'Blade Runner');
+      expect(entry.promoLibrary, 'Films');
+      expect(entry.promoOnAir!.channelNumber, '12');
+      expect(entry.promoOnAir!.channelName, 'Cinema Classics');
+      expect(entry.promoOnAir!.start, DateTime.utc(2026, 10, 16, 1));
+    });
+
+    test('a coming date is a local day, whatever the time zone', () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'trailer',
+        'itemId': 't2',
+        'start': '2026-10-13T03:46:00Z',
+        'end': '2026-10-13T03:48:30Z',
+        'name': '12 12 12',
+        'promo': 'coming',
+        'promoItemType': 'Series',
+        'promoDate': '2026-11-13',
+      })!;
+      expect(entry.promo, OldSchoolPromo.coming);
+      expect(entry.promoDate, DateTime(2026, 11, 13));
+    });
+
+    test('no promo, or one this build does not know, reads as none', () {
+      final base = {'kind': 'trailer', 'itemId': 't3', 'start': '2026-10-13T03:46:00Z', 'end': '2026-10-13T03:48:30Z'};
+      expect(OldSchoolEntry.fromJson(base)!.promo, isNull);
+      expect(OldSchoolEntry.fromJson({...base, 'promo': 'later'})!.promo, isNull);
+    });
+  });
+
   group('OldSchoolGuide', () {
     test('groups entries by channel in start order', () {
       final guide = OldSchoolGuide.fromJson({

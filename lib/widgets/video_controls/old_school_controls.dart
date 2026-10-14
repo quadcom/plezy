@@ -11,11 +11,17 @@ class OldSchoolControls {
   final VoidCallback onChannelDown;
   final VoidCallback onGuide;
 
+  /// While a trailer's end banner shows (PLAN_SHA_43), what OK on the bare
+  /// picture does instead of raising the controls: open the banner's item.
+  /// Returns null when no banner shows.
+  final VoidCallback? Function()? promoAction;
+
   const OldSchoolControls({
     required this.onRestart,
     required this.onBackToLive,
     required this.onChannelUp,
     required this.onChannelDown,
     required this.onGuide,
+    this.promoAction,
   });
 }

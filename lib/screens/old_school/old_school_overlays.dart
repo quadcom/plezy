@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:cached_network_image_ce/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../i18n/strings.g.dart';
 import '../../models/old_school.dart';
 import '../../services/image_cache_service.dart';
+import '../../utils/platform_detector.dart';
 import '../../utils/formatters.dart';
 import 'old_school_controller.dart';
 
@@ -160,6 +164,160 @@ class OldSchoolBackNote extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// How long before a trailer's end its banner shows (PLAN_SHA_43 default).
+const oldSchoolPromoLead = Duration(seconds: 15);
+
+/// The trailer on the tuned channel whose end banner shows now: one with a
+/// promo, in its last [oldSchoolPromoLead]. Null otherwise.
+OldSchoolEntry? oldSchoolActivePromo(OldSchoolController controller) {
+  final channelId = controller.tunedChannelId;
+  if (channelId == null) return null;
+  final now = controller.serverNow;
+  for (final entry in controller.entriesFor(channelId)) {
+    if (!entry.isOnAt(now)) continue;
+    final active =
+        entry.kind == OldSchoolEntryKind.trailer &&
+        entry.promo != null &&
+        entry.end.difference(now) <= oldSchoolPromoLead;
+    return active ? entry : null;
+  }
+  return null;
+}
+
+/// The banner in the top-right corner near a trailer's end (PlezyFin
+/// PLAN_SHA_43, the web's default look until Adrian's design session):
+/// "Coming soon · Arrives Thu 13 Nov", "Watch it now · Films › Title" or
+/// "Watch the whole course". OK opens the item (handled by the player).
+/// Sits below the controls' top bar while the controls show.
+class OldSchoolPromoBanner extends StatefulWidget {
+  final OldSchoolController controller;
+  final bool controlsVisible;
+  final ValueChanged<OldSchoolEntry>? onOpen;
+
+  const OldSchoolPromoBanner({super.key, required this.controller, required this.controlsVisible, this.onOpen});
+
+  @override
+  State<OldSchoolPromoBanner> createState() => _OldSchoolPromoBannerState();
+}
+
+class _OldSchoolPromoBannerState extends State<OldSchoolPromoBanner> {
+  Timer? _tick;
+  OldSchoolEntry? _entry;
+
+  @override
+  void initState() {
+    super.initState();
+    _entry = oldSchoolActivePromo(widget.controller);
+    // The guide's clock decides when it shows, so a late tune-in or a
+    // channel change lands right; checked twice a second.
+    _tick = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      final entry = oldSchoolActivePromo(widget.controller);
+      if (!identical(entry, _entry) && mounted) setState(() => _entry = entry);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final entry = _entry;
+    return Positioned(
+      right: size.width * 0.03,
+      top: size.height * (widget.controlsVisible ? 0.16 : 0.05),
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 350),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0.15, 0), end: Offset.zero).animate(animation),
+            child: child,
+          ),
+        ),
+        child: entry == null ? const SizedBox.shrink() : _card(context, entry, size),
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context, OldSchoolEntry entry, Size size) {
+    final theme = Theme.of(context);
+    final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
+    final title = entry.promoName ?? ((entry.seriesName?.isNotEmpty ?? false) ? entry.seriesName! : entry.name);
+    final series = entry.promoItemType?.toLowerCase() == 'series';
+    final date = entry.promoDate == null ? null : DateFormat('EEE d MMM').format(entry.promoDate!);
+    final where = entry.promoLibrary == null
+        ? title
+        : t.oldSchool.promoWhere(library: entry.promoLibrary!, title: title);
+    final (String headline, String? line) = switch (entry.promo!) {
+      OldSchoolPromo.coming => (
+        series ? t.oldSchool.promoNewSeries : t.oldSchool.promoComingSoon,
+        date == null ? null : (series ? t.oldSchool.promoStarts(date: date) : t.oldSchool.promoArrives(date: date)),
+      ),
+      OldSchoolPromo.have => (t.oldSchool.promoWatchNow, where),
+      OldSchoolPromo.course => (t.oldSchool.promoWholeCourse, where),
+    };
+    final onAir = entry.promo == OldSchoolPromo.have ? entry.promoOnAir : null;
+    final onAirLine = onAir == null
+        ? null
+        : t.oldSchool.promoAlsoOn(
+            number: onAir.channelNumber,
+            name: onAir.channelName,
+            time:
+                '${DateFormat('EEE').format(onAir.start.toLocal())} ${formatClockTime(onAir.start.toLocal(), is24Hour: is24)}',
+          );
+    final canOpen = entry.promoItemId != null && widget.onOpen != null;
+    final card = ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: size.width * 0.34),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .start,
+            children: [
+              Text(
+                headline,
+                style: theme.textTheme.titleMedium?.copyWith(color: const Color(0xFFF5B400), fontWeight: .w800),
+              ),
+              if (line != null)
+                Text(
+                  line,
+                  style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: .w700),
+                  maxLines: 2,
+                  overflow: .ellipsis,
+                ),
+              if (onAirLine != null)
+                Text(
+                  onAirLine,
+                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                ),
+              if (canOpen && PlatformDetector.isTV())
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    t.oldSchool.promoOpenHint,
+                    style: theme.textTheme.labelMedium?.copyWith(color: Colors.white60),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return KeyedSubtree(
+      key: ValueKey(entry.start),
+      child: canOpen ? GestureDetector(onTap: () => widget.onOpen!(entry), child: card) : IgnorePointer(child: card),
     );
   }
 }

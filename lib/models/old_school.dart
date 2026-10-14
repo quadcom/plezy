@@ -120,6 +120,45 @@ class OldSchoolImage {
 }
 
 /// One programme (or trailer, or standby gap) in a channel's timetable.
+/// What a trailer's end banner says (PlezyFin PLAN_SHA_43): the film or
+/// series is coming, is already in the library, or the trailer is for a
+/// Master Class course.
+enum OldSchoolPromo {
+  coming,
+  have,
+  course;
+
+  static OldSchoolPromo? parse(String? raw) => switch (raw?.toLowerCase()) {
+    'coming' => coming,
+    'have' => have,
+    'course' => course,
+    _ => null,
+  };
+}
+
+/// The next Old School slot this week where a trailer's film or series
+/// itself airs: "Also on 12 Cinema Classics, Fri 9:00 pm".
+class OldSchoolPromoOnAir {
+  final String channelNumber;
+  final String channelName;
+  final DateTime start;
+
+  const OldSchoolPromoOnAir({required this.channelNumber, required this.channelName, required this.start});
+
+  static OldSchoolPromoOnAir? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final map = json.cast<String, dynamic>();
+    final start = _date(map, 'Start');
+    final number = _string(map, 'ChannelNumber') ?? _string(map, 'Number');
+    if (start == null || number == null) return null;
+    return OldSchoolPromoOnAir(
+      channelNumber: number,
+      channelName: _string(map, 'ChannelName') ?? _string(map, 'Name') ?? '',
+      start: start,
+    );
+  }
+}
+
 class OldSchoolEntry {
   final OldSchoolEntryKind kind;
 
@@ -150,6 +189,23 @@ class OldSchoolEntry {
   /// An [OldSchoolEntryKind.intermission]'s parts, in order.
   final List<OldSchoolEntry> breakItems;
 
+  /// A trailer's end banner (PLAN_SHA_43); null when it has none.
+  final OldSchoolPromo? promo;
+
+  /// For [OldSchoolPromo.coming]: the day it arrives, when the library
+  /// knows; a local date (midnight), sent as "yyyy-MM-dd".
+  final DateTime? promoDate;
+
+  /// For have / course: the library holding it, as the menu names it.
+  final String? promoLibrary;
+
+  /// The film, series or course the banner opens (for New Shows, the
+  /// series), its type ("Movie" or "Series"; a course is a Series) and name.
+  final String? promoItemId;
+  final String? promoItemType;
+  final String? promoName;
+  final OldSchoolPromoOnAir? promoOnAir;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -170,6 +226,13 @@ class OldSchoolEntry {
     this.thumb,
     this.imageItemId,
     this.breakItems = const [],
+    this.promo,
+    this.promoDate,
+    this.promoLibrary,
+    this.promoItemId,
+    this.promoItemType,
+    this.promoName,
+    this.promoOnAir,
   });
 
   /// One block for a break (or, with [kind] musicVideos, a run of music
@@ -302,6 +365,13 @@ class OldSchoolEntry {
       logo: OldSchoolImage.fromJson(image('Logo'), artImageId),
       thumb: OldSchoolImage.fromJson(image('Thumb'), artImageId),
       imageItemId: imageItemId,
+      promo: OldSchoolPromo.parse(_string(map, 'Promo')),
+      promoDate: _localDate(_string(map, 'PromoDate')),
+      promoLibrary: _string(map, 'PromoLibrary'),
+      promoItemId: _string(map, 'PromoItemId'),
+      promoItemType: _string(map, 'PromoItemType'),
+      promoName: _string(map, 'PromoName'),
+      promoOnAir: OldSchoolPromoOnAir.fromJson(map['PromoOnAir'] ?? map['promoOnAir']),
     );
   }
 }
@@ -407,6 +477,12 @@ DateTime? _date(Map<String, dynamic> map, String pascal) {
   final value = map[pascal] ?? map[_camel(pascal)];
   if (value is! String) return null;
   return DateTime.tryParse(value)?.toUtc();
+}
+
+/// A "yyyy-MM-dd" day as local midnight, so it formats as that day anywhere.
+DateTime? _localDate(String? value) {
+  final parsed = value == null ? null : DateTime.tryParse(value);
+  return parsed == null ? null : DateTime(parsed.year, parsed.month, parsed.day);
 }
 
 String _camel(String pascal) => pascal.isEmpty ? pascal : pascal[0].toLowerCase() + pascal.substring(1);

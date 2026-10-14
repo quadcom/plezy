@@ -6024,6 +6024,33 @@ class Translations$oldSchool$en {
 
 	/// en: 'Old School always plays in Plezy's own player.'
 	String get noExternalPlayer => 'Old School always plays in Plezy\'s own player.';
+
+	/// en: 'Coming soon'
+	String get promoComingSoon => 'Coming soon';
+
+	/// en: 'New series'
+	String get promoNewSeries => 'New series';
+
+	/// en: 'Arrives ${date}'
+	String promoArrives({required Object date}) => 'Arrives ${date}';
+
+	/// en: 'Starts ${date}'
+	String promoStarts({required Object date}) => 'Starts ${date}';
+
+	/// en: 'Watch it now'
+	String get promoWatchNow => 'Watch it now';
+
+	/// en: 'Watch the whole course'
+	String get promoWholeCourse => 'Watch the whole course';
+
+	/// en: '${library} › ${title}'
+	String promoWhere({required Object library, required Object title}) => '${library} › ${title}';
+
+	/// en: 'Also on ${number} ${name}, ${time}'
+	String promoAlsoOn({required Object number, required Object name, required Object time}) => 'Also on ${number} ${name}, ${time}';
+
+	/// en: 'Press OK to open it'
+	String get promoOpenHint => 'Press OK to open it';
 }
 
 // Path: common.ratingSource
@@ -9855,6 +9882,15 @@ extension on Translations {
 			'oldSchool.seekLocked' => 'Old School plays like live TV: no skipping ahead',
 			'oldSchool.noWatchTogether' => 'Old School can\'t be used during Watch Together.',
 			'oldSchool.noExternalPlayer' => 'Old School always plays in Plezy\'s own player.',
+			'oldSchool.promoComingSoon' => 'Coming soon',
+			'oldSchool.promoNewSeries' => 'New series',
+			'oldSchool.promoArrives' => ({required Object date}) => 'Arrives ${date}',
+			'oldSchool.promoStarts' => ({required Object date}) => 'Starts ${date}',
+			'oldSchool.promoWatchNow' => 'Watch it now',
+			'oldSchool.promoWholeCourse' => 'Watch the whole course',
+			'oldSchool.promoWhere' => ({required Object library, required Object title}) => '${library} › ${title}',
+			'oldSchool.promoAlsoOn' => ({required Object number, required Object name, required Object time}) => 'Also on ${number} ${name}, ${time}',
+			'oldSchool.promoOpenHint' => 'Press OK to open it',
 			_ => null,
 		};
 	}

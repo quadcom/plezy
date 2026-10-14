@@ -13,7 +13,30 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     onChannelUp: () => unawaited(_oldSchoolChannelStep(1)),
     onChannelDown: () => unawaited(_oldSchoolChannelStep(-1)),
     onGuide: () => _oldSchoolSetFullScreen(false),
+    promoAction: () {
+      if (!_os.fullScreen) return null;
+      final promo = oldSchoolActivePromo(_osController);
+      if (promo?.promoItemId == null) return null;
+      return () => unawaited(_oldSchoolOpenPromo(promo!));
+    },
   );
+
+  /// OK on a trailer's end banner: open its film, series or course page and
+  /// leave live TV, as the exit button does (PLAN_SHA_43).
+  Future<void> _oldSchoolOpenPromo(OldSchoolEntry entry) async {
+    final id = entry.promoItemId;
+    if (id == null || _shuttingDown) return;
+    final navigator = Navigator.of(context);
+    try {
+      final item = await _osController.client.fetchItem(id);
+      if (!mounted) return;
+      if (item == null) throw StateError('Old School promo item $id not found');
+      await _oldSchoolExit();
+      unawaited(navigator.push(mediaDetailRoute(metadata: item)));
+    } catch (e, st) {
+      appLogger.w('Old School: could not open the banner item', error: e, stackTrace: st);
+    }
+  }
 
   void _oldSchoolSetFullScreen(bool full) {
     if (_os.fullScreen == full) return;
@@ -200,6 +223,15 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
               child: IgnorePointer(ignoring: !full, child: video),
             ),
             if (full && channel != null) OldSchoolWatermark(controller: controller, channel: channel),
+            if (full && channel != null)
+              ValueListenableBuilder<bool>(
+                valueListenable: _chromeController,
+                builder: (context, controlsVisible, _) => OldSchoolPromoBanner(
+                  controller: controller,
+                  controlsVisible: controlsVisible,
+                  onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
+                ),
+              ),
             if (full && channel != null && _os.cardVisible)
               OldSchoolChannelCard(
                 controller: controller,
