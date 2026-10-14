@@ -18,17 +18,16 @@ import '../../widgets/app_icon.dart';
 import 'old_school_controller.dart';
 import 'old_school_layout.dart';
 
-enum _Zone { exit, window, grid }
+enum _Zone { exit, window, channel, grid }
 
 /// The Old School guide: details of the picked programme, the corner window
 /// (a hole the player's video shows through, or a placeholder before
 /// anything plays) and the channel grid.
 ///
 /// D-pad: up/down move between channels, left/right through time, OK tunes
-/// a programme that's on now or shows a later one's details. Play/Pause, or
-/// Left twice more once at now, goes back to the channel full screen. Back
-/// is left to
-/// the page (it shrinks the video or asks "Press Back again to leave").
+/// a programme that's on now or shows a later one's details. Left past now
+/// picks the channel cell (OK tunes it); Left again there, or Play/Pause
+/// anywhere, goes back to the channel full screen. Back is left to the page (it shrinks the video or asks "Press Back again to leave").
 class OldSchoolGuideView extends StatefulWidget {
   final OldSchoolController controller;
   final OldSchoolLayout layout;
@@ -74,10 +73,6 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   OldSchoolEntry? _focused;
   DateTime? _viewStart;
   bool _placedInitialFocus = false;
-
-  /// Left presses made with nowhere further left to go; two return to the
-  /// channel full screen.
-  int _leftPressesAtNow = 0;
 
   OldSchoolController get _c => widget.controller;
   OldSchoolLayout get _layout => widget.layout;
@@ -382,7 +377,6 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
       return KeyEventResult.handled;
     }
     if (!event.isActionable) return KeyEventResult.ignored;
-    if (!(key.isLeftKey && _zone == _Zone.grid)) _leftPressesAtNow = 0;
     switch (_zone) {
       case _Zone.exit:
         if (key.isRightKey && widget.videoActive && !_layout.isPortraitPhone) {
@@ -396,6 +390,23 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
         } else if (key.isDownKey) {
           setState(() => _zone = _Zone.grid);
         }
+      case _Zone.channel:
+        if (key.isUpKey) {
+          if (_row == 0) {
+            setState(() => _zone = widget.videoActive && !_layout.isPortraitPhone ? _Zone.window : _Zone.exit);
+          } else {
+            _moveRow(-1);
+          }
+        } else if (key.isDownKey) {
+          _moveRow(1);
+        } else if (key.isRightKey) {
+          setState(() => _zone = _Zone.grid);
+        } else if (key.isLeftKey) {
+          // Left from the channel cell goes back to the channel full screen
+          // (Adrian, 2026-10-13). A held key's repeats don't count.
+          if (event is KeyDownEvent && widget.videoActive) widget.onEnlarge();
+          return KeyEventResult.handled;
+        }
       case _Zone.grid:
         if (key.isUpKey) {
           if (_row == 0) {
@@ -406,14 +417,9 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
         } else if (key.isDownKey) {
           _moveRow(1);
         } else if (key.isLeftKey) {
-          // Already at now: a second Left there goes back to the channel
-          // full screen (Adrian, 2026-10-11). Held-key repeats don't count.
-          if (_moveTime(-1)) {
-            _leftPressesAtNow = 0;
-          } else if (event is KeyDownEvent && widget.videoActive && ++_leftPressesAtNow >= 2) {
-            _leftPressesAtNow = 0;
-            widget.onEnlarge();
-          }
+          // Already at now: Left picks the channel cell. Only a fresh press,
+          // so holding Left through time stops at now.
+          if (!_moveTime(-1) && event is KeyDownEvent) setState(() => _zone = _Zone.channel);
           return KeyEventResult.handled;
         } else if (key.isRightKey) {
           _moveTime(1);
@@ -430,6 +436,9 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
         widget.onExit();
       case _Zone.window:
         if (widget.videoActive) widget.onEnlarge();
+      case _Zone.channel:
+        final channel = _channelAt(_row);
+        if (channel != null) widget.onTune(channel);
       case _Zone.grid:
         final channel = _channelAt(_row);
         if (channel != null) _activate(channel, _focused);
@@ -927,6 +936,7 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
               channel: channel,
               compact: layout.isPortraitPhone,
               tuned: isTuned,
+              focused: _zone == _Zone.channel && index == _row && _focusNode.hasFocus,
               onTap: () => widget.onTune(channel),
             ),
           ),
@@ -934,9 +944,13 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
           Expanded(
             child: ClipRect(
               child: Stack(
+                // The focused block goes last so a thin one, widened to be
+                // seen, sits over its neighbours.
                 children: [
                   for (final p in programmes)
-                    _buildBlock(context, channel, p, index: index, focused: selectedRow && _isFocused(p)),
+                    if (!(selectedRow && _isFocused(p))) _buildBlock(context, channel, p, index: index, focused: false),
+                  for (final p in programmes)
+                    if (selectedRow && _isFocused(p)) _buildBlock(context, channel, p, index: index, focused: true),
                 ],
               ),
             ),
@@ -945,6 +959,9 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
       ),
     );
   }
+
+  /// The narrowest a focused block is drawn.
+  static const double _minFocusedWidth = 96;
 
   bool _isFocused(OldSchoolEntry p) {
     final focused = _focused;
@@ -960,9 +977,15 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   }) {
     final theme = Theme.of(context);
     final tk = tokens(context);
-    final left = math.max(0.0, _xFor(p.start));
+    var left = math.max(0.0, _xFor(p.start));
     final right = math.min(_blocksWidth, _xFor(p.end));
-    final width = right - left - 6;
+    var width = right - left - 6;
+    // A block of a minute or two is a sliver; picked, it widens so the
+    // highlight shows (Adrian, 2026-10-13), kept inside the row.
+    if (focused && width < _minFocusedWidth) {
+      width = math.min(_minFocusedWidth, _blocksWidth);
+      left = math.min(left, _blocksWidth - width);
+    }
     if (width <= 4) return const SizedBox.shrink();
     final continues = p.start.isBefore(_start);
     final onNow = p.isOnAt(_c.serverNow);
@@ -1047,6 +1070,9 @@ class _ChannelCell extends StatelessWidget {
   final OldSchoolChannel channel;
   final bool compact;
   final bool tuned;
+
+  /// The remote's place is on this cell: filled like a focused block.
+  final bool focused;
   final VoidCallback onTap;
 
   const _ChannelCell({
@@ -1054,6 +1080,7 @@ class _ChannelCell extends StatelessWidget {
     required this.channel,
     required this.compact,
     required this.tuned,
+    required this.focused,
     required this.onTap,
   });
 
@@ -1080,18 +1107,21 @@ class _ChannelCell extends StatelessWidget {
       '${channel.number}',
       style: (compact ? theme.textTheme.titleLarge : theme.textTheme.titleMedium)?.copyWith(
         fontWeight: .w800,
-        color: tk.textMuted,
+        color: focused ? theme.colorScheme.onPrimary.withValues(alpha: 0.75) : tk.textMuted,
       ),
     );
     final name = Text(
       channel.name,
-      style: (compact ? theme.textTheme.labelMedium : theme.textTheme.bodyMedium)?.copyWith(fontWeight: .w700),
+      style: (compact ? theme.textTheme.labelMedium : theme.textTheme.bodyMedium)?.copyWith(
+        fontWeight: .w700,
+        color: focused ? theme.colorScheme.onPrimary : null,
+      ),
       maxLines: 2,
       overflow: .ellipsis,
       textAlign: compact ? TextAlign.center : TextAlign.start,
     );
     return Material(
-      color: tk.surface.withValues(alpha: 0.6),
+      color: focused ? theme.colorScheme.primary : tk.surface.withValues(alpha: 0.6),
       shape: RoundedRectangleBorder(
         borderRadius: radius,
         side: tuned ? const BorderSide(color: Color(0xFFF5B400), width: 2) : BorderSide.none,
