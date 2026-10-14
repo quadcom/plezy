@@ -604,7 +604,8 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     final logoHeight = (layout.infoRect.height * 0.2).clamp(36.0, 96.0);
     final logoUrl = entry == null ? null : _imageUrl(entry.logo, 'Logo', (logoHeight * 3 * dpr).round());
     final horizontal = layout.size.width * 0.029;
-    final runTime = entry?.runTime;
+    // A film's own trailer runs inside its slot, so it counts (PLAN_SHA_46).
+    final runTime = entry?.slotRunTime;
     return Padding(
       padding: EdgeInsets.fromLTRB(horizontal, layout.infoRect.height * 0.2, horizontal, 8),
       child: Column(

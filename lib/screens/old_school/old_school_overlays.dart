@@ -315,3 +315,71 @@ class _OldSchoolPromoBannerState extends State<OldSchoolPromoBanner> {
     );
   }
 }
+
+/// "Up next" over a film's own trailer (PlezyFin PLAN_SHA_46): a lower
+/// third in the bottom-right corner, just above the channel's watermark,
+/// with the film's name and year. Looks like the trailer-end banner; not
+/// focusable. Hidden while the controls show, which sit over that corner.
+class OldSchoolUpNext extends StatelessWidget {
+  final OldSchoolChannel channel;
+
+  /// The film whose trailer is playing; null hides the card.
+  final OldSchoolEntry? film;
+
+  const OldSchoolUpNext({super.key, required this.channel, required this.film});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final film = this.film;
+    // The watermark sits 5% up, about 6% of the width wide; clear a square
+    // logo of that width.
+    final aboveLogo = channel.logoTag == null ? 0.0 : size.width * 0.06 + size.height * 0.02;
+    return Positioned(
+      right: size.width * 0.03,
+      bottom: size.height * 0.05 + aboveLogo,
+      child: IgnorePointer(
+        child: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: SlideTransition(
+              position: Tween(begin: const Offset(0.15, 0), end: Offset.zero).animate(animation),
+              child: child,
+            ),
+          ),
+          child: film == null ? const SizedBox.shrink() : _card(context, film, size),
+        ),
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context, OldSchoolEntry film, Size size) {
+    final theme = Theme.of(context);
+    final name = film.year == null ? film.title : '${film.title} (${film.year})';
+    return ConstrainedBox(
+      key: ValueKey(film.start),
+      constraints: BoxConstraints(maxWidth: size.width * 0.4),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          child: Column(
+            mainAxisSize: .min,
+            crossAxisAlignment: .start,
+            children: [
+              Text(
+                t.oldSchool.upNext,
+                style: theme.textTheme.titleSmall?.copyWith(color: const Color(0xFFF5B400), fontWeight: .w800),
+              ),
+              Text(
+                name,
+                style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: .w700),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

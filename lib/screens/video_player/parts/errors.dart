@@ -131,6 +131,9 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
   /// since the verdict that preceded it is the more specific of the two.
   void _presentPlaybackFailure(String message) {
     if (!mounted || _shuttingDown) return;
+    // Old School: a film's own trailer that won't play gives way to the film,
+    // with no error (PLAN_SHA_46).
+    if (_oldSchoolPreRollFailed()) return;
     _firstFrame.forceUiReadyOnFailure();
     _setPlayerState(() {
       _playbackFailureMessage = message;

@@ -8,7 +8,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   OldSchoolController get _osController => widget.oldSchool!.controller;
 
   OldSchoolControls get _oldSchoolControls => OldSchoolControls(
-    onRestart: () => unawaited(_seekPlayback(Duration.zero)),
+    onRestart: () => unawaited(_oldSchoolRestart()),
     onBackToLive: () => unawaited(_oldSchoolBackToLive()),
     onChannelUp: () => unawaited(_oldSchoolChannelStep(1)),
     onChannelDown: () => unawaited(_oldSchoolChannelStep(-1)),
@@ -102,6 +102,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     if (_shuttingDown) return;
     final generation = ++_os.tuneGeneration;
     _os.standbyTimer?.cancel();
+    _os.filmFromStart = false;
     _setPlayerState(() => _os.tuning = true);
     try {
       final tune = await _osController.tuneTo(channelId);
@@ -132,11 +133,69 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       });
       return;
     }
+    _os.slotTune = tune;
+    // A film's own trailer first, while its share of the slot lasts
+    // (PLAN_SHA_46); one that won't play leaves the film to start at once.
+    if (tune.inPreRoll(entry, DateTime.now()) &&
+        await _oldSchoolPlayPreRoll(tune, reason: reason, generation: generation)) {
+      return;
+    }
+    if (!mounted || generation != _os.tuneGeneration) return;
+    await _oldSchoolPlayFilm(tune, reason: reason, generation: generation);
+  }
+
+  /// Play [tune]'s film's own trailer: from its start on Start over, else
+  /// where the slot is now. False when it would not open (no error shown),
+  /// so the caller plays the film instead.
+  Future<bool> _oldSchoolPlayPreRoll(OldSchoolTune tune, {required String reason, required int generation}) async {
+    final entry = tune.now;
+    final trailerId = entry.preItemId!;
+    Duration position() => _os.filmFromStart ? Duration.zero : tune.slotOffset(entry, DateTime.now());
+    try {
+      if (_currentMetadata.id == trailerId) {
+        await _performSeekPlayback(position());
+        if (!mounted || generation != _os.tuneGeneration) return true;
+        final currentPlayer = player;
+        if (currentPlayer != null && !currentPlayer.state.playing) await currentPlayer.play();
+        _setPlayerState(() => _os.playingPreRoll = true);
+        return true;
+      }
+      final item = await _osController.client.fetchItem(trailerId);
+      if (!mounted || generation != _os.tuneGeneration) return true;
+      if (item == null) return false;
+      _setPlayerState(() => _os.playingPreRoll = true);
+      final outcome = await _reloadMediaInPlace(
+        metadata: item,
+        selectedMediaIndex: 0,
+        resumePosition: position(),
+        useCurrentAudioStreamSelection: false,
+        preserveCurrentTrackSelection: true,
+        preservedAudioTrack: _sessionAudioPreference,
+        preservedSubtitleTrack: _sessionSubtitlePreference,
+        showErrorUi: false,
+        reason: 'old school trailer $reason',
+      );
+      if (outcome == MediaReloadOutcome.opened || outcome == MediaReloadOutcome.superseded) return true;
+    } catch (e, st) {
+      appLogger.w('Old School: pre-roll trailer would not play ($reason)', error: e, stackTrace: st);
+    }
+    if (mounted) _setPlayerState(() => _os.playingPreRoll = false);
+    return false;
+  }
+
+  /// Play [tune]'s programme: at its scheduled point (after its trailer, if
+  /// it has one), or from 0 after a Start over.
+  Future<void> _oldSchoolPlayFilm(OldSchoolTune tune, {required String reason, required int generation}) async {
+    final entry = tune.now;
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    Duration position() => _os.filmFromStart ? Duration.zero : tune.offsetInto(entry, DateTime.now());
+    if (_os.playingPreRoll) _setPlayerState(() => _os.playingPreRoll = false);
     if (_currentMetadata.id == entry.itemId) {
       // Same file (Back to live, or the channel's next slot is the same
       // item): jump to the scheduled point. This is the one forward seek Old
       // School makes, so it goes past the lock.
-      await _performSeekPlayback(tune.offsetInto(entry, DateTime.now()));
+      await _performSeekPlayback(position());
       if (!mounted || generation != _os.tuneGeneration) return;
       if (!currentPlayer.state.playing) await currentPlayer.play();
       return;
@@ -148,13 +207,57 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       metadata: item,
       selectedMediaIndex: 0,
       // Worked out after the item lookup, so the request time is allowed for.
-      resumePosition: tune.offsetInto(entry, DateTime.now()),
+      resumePosition: position(),
       useCurrentAudioStreamSelection: false,
       preserveCurrentTrackSelection: true,
       preservedAudioTrack: _sessionAudioPreference,
       preservedSubtitleTrack: _sessionSubtitlePreference,
       reason: 'old school $reason',
     );
+  }
+
+  /// The pre-roll trailer ended or would not play: the film follows in the
+  /// same slot, with no re-tune and no channel card (PLAN_SHA_46).
+  Future<void> _oldSchoolFilmAfterPreRoll(OldSchoolTune tune, {required String reason}) async {
+    if (_shuttingDown) return;
+    final generation = ++_os.tuneGeneration;
+    try {
+      await _oldSchoolPlayFilm(tune, reason: reason, generation: generation);
+    } catch (e, st) {
+      appLogger.w('Old School: film after its trailer failed ($reason)', error: e, stackTrace: st);
+      if (mounted && generation == _os.tuneGeneration) showErrorSnackBar(context, t.oldSchool.tuneFailed);
+    }
+  }
+
+  /// A pre-roll trailer that failed while opening or playing: the film plays
+  /// instead, with no error shown. True when handled.
+  bool _oldSchoolPreRollFailed() {
+    final tune = _os.slotTune;
+    if (!widget.isOldSchool || !_os.playingPreRoll || tune == null) return false;
+    appLogger.w('Old School: pre-roll trailer failed, playing the film');
+    unawaited(_oldSchoolFilmAfterPreRoll(tune, reason: 'trailer failed'));
+    return true;
+  }
+
+  /// Start over: the file from its beginning. On a film with its own
+  /// trailer, the trailer from its start and then the film from 0, not the
+  /// live point (PLAN_SHA_46; the web does the same).
+  Future<void> _oldSchoolRestart() async {
+    final tune = _os.slotTune;
+    if (tune == null || !tune.now.hasPreRoll || tune.channelId != _osController.tunedChannelId) {
+      await _seekPlayback(Duration.zero);
+      return;
+    }
+    final generation = ++_os.tuneGeneration;
+    _os.standbyTimer?.cancel();
+    _os.filmFromStart = true;
+    try {
+      if (await _oldSchoolPlayPreRoll(tune, reason: 'start over', generation: generation)) return;
+      if (!mounted || generation != _os.tuneGeneration) return;
+      await _oldSchoolPlayFilm(tune, reason: 'start over', generation: generation);
+    } catch (e, st) {
+      appLogger.w('Old School: start over failed', error: e, stackTrace: st);
+    }
   }
 
   /// Channel up (+1) or down (-1), wrapping round the line-up.
@@ -174,10 +277,30 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   }
 
   /// A file ended: the channel's next entry joins at its scheduled point
-  /// (jump to live, even after a pause).
+  /// (jump to live, even after a pause). A film's own trailer hands over to
+  /// the film; a programme that ended before its slot did (its trailer would
+  /// not play) holds on its last picture until the slot ends.
   void _oldSchoolCarryOn() {
     final current = _osController.tunedChannelId;
     if (current == null) return;
+    final slot = _os.slotTune;
+    if (slot != null && slot.channelId == current) {
+      if (_os.playingPreRoll) {
+        unawaited(_oldSchoolFilmAfterPreRoll(slot, reason: 'after trailer'));
+        return;
+      }
+      final left = slot.now.end.difference(slot.serverNow(DateTime.now()));
+      if (slot.now.isProgramme && left > const Duration(seconds: 1)) {
+        final generation = _os.tuneGeneration;
+        _os.standbyTimer?.cancel();
+        _os.standbyTimer = Timer(left + const Duration(milliseconds: 500), () {
+          if (mounted && generation == _os.tuneGeneration) {
+            unawaited(_oldSchoolTune(current, reason: 'carry on', showCard: false));
+          }
+        });
+        return;
+      }
+    }
     unawaited(_oldSchoolTune(current, reason: 'carry on', showCard: false));
   }
 
@@ -230,6 +353,14 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
                   controller: controller,
                   controlsVisible: controlsVisible,
                   onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
+                ),
+              ),
+            if (full && channel != null)
+              ValueListenableBuilder<bool>(
+                valueListenable: _chromeController,
+                builder: (context, controlsVisible, _) => OldSchoolUpNext(
+                  channel: channel,
+                  film: _os.playingPreRoll && !controlsVisible ? _os.slotTune?.now : null,
                 ),
               ),
             if (full && channel != null && _os.cardVisible)

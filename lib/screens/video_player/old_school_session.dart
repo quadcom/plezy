@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../models/old_school.dart';
 import '../../screens/old_school/old_school_controller.dart';
 
 /// Launch parameters for an Old School session (PLAN_SHA_21). A
@@ -13,7 +14,14 @@ class OldSchoolSessionArgs {
   /// from here on and disposes it.
   final OldSchoolController controller;
 
-  const OldSchoolSessionArgs({required this.controller});
+  /// The tune the first item comes from.
+  final OldSchoolTune tune;
+
+  /// The first item is the film's own trailer, played before the film
+  /// (PLAN_SHA_46).
+  final bool startsInPreRoll;
+
+  const OldSchoolSessionArgs({required this.controller, required this.tune, this.startsInPreRoll = false});
 }
 
 /// The player's Old School state.
@@ -32,6 +40,18 @@ class OldSchoolPlayerState {
 
   /// Waits out an off-the-air gap, then tunes again.
   Timer? standbyTimer;
+
+  /// The tune whose entry is playing (or held on, waiting for its slot to
+  /// end).
+  OldSchoolTune? slotTune;
+
+  /// The film's own trailer is playing, ahead of the film in the same slot
+  /// (PLAN_SHA_46). When it ends the film follows without a re-tune.
+  bool playingPreRoll = false;
+
+  /// Start over on a slot with a pre-roll: the film follows its trailer
+  /// from 0, not at the live point.
+  bool filmFromStart = false;
 
   /// A tune is in flight (channel change, carry-on or Back to live).
   bool tuning = false;

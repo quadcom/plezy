@@ -272,6 +272,70 @@ void main() {
     });
   });
 
+  group('OldSchoolTune pre-roll (PLAN_SHA_46)', () {
+    // Heat's slot opens with its own 2-minute trailer, then the film.
+    OldSchoolTune tuneAt(String serverTime, {bool preRoll = true}) => OldSchoolTune.fromJson('c2', {
+      'serverTime': serverTime,
+      'now': {
+        'kind': 'show',
+        'itemType': 'Movie',
+        'itemId': 'heat',
+        'name': 'Heat',
+        'year': 1995,
+        'start': '2026-10-14T01:00:00Z',
+        'end': '2026-10-14T04:00:00Z',
+        'runTimeTicks': 170 * 60 * 10000000,
+        if (preRoll) 'preItemId': 'heattrailer',
+        if (preRoll) 'preRunTimeTicks': 120 * 10000000,
+      },
+    }, receivedAt: DateTime.parse(serverTime))!;
+
+    test('reads the trailer and counts it in the slot', () {
+      final entry = tuneAt('2026-10-14T01:00:00Z').now;
+      expect(entry.preItemId, 'heattrailer');
+      expect(entry.hasPreRoll, isTrue);
+      expect(entry.preRollTime, const Duration(minutes: 2));
+      expect(entry.slotRunTime, const Duration(minutes: 172));
+    });
+
+    test('inside the trailer: the trailer plays from the slot offset, the film waits at 0', () {
+      final tune = tuneAt('2026-10-14T01:00:45Z');
+      final at = tune.receivedAt;
+      expect(tune.inPreRoll(tune.now, at), isTrue);
+      expect(tune.slotOffset(tune.now, at), const Duration(seconds: 45));
+      expect(tune.offsetInto(tune.now, at), Duration.zero);
+    });
+
+    test('past the trailer: the film plays from offset minus the trailer', () {
+      final tune = tuneAt('2026-10-14T01:30:00Z');
+      final at = tune.receivedAt;
+      expect(tune.inPreRoll(tune.now, at), isFalse);
+      expect(tune.offsetInto(tune.now, at), const Duration(minutes: 28));
+    });
+
+    test('without one, nothing changes', () {
+      final tune = tuneAt('2026-10-14T01:30:00Z', preRoll: false);
+      final at = tune.receivedAt;
+      expect(tune.now.hasPreRoll, isFalse);
+      expect(tune.inPreRoll(tune.now, at), isFalse);
+      expect(tune.offsetInto(tune.now, at), const Duration(minutes: 30));
+      expect(tune.now.slotRunTime, const Duration(minutes: 170));
+    });
+
+    test('a zero-length trailer is no pre-roll', () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'show',
+        'itemId': 'heat',
+        'start': '2026-10-14T01:00:00Z',
+        'end': '2026-10-14T04:00:00Z',
+        'preItemId': 'heattrailer',
+        'preRunTimeTicks': 0,
+      })!;
+      expect(entry.hasPreRoll, isFalse);
+      expect(entry.preRollTime, Duration.zero);
+    });
+  });
+
   group('OldSchoolEntry.joinBreaks', () {
     OldSchoolEntry at(OldSchoolEntryKind kind, int startMin, int endMin, String name, {String? series}) =>
         OldSchoolEntry(

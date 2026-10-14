@@ -206,6 +206,12 @@ class OldSchoolEntry {
   final String? promoName;
   final OldSchoolPromoOnAir? promoOnAir;
 
+  /// A film's own trailer, played first inside the film's slot (PlezyFin
+  /// PLAN_SHA_46): its item id and running time. The slot still covers
+  /// trailer + film and stays one entry, the film's.
+  final String? preItemId;
+  final Duration? preRunTime;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -233,6 +239,8 @@ class OldSchoolEntry {
     this.promoItemType,
     this.promoName,
     this.promoOnAir,
+    this.preItemId,
+    this.preRunTime,
   });
 
   /// One block for a break (or, with [kind] musicVideos, a run of music
@@ -296,6 +304,15 @@ class OldSchoolEntry {
 
   bool get isPlayable => itemId != null && kind != OldSchoolEntryKind.standby;
 
+  /// Whether the slot opens with the film's own trailer (PLAN_SHA_46).
+  bool get hasPreRoll => preItemId != null && (preRunTime ?? Duration.zero) > Duration.zero;
+
+  /// The trailer's share of the slot; zero without one.
+  Duration get preRollTime => hasPreRoll ? preRunTime! : Duration.zero;
+
+  /// The whole programme's running time: the trailer plus the file.
+  Duration? get slotRunTime => runTime == null ? null : runTime! + preRollTime;
+
   bool get isProgramme =>
       kind == OldSchoolEntryKind.movie || kind == OldSchoolEntryKind.episode || kind == OldSchoolEntryKind.musicVideo;
 
@@ -341,6 +358,7 @@ class OldSchoolEntry {
     final images = map['ImageTags'] ?? map['imageTags'];
     final imageMap = images is Map ? images.cast<String, dynamic>() : const <String, dynamic>{};
     final ticks = _int(map, 'RunTimeTicks');
+    final preTicks = _int(map, 'PreRunTimeTicks');
     final itemId = _string(map, 'ItemId');
     final imageItemId = _string(map, 'ImageItemId');
     final ownImageId = imageItemId ?? itemId;
@@ -372,6 +390,8 @@ class OldSchoolEntry {
       promoItemType: _string(map, 'PromoItemType'),
       promoName: _string(map, 'PromoName'),
       promoOnAir: OldSchoolPromoOnAir.fromJson(map['PromoOnAir'] ?? map['promoOnAir']),
+      preItemId: _string(map, 'PreItemId'),
+      preRunTime: preTicks == null ? null : Duration(microseconds: preTicks ~/ 10),
     );
   }
 }
@@ -450,10 +470,22 @@ class OldSchoolTune {
   /// Where in [now]'s file playback should be at [deviceNow].
   Duration liveOffset(DateTime deviceNow) => offsetInto(now, deviceNow);
 
-  /// Where in [entry]'s file playback should be at [deviceNow], never
-  /// negative.
-  Duration offsetInto(OldSchoolEntry entry, DateTime deviceNow) {
+  /// How far into [entry]'s slot it is at [deviceNow], never negative.
+  /// With a pre-roll this counts the trailer too; see [offsetInto].
+  Duration slotOffset(OldSchoolEntry entry, DateTime deviceNow) {
     final offset = serverNow(deviceNow).difference(entry.start);
+    return offset.isNegative ? Duration.zero : offset;
+  }
+
+  /// Whether [entry]'s own trailer is still on at [deviceNow] (PLAN_SHA_46).
+  bool inPreRoll(OldSchoolEntry entry, DateTime deviceNow) =>
+      entry.hasPreRoll && slotOffset(entry, deviceNow) < entry.preRollTime;
+
+  /// Where in [entry]'s file playback should be at [deviceNow], never
+  /// negative: past the trailer when the slot opens with one, so the film
+  /// starts at 0 when the trailer ends.
+  Duration offsetInto(OldSchoolEntry entry, DateTime deviceNow) {
+    final offset = slotOffset(entry, deviceNow) - entry.preRollTime;
     return offset.isNegative ? Duration.zero : offset;
   }
 }

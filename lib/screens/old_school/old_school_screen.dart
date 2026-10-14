@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../focus/key_event_utils.dart';
 import '../../i18n/strings.g.dart';
+import '../../media/media_item.dart';
 import '../../models/old_school.dart';
 import '../../providers/hidden_libraries_provider.dart';
 import '../../theme/mono_tokens.dart';
@@ -113,7 +114,18 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
         showAppSnackBar(context, t.oldSchool.nothingOn);
         return;
       }
-      final item = await controller.client.fetchItem(entry.itemId!);
+      // A film's own trailer first while it is still on (PLAN_SHA_46); a
+      // trailer that can't be found leaves the film to start at once.
+      MediaItem? trailer;
+      if (tune.inPreRoll(entry, DateTime.now())) {
+        try {
+          trailer = await controller.client.fetchItem(entry.preItemId!);
+        } catch (e, st) {
+          appLogger.w('Old School: pre-roll trailer lookup failed', error: e, stackTrace: st);
+        }
+        if (!mounted) return;
+      }
+      final item = trailer ?? await controller.client.fetchItem(entry.itemId!);
       if (!mounted) return;
       if (item == null) throw StateError('Old School item ${entry.itemId} not found');
       _handedOver = true;
@@ -122,8 +134,10 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
           metadata: item,
           // Worked out when the player is built, so the lookups above are
           // allowed for.
-          initialPosition: tune.offsetInto(entry, DateTime.now()),
-          oldSchool: OldSchoolSessionArgs(controller: controller),
+          initialPosition: trailer != null
+              ? tune.slotOffset(entry, DateTime.now())
+              : tune.offsetInto(entry, DateTime.now()),
+          oldSchool: OldSchoolSessionArgs(controller: controller, tune: tune, startsInPreRoll: trailer != null),
         ),
       );
       unawaited(route.push(Navigator.of(context), replaceCurrent: true));

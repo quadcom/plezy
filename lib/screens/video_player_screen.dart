@@ -1269,6 +1269,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   @override
   void initState() {
     super.initState();
+    if (widget.oldSchool case final oldSchool?) {
+      _os.slotTune = oldSchool.tune;
+      _os.playingPreRoll = oldSchool.startsInPreRoll;
+    }
     PlaybackCoordinator.instance.registerVideoSession(shutdown: _shutdownVideo, stopAndExit: _stopVideoAndExit);
     SleepTimerService().bindPlayback(
       owner: this,
