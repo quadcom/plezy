@@ -275,7 +275,8 @@ class _OldSchoolPromoBannerState extends State<OldSchoolPromoBanner> {
           );
     final canOpen = entry.promoItemId != null && widget.onOpen != null;
     final card = ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: size.width * 0.34),
+      // Grows to fit: long titles wrap rather than being cut (Adrian, 2026-10-13).
+      constraints: BoxConstraints(maxWidth: size.width * 0.4),
       child: DecoratedBox(
         decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.72), borderRadius: BorderRadius.circular(16)),
         child: Padding(
@@ -292,16 +293,9 @@ class _OldSchoolPromoBannerState extends State<OldSchoolPromoBanner> {
                 Text(
                   line,
                   style: theme.textTheme.titleLarge?.copyWith(color: Colors.white, fontWeight: .w700),
-                  maxLines: 2,
-                  overflow: .ellipsis,
                 ),
               if (onAirLine != null)
-                Text(
-                  onAirLine,
-                  style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
-                  maxLines: 1,
-                  overflow: .ellipsis,
-                ),
+                Text(onAirLine, style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70)),
               if (canOpen && PlatformDetector.isTV())
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
