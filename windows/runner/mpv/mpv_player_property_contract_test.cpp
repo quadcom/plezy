@@ -979,10 +979,17 @@ void TestDisabledVideoHostKeepsInputOnTheFlutterView() {
   Check(client.right > 2 && client.bottom > 2, "the stand-in view must have a usable client area");
 
   HWND host = ::CreateWindowExW(
-      WS_EX_NOPARENTNOTIFY, L"STATIC", L"", kVideoHostWindowStyle, 0, 0, client.right, client.bottom, view, nullptr,
-      nullptr, nullptr);
+      WS_EX_NOPARENTNOTIFY, VideoHostWindowClass(), L"", kVideoHostWindowStyle, 0, 0, client.right, client.bottom, view,
+      nullptr, nullptr, nullptr);
   Check(host != nullptr, "the video host window must be created");
   Check(!::IsWindowEnabled(host), "the video host must be created disabled");
+  Check(
+      reinterpret_cast<HBRUSH>(::GetClassLongPtrW(host, GCLP_HBRBACKGROUND)) ==
+          static_cast<HBRUSH>(::GetStockObject(BLACK_BRUSH)),
+      "the video host must erase to black, so a resize mpv has not caught up with shows letterbox, not white");
+  Check(
+      ::SendMessageW(host, WM_NCHITTEST, 0, MAKELPARAM(client.right / 2, client.bottom / 2)) == HTTRANSPARENT,
+      "the video host must stay out of the hit test, as the STATIC class it replaces did");
 
   const POINT contact = {client.right / 2, client.bottom / 2};
   Check(
@@ -1018,8 +1025,8 @@ void TestDisabledVideoHostRoutesRealPressesToParentView() {
   Check(client.right > 2 && client.bottom > 2, "the stand-in view must have a usable client area");
 
   HWND host = ::CreateWindowExW(
-      WS_EX_NOPARENTNOTIFY, L"STATIC", L"", kVideoHostWindowStyle | WS_VISIBLE, 0, 0, client.right, client.bottom, view,
-      nullptr, nullptr, nullptr);
+      WS_EX_NOPARENTNOTIFY, VideoHostWindowClass(), L"", kVideoHostWindowStyle | WS_VISIBLE, 0, 0, client.right,
+      client.bottom, view, nullptr, nullptr, nullptr);
   Check(host != nullptr, "the video host window must be created");
   HWND inner = ::CreateWindowExW(
       0, L"STATIC", L"", WS_CHILD | WS_VISIBLE, 0, 0, client.right, client.bottom, host, nullptr, nullptr, nullptr);

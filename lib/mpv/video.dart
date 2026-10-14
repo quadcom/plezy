@@ -39,7 +39,7 @@ class Video extends StatefulWidget {
   State<Video> createState() => _VideoState();
 }
 
-class _VideoState extends State<Video> {
+class _VideoState extends State<Video> with WidgetsBindingObserver {
   // The integer physical bounds last handed to the native side, and the scale
   // that went with them. Cached as what was *sent*, not as the logical rect it
   // was derived from, because the rounding in _updateVideoRect is what decides
@@ -56,6 +56,7 @@ class _VideoState extends State<Video> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _hasFirstFrame = widget.hasFirstFrame?.value ?? false;
     widget.hasFirstFrame?.addListener(_syncExternalFirstFrame);
     _listenForPlaybackRestart();
@@ -83,9 +84,23 @@ class _VideoState extends State<Video> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     widget.hasFirstFrame?.removeListener(_syncExternalFirstFrame);
     _playbackRestartSubscription?.cancel();
     super.dispose();
+  }
+
+  /// The LayoutBuilder below only reports when the video's size changes. A
+  /// window resize can move the video without resizing it - the Old School
+  /// corner window keeps its size while a sideways drag slides it along the
+  /// right edge - and the native surface stayed put, showing in the wrong
+  /// place (Windows, 2026-10-14). Check the rect again after the resized frame.
+  @override
+  void didChangeMetrics() {
+    if (widget.player is! VideoRectSupport) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateVideoRect(context);
+    });
   }
 
   /// Without an external notifier the first playback-restart reveals the
@@ -135,7 +150,7 @@ class _VideoState extends State<Video> {
       return LayoutBuilder(
         builder: (context, constraints) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _updateVideoRect(context, constraints);
+            _updateVideoRect(context);
           });
           return const SizedBox.expand();
         },
@@ -144,7 +159,7 @@ class _VideoState extends State<Video> {
     return const SizedBox.expand();
   }
 
-  void _updateVideoRect(BuildContext context, BoxConstraints _) {
+  void _updateVideoRect(BuildContext context) {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
 

@@ -25,6 +25,13 @@ struct InnerWindowSubclassState;
 // over the video reach the parent Flutter view instead of mpv's thread.
 inline constexpr DWORD kVideoHostWindowStyle = WS_CHILD | WS_CLIPSIBLINGS | WS_DISABLED;
 
+// Window class of the window mpv renders into, registered on first use. It
+// erases to black: mpv resizes its own inner window a beat after the host
+// moves, and while it catches up the uncovered edge must read as letterbox,
+// not as the light-grey fill of the STATIC class it replaces (white strips
+// on every window resize, and in the Old School corner window).
+const wchar_t* VideoHostWindowClass();
+
 // Wrapper for libmpv that handles initialization, commands, properties,
 // and event dispatching.
 class MpvPlayer {

@@ -554,6 +554,34 @@ void MpvPlayer::DetachMpvInnerSubclass() {
   inner_subclass_.reset();
 }
 
+namespace {
+
+LRESULT CALLBACK VideoHostWindowProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam) {
+  // As the STATIC class answered: never a hit-test target of its own.
+  if (message == WM_NCHITTEST) {
+    return HTTRANSPARENT;
+  }
+  return ::DefWindowProcW(hwnd, message, wparam, lparam);
+}
+
+}  // namespace
+
+const wchar_t* VideoHostWindowClass() {
+  static const wchar_t* const name = []() {
+    constexpr const wchar_t* kName = L"PlezyVideoHost";
+    WNDCLASSEXW window_class = {};
+    window_class.cbSize = sizeof(window_class);
+    window_class.lpfnWndProc = VideoHostWindowProc;
+    window_class.hInstance = ::GetModuleHandle(nullptr);
+    window_class.hCursor = ::LoadCursor(nullptr, IDC_ARROW);
+    window_class.hbrBackground = static_cast<HBRUSH>(::GetStockObject(BLACK_BRUSH));
+    window_class.lpszClassName = kName;
+    ::RegisterClassExW(&window_class);
+    return kName;
+  }();
+  return name;
+}
+
 bool MpvPlayer::Initialize(HWND view) {
   if (mpv_) {
     return true;  // Already initialized.
@@ -582,7 +610,7 @@ bool MpvPlayer::Initialize(HWND view) {
     // view instead of to mpv's thread. mpv never consumes input here anyway
     // (input-vo-keyboard=no, and the forwarding subclass swallows the rest).
     hwnd_ = ::CreateWindowExW(
-        WS_EX_NOPARENTNOTIFY, L"STATIC", L"", kVideoHostWindowStyle, 0, 0, 100, 100, view, nullptr,
+        WS_EX_NOPARENTNOTIFY, VideoHostWindowClass(), L"", kVideoHostWindowStyle, 0, 0, 100, 100, view, nullptr,
         GetModuleHandle(nullptr), nullptr);
     if (!hwnd_) {
       mpv_destroy(mpv_);
