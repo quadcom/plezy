@@ -149,11 +149,11 @@ class Translations$auth$en {
 	/// en: 'Use Quick Connect'
 	String get useQuickConnect => 'Use Quick Connect';
 
-	/// en: 'Open Quick Connect in Jellyfin and enter this code.'
-	String get quickConnectInstructions => 'Open Quick Connect in Jellyfin and enter this code.';
+	/// en: 'Open Quick Connect in PlezyFin and enter this code.'
+	String get quickConnectInstructions => 'Open Quick Connect in PlezyFin and enter this code.';
 
-	/// en: 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.'
-	String get quickConnectScanInstructions => 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.';
+	/// en: 'Scan the QR code with a phone signed in to PlezyFin, or open Quick Connect in PlezyFin and enter this code.'
+	String get quickConnectScanInstructions => 'Scan the QR code with a phone signed in to PlezyFin, or open Quick Connect in PlezyFin and enter this code.';
 
 	/// en: 'Waiting for approval…'
 	String get quickConnectWaiting => 'Waiting for approval…';
@@ -1466,6 +1466,12 @@ class Translations$search$en {
 
 	/// en: 'Enter a title, actor, or keyword'
 	String get enterTitleActorOrKeyword => 'Enter a title, actor, or keyword';
+
+	/// en: 'Voice search'
+	String get voiceSearch => 'Voice search';
+
+	/// en: 'Say a title, actor, or keyword'
+	String get voicePrompt => 'Say a title, actor, or keyword';
 }
 
 // Path: hotkeys
@@ -2896,8 +2902,8 @@ class Translations$profiles$en {
 	/// en: 'Nothing to borrow yet.'
 	String get borrowEmpty => 'Nothing to borrow yet.';
 
-	/// en: 'Connect Plex, Jellyfin, or Emby to another profile first.'
-	String get borrowEmptySubtitle => 'Connect Plex, Jellyfin, or Emby to another profile first.';
+	/// en: 'Connect Plex, PlezyFin, or Emby to another profile first.'
+	String get borrowEmptySubtitle => 'Connect Plex, PlezyFin, or Emby to another profile first.';
 
 	/// en: 'Available connections could not be loaded. Try again.'
 	String get borrowLoadFailed => 'Available connections could not be loaded. Try again.';
@@ -2962,11 +2968,11 @@ class Translations$connections$en {
 	/// en: 'Add connection'
 	String get addConnection => 'Add connection';
 
-	/// en: 'Sign in with Plex or connect a Jellyfin or Emby server'
-	String get addConnectionSubtitleNoProfile => 'Sign in with Plex or connect a Jellyfin or Emby server';
+	/// en: 'Sign in with Plex or connect a PlezyFin or Emby server'
+	String get addConnectionSubtitleNoProfile => 'Sign in with Plex or connect a PlezyFin or Emby server';
 
-	/// en: 'Add to ${displayName}: Plex, Jellyfin, Emby, or another profile connection'
-	String addConnectionSubtitleScoped({required Object displayName}) => 'Add to ${displayName}: Plex, Jellyfin, Emby, or another profile connection';
+	/// en: 'Add to ${displayName}: Plex, PlezyFin, Emby, or another profile connection'
+	String addConnectionSubtitleScoped({required Object displayName}) => 'Add to ${displayName}: Plex, PlezyFin, Emby, or another profile connection';
 
 	/// en: 'Session expired for ${name}'
 	String sessionExpiredOne({required Object name}) => 'Session expired for ${name}';
@@ -3010,8 +3016,8 @@ class Translations$accountPreferences$en {
 	/// en: 'No accounts to configure'
 	String get noAccounts => 'No accounts to configure';
 
-	/// en: 'Sign in to Plex, or connect a Jellyfin or Emby server, and the preferences stored on that account show up here.'
-	String get noAccountsHint => 'Sign in to Plex, or connect a Jellyfin or Emby server, and the preferences stored on that account show up here.';
+	/// en: 'Sign in to Plex, or connect a PlezyFin or Emby server, and the preferences stored on that account show up here.'
+	String get noAccountsHint => 'Sign in to Plex, or connect a PlezyFin or Emby server, and the preferences stored on that account show up here.';
 
 	/// en: 'Can't reach this account'
 	String get unavailable => 'Can\'t reach this account';
@@ -7654,8 +7660,8 @@ extension on Translations {
 			'auth.connectToMediaBrowser' => ({required Object product}) => 'Connect to ${product}',
 			'auth.quickConnect' => 'Quick Connect',
 			'auth.useQuickConnect' => 'Use Quick Connect',
-			'auth.quickConnectInstructions' => 'Open Quick Connect in Jellyfin and enter this code.',
-			'auth.quickConnectScanInstructions' => 'Scan the QR code with a phone signed in to Jellyfin, or open Quick Connect in Jellyfin and enter this code.',
+			'auth.quickConnectInstructions' => 'Open Quick Connect in PlezyFin and enter this code.',
+			'auth.quickConnectScanInstructions' => 'Scan the QR code with a phone signed in to PlezyFin, or open Quick Connect in PlezyFin and enter this code.',
 			'auth.quickConnectWaiting' => 'Waiting for approval…',
 			'auth.quickConnectCancel' => 'Cancel',
 			'auth.quickConnectExpired' => 'Quick Connect expired. Try again.',
@@ -8100,6 +8106,8 @@ extension on Translations {
 			'search.tryDifferentTerm' => 'Try a different search term',
 			'search.searchYourMedia' => 'Search your media',
 			'search.enterTitleActorOrKeyword' => 'Enter a title, actor, or keyword',
+			'search.voiceSearch' => 'Voice search',
+			'search.voicePrompt' => 'Say a title, actor, or keyword',
 			'hotkeys.setShortcutFor' => ({required Object actionName}) => 'Set Shortcut for ${actionName}',
 			'hotkeys.clearShortcut' => 'Clear shortcut',
 			'hotkeys.noShortcutSet' => 'No shortcut set',
@@ -8152,10 +8160,10 @@ extension on Translations {
 			'fileInfo.resolution' => 'Resolution',
 			'fileInfo.codedResolution' => 'Coded Resolution',
 			'fileInfo.bitrate' => 'Bitrate',
-			'fileInfo.frameRate' => 'Frame Rate',
-			'fileInfo.rotation' => 'Rotation',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.frameRate' => 'Frame Rate',
+			'fileInfo.rotation' => 'Rotation',
 			'fileInfo.comment' => 'Comment',
 			'fileInfo.audioDescription' => 'Audio Description',
 			'fileInfo.headerCompression' => 'Header Compression',
@@ -8567,7 +8575,7 @@ extension on Translations {
 			'profiles.borrowAddTo' => ({required Object displayName}) => 'Add to ${displayName}',
 			'profiles.borrowExplain' => 'Borrow another profile\'s connection. PIN-protected profiles require a PIN.',
 			'profiles.borrowEmpty' => 'Nothing to borrow yet.',
-			'profiles.borrowEmptySubtitle' => 'Connect Plex, Jellyfin, or Emby to another profile first.',
+			'profiles.borrowEmptySubtitle' => 'Connect Plex, PlezyFin, or Emby to another profile first.',
 			'profiles.borrowLoadFailed' => 'Available connections could not be loaded. Try again.',
 			'profiles.borrowFromProfile' => ({required Object displayName}) => 'From ${displayName}',
 			'profiles.borrowConnectionBorrowed' => 'Connection borrowed.',
@@ -8586,8 +8594,8 @@ extension on Translations {
 			'profiles.tokenIdentityMismatch' => 'The Plex profile token resolved to an unexpected server',
 			'connections.sectionTitle' => 'Connections',
 			'connections.addConnection' => 'Add connection',
-			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a Jellyfin or Emby server',
-			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, Jellyfin, Emby, or another profile connection',
+			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a PlezyFin or Emby server',
+			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, PlezyFin, Emby, or another profile connection',
 			'connections.sessionExpiredOne' => ({required Object name}) => 'Session expired for ${name}',
 			'connections.sessionExpiredMany' => ({required Object count}) => 'Session expired for ${count} servers',
 			'connections.signInAgain' => 'Sign in again',
@@ -8599,7 +8607,7 @@ extension on Translations {
 			'accountPreferences.pickAccount' => 'Every account stores its own preferences. Pick the one to edit.',
 			'accountPreferences.storedOnAccount' => 'These options are saved on the account itself, so every app signed in to it uses them — including Plezy on your other devices.',
 			'accountPreferences.noAccounts' => 'No accounts to configure',
-			'accountPreferences.noAccountsHint' => 'Sign in to Plex, or connect a Jellyfin or Emby server, and the preferences stored on that account show up here.',
+			'accountPreferences.noAccountsHint' => 'Sign in to Plex, or connect a PlezyFin or Emby server, and the preferences stored on that account show up here.',
 			'accountPreferences.unavailable' => 'Can\'t reach this account',
 			'accountPreferences.loadFailed' => 'Couldn\'t load these preferences',
 			'accountPreferences.noPreference' => 'No preference',
@@ -8666,10 +8674,10 @@ extension on Translations {
 			'discover.playTrailer' => 'Play trailer',
 			'discover.noTrailer' => 'No trailer for this one yet',
 			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
-			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
-			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			_ => null,
 		} ?? switch (path) {
+			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
+			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
 			'discover.mostPlayedIn' => ({required Object library}) => 'Most Played in ${library}',
 			'discover.playEpisode' => ({required Object season, required Object episode}) => 'S${season}E${episode}',
@@ -9180,10 +9188,10 @@ extension on Translations {
 			'music.repeat' => 'Repeat',
 			'music.repeatAll' => 'Repeat all',
 			'music.repeatOne' => 'Repeat one',
-			'music.instantMixNoServer' => 'No server is available for an instant mix',
-			'music.instantMixFailed' => 'Failed to load the instant mix',
 			_ => null,
 		} ?? switch (path) {
+			'music.instantMixNoServer' => 'No server is available for an instant mix',
+			'music.instantMixFailed' => 'Failed to load the instant mix',
 			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
 			'music.noAudioUrl' => ({required Object track}) => 'No audio URL is available for ${track}',
 			'music.discography.singlesAndEps' => 'Singles & EPs',
@@ -9694,10 +9702,10 @@ extension on Translations {
 			'seerr.statusProcessing' => 'Processing',
 			'seerr.statusBlocklisted' => 'Blocklisted',
 			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
-			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',
-			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',
+			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
 			'seerr.invalidUrl' => 'Enter a server address like https://seerr.example.com',
 			'seerr.quickConnectUnsupported' => 'This Seerr instance does not support Quick Connect. It needs Seerr 3.4 or newer.',
 			'seerr.notInitialized' => 'This Seerr instance has not completed first-run setup',

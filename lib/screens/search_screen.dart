@@ -19,6 +19,7 @@ import '../providers/libraries_provider.dart';
 import '../providers/multi_server_provider.dart';
 import '../services/data_aggregation_service.dart';
 import '../services/settings_service.dart';
+import '../services/voice_search_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/platform_detector.dart';
 import '../utils/snackbar_helper.dart';
@@ -75,11 +76,37 @@ class _SearchScreenState extends State<SearchScreen>
   HiddenLibrariesProvider? _hiddenLibraries;
   Set<String> _lastSeenHiddenKeys = const {};
 
+  /// A voice input app answers on this device, so the field shows a mic.
+  bool _voiceSearchAvailable = false;
+  bool _voiceSearchActive = false;
+
   @override
   void initState() {
     super.initState();
     FocusUtils.requestFocusAfterBuild(this, searchFocusNode);
     unawaited(_bindHiddenLibraries());
+    unawaited(_checkVoiceSearch());
+  }
+
+  Future<void> _checkVoiceSearch() async {
+    final available = await VoiceSearchService.isAvailable();
+    if (!mounted || !available) return;
+    setState(() => _voiceSearchAvailable = true);
+  }
+
+  /// Gboard's own voice typing is broken on some Google TV boxes; the system
+  /// voice screen is not. What was said runs as a submitted query.
+  Future<void> _startVoiceSearch() async {
+    if (_voiceSearchActive) return;
+    _voiceSearchActive = true;
+    try {
+      _tvTextInputController.closeTextInput();
+      final text = await VoiceSearchService.listen(prompt: t.search.voicePrompt);
+      if (!mounted || text == null) return;
+      submitSearchQuery(text);
+    } finally {
+      _voiceSearchActive = false;
+    }
   }
 
   @override
@@ -523,6 +550,8 @@ class _SearchScreenState extends State<SearchScreen>
                       ? (_showKindChips ? _focusKindChips : firstResultFocusNode.requestFocus)
                       : null,
                   onEditingComplete: PlatformDetector.isTV() ? handleSearchSubmit : null,
+                  onVoiceSearch: _voiceSearchAvailable ? _startVoiceSearch : null,
+                  voiceSearchTooltip: t.search.voiceSearch,
                   onBack: () {
                     if (searchController.text.isNotEmpty) {
                       searchController.clear();

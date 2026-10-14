@@ -124,6 +124,7 @@ class MainActivity : FlutterActivity() {
   private val externalPlayerChannel = ExternalPlayerChannel(this)
   private val userCertificateChannel = UserCertificateChannel()
   private val appUpdateChannel = AppUpdateChannel(this)
+  private val voiceSearchChannel = VoiceSearchChannel(this)
   private val exitDiagnosticsRequested = AtomicBoolean(false)
 
   private inline fun logTextInputDiag(message: () -> String) {
@@ -596,13 +597,16 @@ class MainActivity : FlutterActivity() {
   }
 
   override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-    if (!externalPlayerChannel.onActivityResult(requestCode, resultCode, data)) {
+    if (!externalPlayerChannel.onActivityResult(requestCode, resultCode, data) &&
+      !voiceSearchChannel.onActivityResult(requestCode, resultCode, data)
+    ) {
       super.onActivityResult(requestCode, resultCode, data)
     }
   }
 
   override fun onDestroy() {
     externalPlayerChannel.dispose()
+    voiceSearchChannel.dispose()
     systemBarsInsetsHost?.setOnApplyWindowInsetsListener(null)
     systemBarsInsetsHost = null
     cancelPendingSystemBarsHide()
@@ -933,6 +937,7 @@ class MainActivity : FlutterActivity() {
     externalPlayerChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
     userCertificateChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
     appUpdateChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
+    voiceSearchChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
 
     // Splash screen theme: persist user's chosen theme for next launch (API 31+)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, THEME_CHANNEL).setMethodCallHandler { call, result ->

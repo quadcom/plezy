@@ -473,7 +473,9 @@
     "hint": "Search movies, shows, music...",
     "tryDifferentTerm": "Try a different search term",
     "searchYourMedia": "Search your media",
-    "enterTitleActorOrKeyword": "Enter a title, actor, or keyword"
+    "enterTitleActorOrKeyword": "Enter a title, actor, or keyword",
+    "voiceSearch": "Voice search",
+    "voicePrompt": "Say a title, actor, or keyword"
   },
   "hotkeys": {
     "setShortcutFor": "Set Shortcut for ${actionName}",

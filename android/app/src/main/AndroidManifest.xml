@@ -133,6 +133,10 @@
             <action android:name="android.intent.action.VIEW" />
             <data android:mimeType="video/*" />
         </intent>
+        <!-- Required to find the voice input app for voice search on Android 11+ -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
         <!-- Required to identify HOME launchers as shelf artwork consumers. -->
         <intent>
             <action android:name="android.intent.action.MAIN" />
