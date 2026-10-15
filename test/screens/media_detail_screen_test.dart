@@ -2332,9 +2332,12 @@ void main() {
 
     testWidgets('season trailers get a row of their own, out of Extras (PLAN_PMB_56)', (tester) async {
       final show = buildShow();
-      final season1 = buildSeason(show, 1);
-      final season2 = buildSeason(show, 2);
-      final season3 = buildSeason(show, 3);
+      // Seasons in a row normally show the show's poster; these keep their own.
+      MediaItem withPosters(MediaItem season) =>
+          season.copyWith(thumbPath: '/poster/${season.id}', grandparentThumbPath: '/poster/show');
+      final season1 = withPosters(buildSeason(show, 1));
+      final season2 = withPosters(buildSeason(show, 2));
+      final season3 = withPosters(buildSeason(show, 3));
       MediaItem clip(String id, String title, String type) => testMediaItem(
         id: id,
         backend: MediaBackend.jellyfin,
@@ -2371,6 +2374,11 @@ void main() {
       expect(find.descendant(of: row, matching: find.text('Season 2')), findsOneWidget);
       // Season 3 has no trailer of its own and none named for it.
       expect(find.descendant(of: row, matching: find.text('Season 3')), findsNothing);
+      final posters = [
+        for (final card in tester.widgetList<MediaCard>(find.descendant(of: row, matching: find.byType(MediaCard))))
+          (card.item as MediaItem).posterThumb(),
+      ];
+      expect(posters, ['/poster/season_1', '/poster/season_2']);
       // Extras keeps only what the row doesn't show.
       expect(find.text('Making of'), findsOneWidget);
       expect(find.text('The Show S01'), findsNothing);

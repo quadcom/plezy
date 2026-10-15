@@ -2314,7 +2314,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   /// The row's cards are the seasons themselves (poster, season name, as on
   /// the web fork), without their unwatched badges; selecting one plays its
-  /// trailer.
+  /// trailer. Each shows its own season's poster: a season in a row otherwise
+  /// shows the show's (Adrian, 2026-10-15).
   MediaHub? get _seasonTrailersHub {
     final entries = _trailerRows.seasonTrailers;
     if (entries.isEmpty) return null;
@@ -2322,7 +2323,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       id: _seasonTrailersHubId,
       title: t.seasonPage.seasonTrailers,
       type: 'season',
-      items: [for (final entry in entries) entry.season.copyWith(leafCount: null, viewedLeafCount: null)],
+      items: [
+        for (final entry in entries)
+          entry.season.copyWith(leafCount: null, viewedLeafCount: null, grandparentThumbPath: null),
+      ],
       size: entries.length,
     );
   }
