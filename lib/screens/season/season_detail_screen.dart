@@ -135,11 +135,11 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     libraryTitle: item.libraryTitle ?? widget.metadata.libraryTitle,
   );
 
-  Future<List<MediaItem>> _fetchExtras(MediaServerClient client, String showId) async {
+  Future<List<MediaItem>> _fetchExtras(MediaServerClient client, String itemId) async {
     try {
-      return await client.fetchExtras(showId);
+      return await client.fetchExtras(itemId);
     } catch (e) {
-      appLogger.d('Season page: extras for $showId failed to load', error: e);
+      appLogger.d('Season page: extras for $itemId failed to load', error: e);
       return const [];
     }
   }
@@ -219,6 +219,10 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         }
       }
 
+      // The season's own trailer comes from its extras (PLAN_PMB_56); fetched
+      // alongside the episodes.
+      final seasonExtrasFuture = season == null ? null : _fetchExtras(client, season.id);
+
       // On a reload, fetch as many episodes as were showing, so the
       // selection stays put in a long season.
       final want = _firstLoad ? 0 : _episodes.length;
@@ -236,11 +240,17 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         total = page.totalCount;
         pages++;
       }
+      final seasonExtras = await seasonExtrasFuture;
       if (!mounted) return;
 
+      // A season page plays that season's trailer only, never another
+      // season's (Adrian, 2026-10-15); the whole-show page keeps the show's.
       final trailer = show == null
           ? null
-          : pickTrailer(show, extras)?.copyWith(serverId: show.serverId, serverName: show.serverName);
+          : (seasonExtras == null
+                    ? pickShowTrailer(show, extras)
+                    : pickSeasonTrailer(seasonNumber: season?.index, seasonExtras: seasonExtras, showExtras: extras))
+                ?.copyWith(serverId: show.serverId, serverName: show.serverName);
       setState(() {
         _show = show;
         _season = season;

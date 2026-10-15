@@ -2385,6 +2385,7 @@
     "resumeEpisode": "Resume: Episode ${number} – ${title}",
     "startOver": "Start over",
     "watchTrailer": "Watch trailer",
+    "seasonTrailers": "Season trailers",
     "episodeHeading": "Episode ${number}: ${title}",
     "spoilerHidden": "The description shows once you've watched it.",
     "loadFailed": "Could not load this season."

@@ -945,7 +945,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     try {
       final seasons = await _http.get(
         '/Shows/${_segment(parentId)}/Seasons',
-        queryParameters: {'userId': connection.userId, 'Fields': _browseFields, ...jellyfinImageQueryParameters},
+        queryParameters: {'userId': connection.userId, 'Fields': _seasonFields, ...jellyfinImageQueryParameters},
       );
       if (seasons.statusCode == 200) {
         final data = seasons.data;
@@ -1032,7 +1032,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
           'StartIndex': offset.toString(),
           'Limit': pageSize.toString(),
           'EnableTotalRecordCount': 'true',
-          'Fields': _browseFields,
+          'Fields': _seasonFields,
           ...jellyfinImageQueryParameters,
         },
         abort: abort,
@@ -1895,6 +1895,10 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     }, retry: _homeHubRetry);
     return [for (final row in rows) ?_mapItem(row)];
   }
+
+  /// Seasons also carry LocalTrailerCount, so the show page asks only the
+  /// seasons that hold a trailer for it (PLAN_PMB_56).
+  String get _seasonFields => '$_browseFields,LocalTrailerCount';
 
   /// A New Shows series' trailer: its one Season 0 special (PlexMediaBridge
   /// files it as S00E00). Null when the series has none.

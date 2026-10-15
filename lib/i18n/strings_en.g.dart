@@ -5902,6 +5902,9 @@ class Translations$seasonPage$en {
 	/// en: 'Watch trailer'
 	String get watchTrailer => 'Watch trailer';
 
+	/// en: 'Season trailers'
+	String get seasonTrailers => 'Season trailers';
+
 	/// en: 'Episode ${number}: ${title}'
 	String episodeHeading({required Object number, required Object title}) => 'Episode ${number}: ${title}';
 
@@ -9865,6 +9868,7 @@ extension on Translations {
 			'seasonPage.resumeEpisode' => ({required Object number, required Object title}) => 'Resume: Episode ${number} – ${title}',
 			'seasonPage.startOver' => 'Start over',
 			'seasonPage.watchTrailer' => 'Watch trailer',
+			'seasonPage.seasonTrailers' => 'Season trailers',
 			'seasonPage.episodeHeading' => ({required Object number, required Object title}) => 'Episode ${number}: ${title}',
 			'seasonPage.spoilerHidden' => 'The description shows once you\'ve watched it.',
 			'seasonPage.loadFailed' => 'Could not load this season.',

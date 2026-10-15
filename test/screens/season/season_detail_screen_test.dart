@@ -54,11 +54,12 @@ PlexMediaItem _episode(int season, int n, {int? viewCount}) => PlexMediaItem(
 );
 
 class _ShowClient implements MediaServerClient {
-  _ShowClient({required this.seasons, required this.episodes, this.onDeck});
+  _ShowClient({required this.seasons, required this.episodes, this.onDeck, this.extras = const {}});
 
   final List<MediaItem> seasons;
   final Map<String, List<MediaItem>> episodes;
   final MediaItem? onDeck;
+  final Map<String, List<MediaItem>> extras;
 
   @override
   final ServerId serverId = ServerId(_serverId);
@@ -100,7 +101,7 @@ class _ShowClient implements MediaServerClient {
   }
 
   @override
-  Future<List<MediaItem>> fetchExtras(String id) async => const [];
+  Future<List<MediaItem>> fetchExtras(String id) async => extras[id] ?? const [];
 
   @override
   void close() {}
@@ -118,12 +119,17 @@ void main() {
     's2': [_episode(2, 1, viewCount: 1), _episode(2, 2), _episode(2, 3)],
   };
 
-  Future<void> pump(WidgetTester tester, Widget home, {MediaItem? onDeck}) async {
+  Future<void> pump(
+    WidgetTester tester,
+    Widget home, {
+    MediaItem? onDeck,
+    Map<String, List<MediaItem>> extras = const {},
+  }) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final servers = testMultiServer(
-      clients: [_ShowClient(seasons: seasons, episodes: episodes, onDeck: onDeck)],
+      clients: [_ShowClient(seasons: seasons, episodes: episodes, onDeck: onDeck, extras: extras)],
     );
     await tester.pumpWidget(
       ChangeNotifierProvider<MultiServerProvider>.value(
@@ -196,6 +202,45 @@ void main() {
 
     expect(find.byType(SeasonDetailScreen), findsOneWidget);
     expect(find.text('Season 1'), findsOneWidget);
+  });
+
+  group('season trailers (PLAN_PMB_56)', () {
+    PlexMediaItem trailer(String id, String title) =>
+        PlexMediaItem(id: id, kind: MediaKind.clip, subtype: 'trailer', title: title, serverId: _serverId);
+
+    testWidgets("a season with its own trailer offers it", (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+        extras: {
+          's2': [trailer('own2', 'The Expanse S02')],
+        },
+      );
+      expect(find.text('Watch trailer'), findsOneWidget);
+    });
+
+    testWidgets("a season without one uses the show's trailer named for it", (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1'),
+        extras: {
+          'show': [trailer('t1', 'The Expanse S01'), trailer('t2', 'The Expanse S02')],
+        },
+      );
+      expect(find.text('Watch trailer'), findsOneWidget);
+    });
+
+    testWidgets("a season never plays another season's trailer", (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1'),
+        extras: {
+          'show': [trailer('t2', 'The Expanse S02')],
+          's2': [trailer('own2', 'The Expanse S02')],
+        },
+      );
+      expect(find.text('Watch trailer'), findsNothing);
+    });
   });
 
   testWidgets('season posters are labelled with the season, not the show', (tester) async {

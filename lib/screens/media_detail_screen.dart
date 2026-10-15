@@ -43,6 +43,7 @@ import '../media/media_kind.dart';
 import '../media/media_source_info.dart';
 import '../media/media_role.dart';
 import '../media/paged_media_list_state.dart';
+import '../media/media_trailer.dart';
 import '../widgets/media_card.dart';
 import '../widgets/media_rating_badge.dart';
 import '../widgets/fitted_metadata_line.dart';
@@ -140,6 +141,8 @@ const String _tvDetailSeasonHubIdPrefix = 'detail_season_';
 // start with [_tvDetailSeasonHubIdPrefix].
 const String _tvDetailSeasonsRowHubId = 'detail_seasons_row';
 const String _tvDetailExtrasHubId = 'detail_extras';
+// Fork: one trailer per season (PLAN_PMB_56), right after the seasons.
+const String _seasonTrailersHubId = 'detail_season_trailers';
 const String _tvDetailActorsHubId = 'detail_actors';
 const String _tvDetailActorPersonIdRawKey = 'tvDetailActorPersonId';
 
@@ -379,6 +382,16 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   bool get _canUseDetail => mounted && !_isDeleted;
   List<MediaItem>? _extras;
+
+  /// Fork: each season's own extras by season id, for the Season trailers
+  /// row (PLAN_PMB_56). Seasons not asked fall back to the show's trailers.
+  Map<String, List<MediaItem>> _seasonExtras = const {};
+  final _seasonTrailersKey = GlobalKey<HubSectionState>();
+  ({List<MediaItem> seasons, List<MediaItem>? extras, Map<String, List<MediaItem>> seasonExtras})? _trailerRowsInputs;
+  ({List<({MediaItem season, MediaItem trailer})> seasonTrailers, List<MediaItem> extras}) _trailerRowsCache = (
+    seasonTrailers: const [],
+    extras: const [],
+  );
   List<MediaHub> _relatedHubs = [];
   List<GlobalKey<HubSectionState>> _relatedHubKeys = [];
   bool _hasLoadedExtras = false;
@@ -1804,6 +1817,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
         _showEpisodesDirectly = shouldShowEpisodesDirectly;
         _selectedSeasonIndex = onDeckSeasonIndex;
       });
+      if (!shouldShowEpisodesDirectly) unawaited(_loadSeasonExtras(seasonsWithServerId));
 
       if (shouldShowEpisodesDirectly) {
         await _fetchAllEpisodes();
@@ -2220,6 +2234,118 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     );
   }
 
+  /// Fork: each season's own extras, for its trailer (PLAN_PMB_56). One
+  /// request per season, once per load; Jellyfin seasons that report no
+  /// local trailer are skipped (Adrian, 2026-10-14: don't hammer the server).
+  Future<void> _loadSeasonExtras(List<MediaItem> seasons) async {
+    if (widget.isOffline || !_canUseDetail) return;
+    final client = getServerBoundMediaClient(context);
+    if (client == null) return;
+    final wanted = [
+      for (final season in seasons)
+        if ((season.index ?? 0) > 0 && season.raw?['LocalTrailerCount'] != 0) season,
+    ];
+    if (wanted.isEmpty) return;
+    Future<List<MediaItem>> fetch(MediaItem season) async {
+      try {
+        return await client.fetchExtras(season.id);
+      } catch (e) {
+        appLogger.d('Show page: extras for season ${season.id} failed to load', error: e);
+        return const [];
+      }
+    }
+
+    final results = await Future.wait([for (final season in wanted) fetch(season)]);
+    if (!_canUseDetail) return;
+    setStateIfMounted(() => _seasonExtras = {for (var i = 0; i < wanted.length; i++) wanted[i].id: results[i]});
+  }
+
+  /// Fork: the Season trailers row and what is left for Extras. One trailer
+  /// per season, Season 1 first and Season 0 skipped; Extras drops the
+  /// trailers the row already shows (Adrian, 2026-10-15). Cached until the
+  /// seasons or extras change, so row focus keeps its place.
+  ({List<({MediaItem season, MediaItem trailer})> seasonTrailers, List<MediaItem> extras}) get _trailerRows {
+    final inputs = _trailerRowsInputs;
+    if (inputs != null &&
+        identical(inputs.seasons, _seasons) &&
+        identical(inputs.extras, _extras) &&
+        identical(inputs.seasonExtras, _seasonExtras)) {
+      return _trailerRowsCache;
+    }
+    _trailerRowsInputs = (seasons: _seasons, extras: _extras, seasonExtras: _seasonExtras);
+    final showExtras = _extras ?? const <MediaItem>[];
+    final metadata = _metadata;
+    final seasonTrailers = <({MediaItem season, MediaItem trailer})>[];
+    if (!widget.isOffline && metadata.isShow && !_showEpisodesDirectly) {
+      for (final season in _seasons) {
+        if ((season.index ?? 0) <= 0) continue;
+        final trailer = pickSeasonTrailer(
+          seasonNumber: season.index,
+          seasonExtras: _seasonExtras[season.id] ?? const [],
+          showExtras: showExtras,
+        );
+        if (trailer == null) continue;
+        seasonTrailers.add((
+          season: season,
+          trailer: trailer.copyWith(
+            serverId: metadata.serverId ?? trailer.serverId,
+            serverName: metadata.serverName ?? trailer.serverName,
+          ),
+        ));
+      }
+    }
+    final shown = {for (final entry in seasonTrailers) entry.trailer.id};
+    final shownSeasons = {for (final entry in seasonTrailers) entry.season.index};
+    return _trailerRowsCache = (
+      seasonTrailers: seasonTrailers,
+      extras: [
+        for (final extra in showExtras)
+          // The show's copy of a season's trailer is the same film as the
+          // season's own file, so it goes too.
+          if (!shown.contains(extra.id) &&
+              !(isTrailerExtra(extra) && shownSeasons.contains(trailerSeasonNumber(extra))))
+            extra,
+      ],
+    );
+  }
+
+  List<MediaItem> get _extrasRow => _trailerRows.extras;
+  bool get _hasSeasonTrailers => _trailerRows.seasonTrailers.isNotEmpty;
+
+  /// The row's cards are the seasons themselves (poster, season name, as on
+  /// the web fork), without their unwatched badges; selecting one plays its
+  /// trailer.
+  MediaHub? get _seasonTrailersHub {
+    final entries = _trailerRows.seasonTrailers;
+    if (entries.isEmpty) return null;
+    return MediaHub(
+      id: _seasonTrailersHubId,
+      title: t.seasonPage.seasonTrailers,
+      type: 'season',
+      items: [for (final entry in entries) entry.season.copyWith(leafCount: null, viewedLeafCount: null)],
+      size: entries.length,
+    );
+  }
+
+  void _playSeasonTrailer(MediaItem card) {
+    for (final entry in _trailerRows.seasonTrailers) {
+      if (entry.season.id != card.id) continue;
+      unawaited(navigateToVideoPlayer(context, metadata: entry.trailer, isLaunchCurrent: () => _canUseDetail));
+      return;
+    }
+  }
+
+  void _focusSeasonTrailers() => _seasonTrailersKey.currentState?.requestFocusFromMemory();
+
+  bool _handleSeasonTrailersNavigation(bool isUp) {
+    if (isUp) {
+      _focusAboveSeasonTrailers();
+    } else {
+      _focusBelowSeasonTrailers();
+    }
+    return true;
+  }
+
   /// Load related hubs (collections, similar, "more from" director/actor).
   /// Backend-neutral — both Plex and Jellyfin implement
   /// [MediaServerClient.fetchRelatedHubs].
@@ -2260,6 +2386,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (metadata.roles != null && metadata.roles!.isNotEmpty) {
       _castStripKey.currentState?.requestFocus();
       _scrollSectionIntoView(_castSectionKey);
+    } else if (_hasSeasonTrailers) {
+      _focusSeasonTrailers();
     } else {
       _focusSectionAboveCast();
     }
@@ -2280,7 +2408,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   void _focusSectionAboveInfoRows() {
     if (_relatedHubs.isNotEmpty) {
       _relatedHubKeys.last.currentState?.requestFocusFromMemory();
-    } else if (_extras != null && _extras!.isNotEmpty) {
+    } else if (_extrasRow.isNotEmpty) {
       _extrasFocusNode.requestFocus();
       _scrollSectionIntoView(_extrasSectionKey);
     } else {
@@ -2424,13 +2552,24 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (_canUseDetail) unawaited(_refreshWatchState());
   }
 
-  /// Fork: DOWN from the season posters: cast, extras, related hubs, info rows.
+  /// Fork: DOWN from the season posters: season trailers, cast, extras,
+  /// related hubs, info rows.
   void _focusBelowSeasonPosters() {
+    if (_hasSeasonTrailers) {
+      _focusSeasonTrailers();
+    } else {
+      _focusBelowSeasonTrailers();
+    }
+  }
+
+  /// Fork: DOWN from the Season trailers row: cast, extras, related hubs,
+  /// info rows.
+  void _focusBelowSeasonTrailers() {
     final metadata = _metadata;
     if (metadata.roles != null && metadata.roles!.isNotEmpty) {
       _castStripKey.currentState?.requestFocus();
       _scrollSectionIntoView(_castSectionKey);
-    } else if (_extras != null && _extras!.isNotEmpty) {
+    } else if (_extrasRow.isNotEmpty) {
       _extrasFocusNode.requestFocus();
       _scrollSectionIntoView(_extrasSectionKey);
     } else if (_relatedHubs.isNotEmpty) {
@@ -2457,13 +2596,18 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       return;
     }
 
+    if (_hasSeasonTrailers) {
+      _focusSeasonTrailers();
+      return;
+    }
+
     if (metadata.roles != null && metadata.roles!.isNotEmpty) {
       _castStripKey.currentState?.requestFocus();
       _scrollSectionIntoView(_castSectionKey);
       return;
     }
 
-    if (_extras != null && _extras!.isNotEmpty) {
+    if (_extrasRow.isNotEmpty) {
       _extrasFocusNode.requestFocus();
       _scrollSectionIntoView(_extrasSectionKey);
       return;
@@ -2659,8 +2803,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       return KeyEventResult.handled;
     }
 
-    final extras = _extras;
-    if (extras == null || extras.isEmpty) {
+    final extras = _extrasRow;
+    if (extras.isEmpty) {
       _extrasSelectLongPress.reset();
       return KeyEventResult.ignored;
     }
@@ -2700,7 +2844,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
     // RIGHT: next extra
     if (key.isRightKey) {
-      if (_focusedExtraIndex < _extras!.length - 1) {
+      if (_focusedExtraIndex < _extrasRow.length - 1) {
         _focusedExtraIndex++;
         _focusedExtraIndexNotifier.value = _focusedExtraIndex;
         scrollListToIndex(
@@ -2740,6 +2884,16 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   }
 
   void _focusSectionDirectlyAboveCast() {
+    if (_hasSeasonTrailers) {
+      _focusSeasonTrailers();
+    } else {
+      _focusAboveSeasonTrailers();
+    }
+  }
+
+  /// Fork: UP from the Season trailers row: the episodes or season tabs
+  /// above, as cast did before the row existed.
+  void _focusAboveSeasonTrailers() {
     if (_episodes.isNotEmpty) {
       final useLastEpisode = _episodes.length > 1;
       if (useLastEpisode) _suppressNextLastEpisodeFocusLoad = true;
@@ -2752,7 +2906,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   /// Focus the first visible section below cast.
   void _focusSectionBelowCast() {
-    if (_extras != null && _extras!.isNotEmpty) {
+    if (_extrasRow.isNotEmpty) {
       _extrasFocusNode.requestFocus();
       _scrollSectionIntoView(_extrasSectionKey);
     } else if (_relatedHubs.isNotEmpty) {
@@ -2768,7 +2922,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       hubIndex: hubIndex,
       isUp: isUp,
       onTopBoundary: () {
-        if (_extras != null && _extras!.isNotEmpty) {
+        if (_extrasRow.isNotEmpty) {
           _extrasFocusNode.requestFocus();
           _scrollSectionIntoView(_extrasSectionKey);
         } else {
@@ -3561,6 +3715,20 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                                 SizedBox(height: isTv ? 24 : 12),
                               ],
 
+                              // Fork: Season trailers (PLAN_PMB_56)
+                              if (_seasonTrailersHub case final seasonTrailersHub?) ...[
+                                HubSection(
+                                  key: _seasonTrailersKey,
+                                  hub: seasonTrailersHub,
+                                  focusMemory: _hubFocusMemory,
+                                  icon: Symbols.theaters_rounded,
+                                  inset: true,
+                                  onItemTap: _playSeasonTrailer,
+                                  onVerticalNavigation: _handleSeasonTrailersNavigation,
+                                ),
+                                SizedBox(height: isTv ? 28 : 8),
+                              ],
+
                               // Cast
                               if (metadata.roles != null && metadata.roles!.isNotEmpty) ...[
                                 Text(key: _castSectionKey, t.discover.cast, style: sectionTitleStyle),
@@ -3570,7 +3738,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                               ],
 
                               // Trailers & Extras Section
-                              if (!widget.isOffline && _extras != null && _extras!.isNotEmpty) ...[
+                              if (!widget.isOffline && _extrasRow.isNotEmpty) ...[
                                 Text(key: _extrasSectionKey, t.discover.extras, style: sectionTitleStyle),
                                 const SizedBox(height: 12),
                                 _buildExtrasSection(),
@@ -4343,20 +4511,21 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
         );
       }
     }
+    if (_seasonTrailersHub case final seasonTrailersHub?) hubs.add(seasonTrailersHub);
     final actors = _tvDetailActorItems(metadata);
     if (actors.isNotEmpty) {
       hubs.add(
         MediaHub(id: _tvDetailActorsHubId, title: t.discover.cast, type: 'person', items: actors, size: actors.length),
       );
     }
-    if (_extras != null && _extras!.isNotEmpty) {
+    if (_extrasRow.isNotEmpty) {
       hubs.add(
         MediaHub(
           id: _tvDetailExtrasHubId,
           title: t.discover.extras,
           type: 'clip',
-          items: _extras!,
-          size: _extras!.length,
+          items: _extrasRow,
+          size: _extrasRow.length,
         ),
       );
     }
@@ -4424,6 +4593,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
         onRefresh: () => unawaited(_refreshItemInPlace(item)),
         isLaunchCurrent: () => _canUseDetail,
       );
+      return true;
+    }
+    if (hub.id == _seasonTrailersHubId) {
+      _playSeasonTrailer(item);
       return true;
     }
     if (hub.id != _tvDetailActorsHubId) return false;
@@ -4583,7 +4756,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (hub.id == _tvDetailSeasonsErrorHubId) return Symbols.error_outline_rounded;
     if (hub.id.startsWith(_tvDetailSeasonHubIdPrefix)) return Symbols.tv_rounded;
     if (hub.id == 'detail_episodes' || hub.id == _tvDetailSeasonsRowHubId) return Symbols.tv_rounded;
-    if (hub.id == _tvDetailExtrasHubId) return Symbols.theaters_rounded;
+    if (hub.id == _tvDetailExtrasHubId || hub.id == _seasonTrailersHubId) return Symbols.theaters_rounded;
     if (hub.id == _tvDetailActorsHubId) return Symbols.group_rounded;
     return _getRelatedHubIcon(hub);
   }
@@ -4847,37 +5020,14 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   }
 
   /// Get the primary trailer from the extras list.
+  /// The detail page's trailer. For a show: the newest season's (PLAN_PMB_56).
   MediaItem? _getPrimaryTrailer() {
-    if (_extras == null || _extras!.isEmpty) return null;
-
-    // If there's a trailerKey (Plex `primaryExtraKey`), try to find that specific trailer
-    final metadata = _metadata;
-    if (metadata case PlexMediaItem(:final trailerKey?)) {
-      // Extract rating key from trailerKey (e.g., "/library/metadata/52601" -> "52601")
-      final primaryKey = trailerKey.split('/').last;
-      try {
-        return _extras!.firstWhere((extra) => extra.id == primaryKey);
-      } catch (_) {
-        // Primary key not found, fall through to find any trailer
-      }
-    }
-
-    try {
-      return _extras!.firstWhere(_isTrailerExtra);
-    } catch (_) {
-      // No trailer found, return null (button won't appear)
-      return null;
-    }
-  }
-
-  bool _isTrailerExtra(MediaItem extra) {
-    if (extra case PlexMediaItem(:final subtype?)) {
-      return subtype.toLowerCase() == 'trailer';
-    }
-    final raw = extra.raw;
-    final extraType = raw?['ExtraType'] as String?;
-    final type = raw?['Type'] as String?;
-    return extraType?.toLowerCase() == 'trailer' || type?.toLowerCase() == 'trailer';
+    final seasonTrailers = _trailerRows.seasonTrailers;
+    return pickShowTrailer(
+      _metadata,
+      _extras ?? const [],
+      newestSeasonTrailer: seasonTrailers.isEmpty ? null : seasonTrailers.last.trailer,
+    );
   }
 
   /// Build the cast section with locked focus pattern for D-pad navigation
@@ -4933,9 +5083,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                 scrollDirection: Axis.horizontal,
                 clipBehavior: Clip.none,
                 padding: const EdgeInsets.symmetric(vertical: 5),
-                itemCount: _extras!.length,
+                itemCount: _extrasRow.length,
                 itemBuilder: (context, index) {
-                  final extra = _extras![index];
+                  final extra = _extrasRow[index];
                   final isFocused = hasFocus && index == _focusedExtraIndex;
                   final cardKey = _extraCardKeys.putIfAbsent(index, () => GlobalKey<MediaCardState>());
 

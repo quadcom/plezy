@@ -51,6 +51,7 @@ import 'package:plezy/utils/video_player_navigation.dart';
 import 'package:plezy/widgets/collapsible_text.dart';
 import 'package:plezy/widgets/cycling_media_backdrop.dart';
 import 'package:plezy/widgets/episode_card.dart';
+import 'package:plezy/widgets/hub_section.dart';
 import 'package:plezy/widgets/fitted_metadata_line.dart';
 import 'package:plezy/widgets/fitting_title_text.dart';
 import 'package:plezy/widgets/tv_browse_rail.dart';
@@ -2329,6 +2330,53 @@ void main() {
       expect(FocusManager.instance.primaryFocus?.debugLabel, 'season_tab_1');
     });
 
+    testWidgets('season trailers get a row of their own, out of Extras (PLAN_PMB_56)', (tester) async {
+      final show = buildShow();
+      final season1 = buildSeason(show, 1);
+      final season2 = buildSeason(show, 2);
+      final season3 = buildSeason(show, 3);
+      MediaItem clip(String id, String title, String type) => testMediaItem(
+        id: id,
+        backend: MediaBackend.jellyfin,
+        kind: MediaKind.clip,
+        title: title,
+        serverId: show.serverId,
+        raw: {'Type': type, 'ExtraType': type},
+      );
+      final client = _FakeMediaServerClient(
+        show: show,
+        childrenByParent: {
+          show.id: [season1, season2, season3],
+          season1.id: [buildEpisode(show, season1, 1)],
+          season2.id: [buildEpisode(show, season2, 1)],
+          season3.id: [buildEpisode(show, season3, 1)],
+        },
+        extrasById: {
+          // Season 1 by name only, the show's copy of Season 2, a featurette.
+          show.id: [
+            clip('t1', 'The Show S01', 'Trailer'),
+            clip('copy2', 'The Show S02', 'Trailer'),
+            clip('f', 'Making of', 'Featurette'),
+          ],
+          season2.id: [clip('own2', 'The Show S02', 'Trailer')],
+        },
+      );
+
+      await pumpPhoneDetail(tester, client, show);
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('Season trailers'), findsOneWidget);
+      final row = find.ancestor(of: find.text('Season trailers'), matching: find.byType(HubSection));
+      expect(find.descendant(of: row, matching: find.text('Season 1')), findsOneWidget);
+      expect(find.descendant(of: row, matching: find.text('Season 2')), findsOneWidget);
+      // Season 3 has no trailer of its own and none named for it.
+      expect(find.descendant(of: row, matching: find.text('Season 3')), findsNothing);
+      // Extras keeps only what the row doesn't show.
+      expect(find.text('Making of'), findsOneWidget);
+      expect(find.text('The Show S01'), findsNothing);
+      expect(find.text('The Show S02'), findsNothing);
+    });
+
     testWidgets('phone detail focuses requested episode row', (tester) async {
       final show = buildShow();
       final season1 = buildSeason(show, 1);
@@ -3047,6 +3095,7 @@ class _FakeMediaServerClient implements MediaServerClient {
   final Future<List<MediaItem>>? pendingPlayableDescendants;
   final Map<String, MediaSourceInfo> mediaSourcesById;
   final Map<String, Map<String, dynamic>> rawItems;
+  final Map<String, List<MediaItem>> extrasById;
   Completer<void>? sourceGate;
   int itemReads = 0;
   int sourceReads = 0;
@@ -3076,7 +3125,11 @@ class _FakeMediaServerClient implements MediaServerClient {
     this.pendingPlayableDescendants,
     this.mediaSourcesById = const {},
     Map<String, Map<String, dynamic>>? rawItems,
+    this.extrasById = const {},
   }) : rawItems = rawItems ?? {};
+
+  @override
+  Future<List<MediaItem>> fetchExtras(String id) async => extrasById[id] ?? const [];
 
   @override
   ServerId get serverId => ServerId('server_1');
