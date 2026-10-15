@@ -13,13 +13,40 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     onChannelUp: () => unawaited(_oldSchoolChannelStep(1)),
     onChannelDown: () => unawaited(_oldSchoolChannelStep(-1)),
     onGuide: () => _oldSchoolSetFullScreen(false),
-    promoAction: () {
-      if (!_os.fullScreen) return null;
-      final promo = oldSchoolActivePromo(_osController);
-      if (promo?.promoItemId == null) return null;
-      return () => unawaited(_oldSchoolOpenPromo(promo!));
+    promoAction: (controlsVisible) {
+      if (!_os.fullScreen || _os.playingPreRoll) return null;
+      final promo = controlsVisible ? oldSchoolPromoTrailer(_osController) : oldSchoolActivePromo(_osController);
+      if (promo == null || !oldSchoolPromoOpens(promo)) return null;
+      return () => unawaited(_oldSchoolOpenPromo(promo));
+    },
+    promoTrailer: () {
+      if (!_os.fullScreen || _os.playingPreRoll) return null;
+      final promo = oldSchoolPromoTrailer(_osController);
+      return promo == null ? null : oldSchoolTrailerTitle(promo);
     },
   );
+
+  /// A film's own trailer starts or stops playing (PLAN_SHA_46): while it
+  /// plays, its "Up next" card is all that shows and the controls stay down.
+  void _oldSchoolSetPreRoll(bool on) {
+    _chromeController.setSuppressed(on);
+    if (_os.playingPreRoll != on) _setPlayerState(() => _os.playingPreRoll = on);
+  }
+
+  /// How much of the playing film trailer is left: from the player once the
+  /// trailer is the open file, else from the schedule.
+  Duration? _oldSchoolTrailerLeft() {
+    final tune = _os.slotTune;
+    if (tune == null) return null;
+    final entry = tune.now;
+    final currentPlayer = player;
+    if (currentPlayer != null && _currentMetadata.id == entry.preItemId) {
+      final duration = currentPlayer.state.duration;
+      if (duration > Duration.zero) return duration - currentPlayer.state.position;
+    }
+    if (_os.filmFromStart) return entry.preRollTime;
+    return entry.start.add(entry.preRollTime).difference(tune.serverNow(DateTime.now()));
+  }
 
   /// OK on a trailer's end banner: open its film, series or course page and
   /// leave live TV, as the exit button does (PLAN_SHA_43).
@@ -123,6 +150,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     if (currentPlayer == null) return;
     if (!entry.isPlayable) {
       // Off the air: hold on the last picture until the next entry starts.
+      _oldSchoolSetPreRoll(false);
       await currentPlayer.pause();
       final next = tune.next;
       final wait = next == null ? const Duration(minutes: 1) : next.start.difference(tune.serverNow(DateTime.now()));
@@ -157,13 +185,13 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         if (!mounted || generation != _os.tuneGeneration) return true;
         final currentPlayer = player;
         if (currentPlayer != null && !currentPlayer.state.playing) await currentPlayer.play();
-        _setPlayerState(() => _os.playingPreRoll = true);
+        _oldSchoolSetPreRoll(true);
         return true;
       }
       final item = await _osController.client.fetchItem(trailerId);
       if (!mounted || generation != _os.tuneGeneration) return true;
       if (item == null) return false;
-      _setPlayerState(() => _os.playingPreRoll = true);
+      _oldSchoolSetPreRoll(true);
       final outcome = await _reloadMediaInPlace(
         metadata: item,
         selectedMediaIndex: 0,
@@ -179,7 +207,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     } catch (e, st) {
       appLogger.w('Old School: pre-roll trailer would not play ($reason)', error: e, stackTrace: st);
     }
-    if (mounted) _setPlayerState(() => _os.playingPreRoll = false);
+    if (mounted) _oldSchoolSetPreRoll(false);
     return false;
   }
 
@@ -190,7 +218,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     final currentPlayer = player;
     if (currentPlayer == null) return;
     Duration position() => _os.filmFromStart ? Duration.zero : tune.offsetInto(entry, DateTime.now());
-    if (_os.playingPreRoll) _setPlayerState(() => _os.playingPreRoll = false);
+    _oldSchoolSetPreRoll(false);
     if (_currentMetadata.id == entry.itemId) {
       // Same file (Back to live, or the channel's next slot is the same
       // item): jump to the scheduled point. This is the one forward seek Old
@@ -318,7 +346,14 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         final full = _os.fullScreen;
         final controller = _osController;
         final channel = controller.tunedChannel;
+        // Always the whole page. The outer player stack hands this one loose
+        // constraints, and a loose Stack takes the size of its un-positioned
+        // children: an idle overlay that returned an empty box collapsed the
+        // page to 0x0 and clipped every control and overlay (Windows,
+        // 2026-10-14; the native video plane is placed by its own layout, so
+        // only the picture survived).
         return Stack(
+          fit: StackFit.expand,
           children: [
             if (!full)
               Positioned.fill(
@@ -345,25 +380,27 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
               rect: full ? Offset.zero & size : layout.windowRect,
               child: IgnorePointer(ignoring: !full, child: video),
             ),
-            if (full && channel != null) OldSchoolWatermark(controller: controller, channel: channel),
+            // During a film's own trailer its card's logo stands in for the
+            // watermark, and nothing else shows (PLAN_SHA_46/47).
+            if (full && channel != null && !_os.playingPreRoll)
+              OldSchoolWatermark(controller: controller, channel: channel),
             if (full && channel != null)
               ValueListenableBuilder<bool>(
                 valueListenable: _chromeController,
-                builder: (context, controlsVisible, _) => OldSchoolPromoBanner(
+                builder: (context, controlsVisible, _) => OldSchoolPromoCorner(
                   controller: controller,
                   controlsVisible: controlsVisible,
                   onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
                 ),
               ),
             if (full && channel != null)
-              ValueListenableBuilder<bool>(
-                valueListenable: _chromeController,
-                builder: (context, controlsVisible, _) => OldSchoolUpNext(
-                  channel: channel,
-                  film: _os.playingPreRoll && !controlsVisible ? _os.slotTune?.now : null,
-                ),
+              OldSchoolPreRollCard(
+                controller: controller,
+                channel: channel,
+                film: _os.playingPreRoll ? _os.slotTune?.now : null,
+                trailerLeft: _oldSchoolTrailerLeft,
               ),
-            if (full && channel != null && _os.cardVisible)
+            if (full && channel != null && _os.cardVisible && !_os.playingPreRoll)
               OldSchoolChannelCard(
                 controller: controller,
                 channel: channel,

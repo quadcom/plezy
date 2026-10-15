@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:logger/logger.dart';
 
+import 'dev_log_file.dart';
 import 'log_redaction_manager.dart';
 
 /// Represents a single log entry stored in memory
@@ -71,9 +72,15 @@ class MemoryAwareLogPrinter extends LogPrinter {
         ? StackTrace.fromString(LogRedactionManager.redact(event.stackTrace.toString()))
         : null;
 
-    MemoryLogOutput.add(
-      LogEntry(timestamp: DateTime.now(), level: event.level, message: message, error: error, stackTrace: stackTrace),
+    final entry = LogEntry(
+      timestamp: DateTime.now(),
+      level: event.level,
+      message: message,
+      error: error,
+      stackTrace: stackTrace,
     );
+    MemoryLogOutput.add(entry);
+    DevLogFile.add(entry);
 
     return _wrappedPrinter.log(LogEvent(event.level, message, time: event.time, error: error, stackTrace: stackTrace));
   }
@@ -124,5 +131,6 @@ Logger appLogger = Logger(printer: MemoryAwareLogPrinter(SimplePrinter()), filte
 /// [ProductionFilter] is the only gate: [Logger] asks its filter on every
 /// event, so changing the filter level is sufficient even in release mode.
 void setLoggerLevel(bool debugEnabled) {
-  _productionFilter.setLevel(debugEnabled ? Level.debug : Level.info);
+  // A test build writing its log to a file keeps every detail.
+  _productionFilter.setLevel(debugEnabled || DevLogFile.enabled ? Level.debug : Level.info);
 }

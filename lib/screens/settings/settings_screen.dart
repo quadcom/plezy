@@ -608,13 +608,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           subtitle: t.settings.watchTogetherRelayDescription,
           onTap: () => _showRelayUrlDialog(),
         ),
-        SettingSwitchTile(
-          focusNode: _focusTracker.get(_kCrashReporting),
-          pref: settings.SettingsService.crashReporting,
-          icon: Symbols.monitoring_rounded,
-          title: t.settings.crashReporting,
-          subtitle: t.settings.crashReportingDescription,
-        ),
+        if (settings.SettingsService.crashReportingAvailable)
+          SettingSwitchTile(
+            focusNode: _focusTracker.get(_kCrashReporting),
+            pref: settings.SettingsService.crashReporting,
+            icon: Symbols.monitoring_rounded,
+            title: t.settings.crashReporting,
+            subtitle: t.settings.crashReportingDescription,
+          ),
         SettingSwitchTile(
           focusNode: _focusTracker.get(_kDebugLogging),
           pref: settings.SettingsService.enableDebugLogging,

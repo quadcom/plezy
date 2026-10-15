@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../i18n/strings.g.dart';
+import '../../services/settings_service.dart';
 import '../../focus/input_mode_tracker.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/focusable_list_tile.dart';
@@ -58,7 +59,7 @@ List<SettingsSearchEntry> settingsSearchEntries() {
       s.videoPlayerNavigation,
       s.companionRemoteServer,
       s.watchTogetherRelay,
-      s.crashReporting,
+      if (SettingsService.crashReportingAvailable) s.crashReporting,
       s.debugLogging,
       s.autoHidePerformanceOverlay,
       s.viewLogs,

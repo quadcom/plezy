@@ -100,6 +100,7 @@ import 'services/base_shared_preferences_service.dart';
 import 'services/prefs_recovery.dart';
 import 'services/sensitive_prefs.dart';
 import 'services/startup_diagnostics.dart';
+import 'utils/dev_log_file.dart';
 import 'utils/dialogs.dart';
 import 'widgets/dialog_action_button.dart';
 import 'widgets/startup_failure_view.dart';
@@ -167,6 +168,9 @@ void _bootstrapApp() {
 
   // Off the critical path: the version label only decorates a diagnostic.
   unawaited(_primeDiagnosticsVersion());
+
+  // Test builds only: the log also goes to a file a developer can read.
+  unawaited(DevLogFile.start());
 
   AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.runApp);
   runApp(

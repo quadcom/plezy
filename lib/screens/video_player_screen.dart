@@ -59,6 +59,7 @@ import '../services/playback_initialization_service.dart';
 import '../services/playback_context.dart';
 import '../services/local_playback_history.dart';
 import '../services/playback_session.dart';
+import '../services/open_track_hint.dart';
 import '../services/playback_subtitle_resolver.dart';
 import '../services/mpv_sidecar_open_guard.dart';
 import '../services/playback_open_outcome.dart';
@@ -68,6 +69,7 @@ import '../services/multi_server_manager.dart';
 import '../services/offline_watch_sync_service.dart';
 import '../services/display_mode_service.dart';
 import '../services/media_control_router.dart';
+import '../services/read_ahead_ramp.dart';
 import '../services/scoped_player_prefs.dart';
 import '../services/settings_service.dart';
 import '../services/sleep_timer_service.dart';
@@ -781,6 +783,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   final List<StreamSubscription<dynamic>> _mediaControlSubscriptions = [];
   StreamSubscription<AppleTvRemotePlayPauseAction>? _appleTvPlayPauseSubscription;
   TrackManager? _trackManager;
+
+  /// Seconds-bounded read-ahead for network direct play (see [ReadAheadRamp]).
+  final ReadAheadRamp _readAheadRamp = ReadAheadRamp();
   StreamSubscription<void>? _sleepTimerSubscription;
   bool _isHandlingBack = false;
 
@@ -1272,6 +1277,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     if (widget.oldSchool case final oldSchool?) {
       _os.slotTune = oldSchool.tune;
       _os.playingPreRoll = oldSchool.startsInPreRoll;
+      // The film's own trailer shows its card alone (PLAN_SHA_47).
+      _chromeController.setSuppressed(oldSchool.startsInPreRoll);
     }
     PlaybackCoordinator.instance.registerVideoSession(shutdown: _shutdownVideo, stopAndExit: _stopVideoAndExit);
     SleepTimerService().bindPlayback(
@@ -2354,6 +2361,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     _retireLaunchObserver();
     _playerInitializationGeneration++;
     _frameRate.dispose();
+    _readAheadRamp.dispose();
     _os.dispose();
     widget.oldSchool?.controller.dispose();
     WidgetsBinding.instance.removeObserver(this);

@@ -854,6 +854,16 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       selectedVersion: selectedVersion,
     );
     if (!shouldContinue()) return const _MediaOpenResult(didOpen: false);
+    if (player is PlayerNative) {
+      await _readAheadRamp.armForOpen(
+        player,
+        enabled: !isLocalMedia && !widget.isLive && !isTranscoding,
+        userOwnsOption: SettingsService.parseMpvConfigText(
+          settingsService.read(SettingsService.mpvConfigText),
+        ).containsKey('cache-secs'),
+      );
+      if (!shouldContinue()) return const _MediaOpenResult(didOpen: false);
+    }
 
     final media = Media(videoUrl, start: timing.mediaStart, headers: headers);
     final sidecarOpenGuard = MpvSidecarOpenGuard.armIfNeeded(outcome: outcome, subtitles: externalSubtitlesAtOpen);
@@ -1078,6 +1088,22 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
         durationMs: metadata.durationMs,
       );
       if (!isCurrent()) return false;
+      if (currentPlayer is PlayerNative) {
+        // Open on the tracks about to be picked, so picking them is not a
+        // refresh seek and another range request (see OpenTrackHint).
+        final selectedAudio = TrackSelectionService(
+          profileSettings: getProfileSettings(),
+          metadata: metadata,
+          plexMediaInfo: result.mediaInfo,
+        ).selectAudioTrack(PlaybackSubtitleResolver.audioTracksForSource(result.mediaInfo), preferredAudioTrack)?.track;
+        final hint = OpenTrackHint.resolve(
+          mediaInfo: result.mediaInfo,
+          isTranscoding: result.isTranscoding,
+          subtitleSelection: openSubtitleSelection,
+          selectedAudio: selectedAudio,
+        );
+        currentPlayer.setOpenTrackHint(audioId: hint.audioId, subtitleId: hint.subtitleId);
+      }
       final openResult = await _openMediaOnPlayer(
         player: currentPlayer,
         settingsService: settingsService,

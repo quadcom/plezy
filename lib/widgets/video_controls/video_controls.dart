@@ -921,7 +921,8 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
       (Duration pos) {
         unawaited(_seekToTimelinePosition(pos));
       },
-      const Duration(milliseconds: 200),
+      // One live seek a second while dragging without previews; see _throttledSeek.
+      const Duration(seconds: 1),
       leading: true,
       trailing: true,
     );

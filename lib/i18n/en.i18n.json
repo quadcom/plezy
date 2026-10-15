@@ -2430,9 +2430,16 @@
     "promoArrives": "Arrives ${date}",
     "promoStarts": "Starts ${date}",
     "promoWatchNow": "Watch it now",
-    "promoWholeCourse": "Watch the whole course",
+    "promoWatchCourse": "Watch the course",
+    "promoSeeShow": "See the show",
     "promoWhere": "${library} › ${title}",
     "promoAlsoOn": "Also on ${number} ${name}, ${time}",
-    "promoOpenHint": "Press OK to open it"
+    "promoOpenHint": "Press OK to open it",
+    "trailer": "Trailer",
+    "trailerComingSoon": "coming soon",
+    "endsAt": "Ends at ${time}",
+    "startsIn": "Starts in ${time}",
+    "runHoursMinutes": "${hours} h ${minutes} min",
+    "runMinutes": "${minutes} min"
   }
 }

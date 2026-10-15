@@ -75,13 +75,21 @@ void main() {
     SettingsSearchEntry? result;
     await pumpSearch(tester, onResult: (entry) => result = entry);
 
-    await tester.enterText(find.byType(TextField), 'crash');
+    await tester.enterText(find.byType(TextField), 'debug log');
     await tester.pumpAndSettle();
-    await tester.tap(find.text(t.settings.crashReporting));
+    await tester.tap(find.text(t.settings.debugLogging));
     await tester.pumpAndSettle();
 
-    expect(result?.title, t.settings.crashReporting);
+    expect(result?.title, t.settings.debugLogging);
     expect(result?.screen, isNull);
+  });
+
+  testWidgets('crash reporting is not offered in a build that cannot report', (tester) async {
+    await pumpSearch(tester, onResult: (_) {});
+
+    await tester.enterText(find.byType(TextField), 'crash');
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.crashReporting), findsNothing);
   });
 
   testWidgets('a setting further down its page is scrolled to', (tester) async {

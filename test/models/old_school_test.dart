@@ -190,6 +190,45 @@ void main() {
       expect(entry.promoDate, DateTime(2026, 11, 13));
     });
 
+    test("the promo item's poster, running time, year and rating (PLAN_SHA_47)", () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'trailer',
+        'itemId': 't4',
+        'start': '2026-10-13T03:46:00Z',
+        'end': '2026-10-13T03:48:30Z',
+        'name': 'Real Steel',
+        'productionYear': 2010,
+        'officialRating': 'G',
+        'promo': 'have',
+        'promoItemId': 'm1',
+        'promoImageTag': 'tag9',
+        'promoRunTimeTicks': 76200000000,
+        'promoYear': 2011,
+        'promoOfficialRating': 'PG-13',
+      })!;
+      expect(entry.promoImageTag, 'tag9');
+      expect(entry.promoRunTime, const Duration(hours: 2, minutes: 7));
+      expect(entry.promoYear, 2011);
+      expect(entry.promoRating, 'PG-13');
+      // The entry's own belong to the trailer file.
+      expect(entry.year, 2010);
+      expect(entry.rating, 'G');
+    });
+
+    test('without them, the promo poster, running time, year and rating are null', () {
+      final entry = OldSchoolEntry.fromJson({
+        'kind': 'trailer',
+        'itemId': 't5',
+        'start': '2026-10-13T03:46:00Z',
+        'end': '2026-10-13T03:48:30Z',
+        'promo': 'coming',
+      })!;
+      expect(entry.promoImageTag, isNull);
+      expect(entry.promoRunTime, isNull);
+      expect(entry.promoYear, isNull);
+      expect(entry.promoRating, isNull);
+    });
+
     test('no promo, or one this build does not know, reads as none', () {
       final base = {'kind': 'trailer', 'itemId': 't3', 'start': '2026-10-13T03:46:00Z', 'end': '2026-10-13T03:48:30Z'};
       expect(OldSchoolEntry.fromJson(base)!.promo, isNull);

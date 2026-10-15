@@ -206,6 +206,18 @@ class OldSchoolEntry {
   final String? promoName;
   final OldSchoolPromoOnAir? promoOnAir;
 
+  /// The promo item's own poster tag (PLAN_SHA_47), for
+  /// `/Items/{promoItemId}/Images/Primary`; null when it has none. Not the
+  /// entry's ImageTags, which can be a frame grab from the trailer file.
+  final String? promoImageTag;
+
+  /// The promo item's running time, year and rating (PLAN_SHA_47
+  /// Amendment 5). The entry's own [runTime], [year] and [rating] belong to
+  /// the trailer file, not the film; null when the server doesn't send them.
+  final Duration? promoRunTime;
+  final int? promoYear;
+  final String? promoRating;
+
   /// A film's own trailer, played first inside the film's slot (PlezyFin
   /// PLAN_SHA_46): its item id and running time. The slot still covers
   /// trailer + film and stays one entry, the film's.
@@ -239,6 +251,10 @@ class OldSchoolEntry {
     this.promoItemType,
     this.promoName,
     this.promoOnAir,
+    this.promoImageTag,
+    this.promoRunTime,
+    this.promoYear,
+    this.promoRating,
     this.preItemId,
     this.preRunTime,
   });
@@ -359,6 +375,7 @@ class OldSchoolEntry {
     final imageMap = images is Map ? images.cast<String, dynamic>() : const <String, dynamic>{};
     final ticks = _int(map, 'RunTimeTicks');
     final preTicks = _int(map, 'PreRunTimeTicks');
+    final promoTicks = _int(map, 'PromoRunTimeTicks');
     final itemId = _string(map, 'ItemId');
     final imageItemId = _string(map, 'ImageItemId');
     final ownImageId = imageItemId ?? itemId;
@@ -390,6 +407,10 @@ class OldSchoolEntry {
       promoItemType: _string(map, 'PromoItemType'),
       promoName: _string(map, 'PromoName'),
       promoOnAir: OldSchoolPromoOnAir.fromJson(map['PromoOnAir'] ?? map['promoOnAir']),
+      promoImageTag: _string(map, 'PromoImageTag'),
+      promoRunTime: promoTicks == null ? null : Duration(microseconds: promoTicks ~/ 10),
+      promoYear: _int(map, 'PromoYear'),
+      promoRating: _string(map, 'PromoOfficialRating'),
       preItemId: _string(map, 'PreItemId'),
       preRunTime: preTicks == null ? null : Duration(microseconds: preTicks ~/ 10),
     );

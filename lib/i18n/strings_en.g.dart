@@ -6040,8 +6040,11 @@ class Translations$oldSchool$en {
 	/// en: 'Watch it now'
 	String get promoWatchNow => 'Watch it now';
 
-	/// en: 'Watch the whole course'
-	String get promoWholeCourse => 'Watch the whole course';
+	/// en: 'Watch the course'
+	String get promoWatchCourse => 'Watch the course';
+
+	/// en: 'See the show'
+	String get promoSeeShow => 'See the show';
 
 	/// en: '${library} › ${title}'
 	String promoWhere({required Object library, required Object title}) => '${library} › ${title}';
@@ -6051,6 +6054,24 @@ class Translations$oldSchool$en {
 
 	/// en: 'Press OK to open it'
 	String get promoOpenHint => 'Press OK to open it';
+
+	/// en: 'Trailer'
+	String get trailer => 'Trailer';
+
+	/// en: 'coming soon'
+	String get trailerComingSoon => 'coming soon';
+
+	/// en: 'Ends at ${time}'
+	String endsAt({required Object time}) => 'Ends at ${time}';
+
+	/// en: 'Starts in ${time}'
+	String startsIn({required Object time}) => 'Starts in ${time}';
+
+	/// en: '${hours} h ${minutes} min'
+	String runHoursMinutes({required Object hours, required Object minutes}) => '${hours} h ${minutes} min';
+
+	/// en: '${minutes} min'
+	String runMinutes({required Object minutes}) => '${minutes} min';
 }
 
 // Path: common.ratingSource
@@ -9887,10 +9908,17 @@ extension on Translations {
 			'oldSchool.promoArrives' => ({required Object date}) => 'Arrives ${date}',
 			'oldSchool.promoStarts' => ({required Object date}) => 'Starts ${date}',
 			'oldSchool.promoWatchNow' => 'Watch it now',
-			'oldSchool.promoWholeCourse' => 'Watch the whole course',
+			'oldSchool.promoWatchCourse' => 'Watch the course',
+			'oldSchool.promoSeeShow' => 'See the show',
 			'oldSchool.promoWhere' => ({required Object library, required Object title}) => '${library} › ${title}',
 			'oldSchool.promoAlsoOn' => ({required Object number, required Object name, required Object time}) => 'Also on ${number} ${name}, ${time}',
 			'oldSchool.promoOpenHint' => 'Press OK to open it',
+			'oldSchool.trailer' => 'Trailer',
+			'oldSchool.trailerComingSoon' => 'coming soon',
+			'oldSchool.endsAt' => ({required Object time}) => 'Ends at ${time}',
+			'oldSchool.startsIn' => ({required Object time}) => 'Starts in ${time}',
+			'oldSchool.runHoursMinutes' => ({required Object hours, required Object minutes}) => '${hours} h ${minutes} min',
+			'oldSchool.runMinutes' => ({required Object minutes}) => '${minutes} min',
 			_ => null,
 		};
 	}

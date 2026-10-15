@@ -231,8 +231,17 @@ extension _PlexVideoControlsPlaybackInputMethods on _PlexVideoControlsState {
     };
   }
 
-  /// Throttled seek for timeline slider - executes immediately then throttles to 200ms.
+  /// Live seek while the timeline is dragged.
+  ///
+  /// Every seek outside mpv's cache opens a new HTTP range request, and the
+  /// server (and Cloudflare, for viewers outside the home) fills each one with
+  /// tens of megabytes before the next seek abandons it: a 9 s drag at five
+  /// seeks a second cost one outside viewer ~600 MB of the home upload
+  /// (2026-10-11). So when scrub previews exist the drag only moves the
+  /// preview and [_finalizeSeek] seeks once on release; without previews the
+  /// picture still follows the drag, at most once a second ([_seekThrottle]).
   void _throttledSeek(Duration position) {
+    if (widget.thumbnailDataBuilder != null) return;
     _seekThrottle([position]);
   }
 

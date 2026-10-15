@@ -283,9 +283,9 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
     // mode and focus can never disagree: a remote OK starts a focus session, a
     // physical-keyboard Enter just shows the controls and toggles playback.
     if (key.isSelectKey && _focusNode.hasPrimaryFocus) {
-      // Old School: with the controls down, OK opens what a trailer's end
-      // banner points at (PLAN_SHA_43).
-      final promo = _showControls ? null : widget.oldSchool?.promoAction?.call();
+      // Old School: OK opens what a trailer points at, while its corner
+      // block shows (PLAN_SHA_43/47).
+      final promo = widget.oldSchool?.promoAction?.call(_showControls);
       if (promo != null) return handleOneShotSelect(event, promo);
       return handleOneShotSelect(
         event,

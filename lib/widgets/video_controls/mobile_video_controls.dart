@@ -322,6 +322,9 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
     // title, and track/chapter controls.
     final isPortraitPhone =
         PlatformDetector.isPhone(context) && MediaQuery.orientationOf(context) == Orientation.portrait;
+    // An Old School trailer for a film, show or course names that item; its
+    // corner block covers the clock's place (PLAN_SHA_47).
+    final trailerTitle = widget.oldSchool?.promoTrailer?.call();
     final topBar = _conditionalSafeArea(
       context: context,
       bottom: false, // Only respect top safe area when in portrait
@@ -334,7 +337,9 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
           onStartAutoHide: widget.onStartAutoHide,
           trailing: widget.trackChapterControls,
           onBack: widget.onBack,
-          showClock: !isPortraitPhone,
+          showClock: !isPortraitPhone && trailerTitle == null,
+          titleOverride: trailerTitle?.title,
+          subtitleOverride: trailerTitle?.line,
         ),
       ),
     );

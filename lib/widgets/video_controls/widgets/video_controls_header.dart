@@ -39,6 +39,11 @@ class VideoControlsHeader extends StatelessWidget {
   /// controls.
   final bool showClock;
 
+  /// Shown instead of the item's own title and second line (an Old School
+  /// trailer shows the film it is for).
+  final String? titleOverride;
+  final String? subtitleOverride;
+
   const VideoControlsHeader({
     super.key,
     required this.metadata,
@@ -48,6 +53,8 @@ class VideoControlsHeader extends StatelessWidget {
     this.onCancelAutoHide,
     this.onStartAutoHide,
     this.showClock = true,
+    this.titleOverride,
+    this.subtitleOverride,
   });
 
   @override
@@ -58,7 +65,9 @@ class VideoControlsHeader extends StatelessWidget {
         AppBarBackButton(style: BackButtonStyle.video, onPressed: onBack ?? () => Navigator.of(context).pop(true)),
         const SizedBox(width: 16),
         Expanded(
-          child: style == VideoHeaderStyle.singleLine
+          child: titleOverride != null
+              ? _buildOverrideTitle(titleOverride!)
+              : style == VideoHeaderStyle.singleLine
               ? _buildSingleLineTitle(itemTitle)
               : _buildMultiLineTitle(itemTitle),
         ),
@@ -83,6 +92,27 @@ class VideoControlsHeader extends StatelessWidget {
             ),
           ),
         ?trailing,
+      ],
+    );
+  }
+
+  Widget _buildOverrideTitle(String title) {
+    return Column(
+      crossAxisAlignment: .start,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: .bold),
+          maxLines: 1,
+          overflow: .ellipsis,
+        ),
+        if (subtitleOverride case final line? when line.isNotEmpty)
+          Text(
+            line,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            maxLines: 1,
+            overflow: .ellipsis,
+          ),
       ],
     );
   }

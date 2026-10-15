@@ -53,6 +53,19 @@ class PlayerNative extends PlayerBase {
   String _dvConversionMode = 'auto';
   String _dvConversionLog = 'no';
 
+  /// mpv track ids the next [open] selects in its `loadfile`, set by
+  /// [setOpenTrackHint] and used once. See `OpenTrackHint` for why.
+  String? _openHintAudioId;
+  String? _openHintSubtitleId;
+
+  /// Select these tracks in the next open's `loadfile` instead of opening
+  /// with subtitles off. Consumed by that open; null ids keep today's
+  /// behaviour (mpv's default audio, no subtitle).
+  void setOpenTrackHint({String? audioId, String? subtitleId}) {
+    _openHintAudioId = audioId;
+    _openHintSubtitleId = subtitleId;
+  }
+
   // Gapless-audio arming state (audioOnly). The native playlist is always
   // [current, next?]; these track whether entry 1 exists and what it plays.
   // _armedNextUri keeps the ORIGINAL media URI (the music service matches
@@ -361,6 +374,11 @@ class PlayerNative extends PlayerBase {
     Duration? timelineDuration,
     bool startLivePlaylistFromBeginning = false,
   }) async {
+    // The hint belongs to this open whatever happens to it.
+    final hintAudioId = _openHintAudioId;
+    final hintSubtitleId = _openHintSubtitleId;
+    _openHintAudioId = null;
+    _openHintSubtitleId = null;
     if (_nativeCoreUnavailable) return null;
     await _ensureInitialized();
     if (_nativeCoreUnavailable) return null;
@@ -395,6 +413,8 @@ class PlayerNative extends PlayerBase {
         isLive: isLive,
         externalSubtitles: externalSubtitles,
         startLivePlaylistFromBeginning: startLivePlaylistFromBeginning,
+        hintAudioId: hintAudioId,
+        hintSubtitleId: hintSubtitleId,
       );
     } catch (_) {
       // Nothing loaded: no `start-file` will release the track-list gate, and
@@ -434,6 +454,8 @@ class PlayerNative extends PlayerBase {
     required bool isLive,
     required List<SubtitleTrack>? externalSubtitles,
     required bool startLivePlaylistFromBeginning,
+    String? hintAudioId,
+    String? hintSubtitleId,
   }) async {
     if (!audioOnly) await setVisible(true);
 
@@ -492,8 +514,12 @@ class PlayerNative extends PlayerBase {
       // deselects its subtitle, and the track-list update that follows
       // re-seeded the previous item's tracks over the list this open had
       // already cleared (#2323).
-      'sid=no',
+      // An open-track hint (see [setOpenTrackHint]) selects the track the
+      // TrackManager is about to pick, so its later write is a no-op instead
+      // of a subtitle refresh seek that opens another range request.
+      'sid=${hintSubtitleId ?? 'no'}',
       'secondary-sid=no',
+      if (hintAudioId != null) 'aid=$hintAudioId',
       // A server-positioned live playlist already starts at the requested
       // offset. FFmpeg's default (-3) can skip much of it before decoding.
       // Keep this file-local and append so other demuxer options survive.

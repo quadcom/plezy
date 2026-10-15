@@ -24,6 +24,7 @@ class PlayerChromeController extends ChangeNotifier implements ValueListenable<b
   bool _directionalNavigation = false;
   Timer? _hideTimer;
   bool _pendingPlayPauseFocus = false;
+  bool _suppressed = false;
   final Set<PlayerChromeHold> _holds = <PlayerChromeHold>{};
   final Stopwatch _pointerActivityStopwatch = Stopwatch()..start();
   int _lastPointerActivityMs = -1000;
@@ -38,6 +39,17 @@ class PlayerChromeController extends ChangeNotifier implements ValueListenable<b
   bool get contentStripVisible => _contentStripVisible;
   bool isHeld(PlayerChromeHold hold) => _holds.contains(hold);
   bool get pendingPlayPauseFocus => _pendingPlayPauseFocus;
+
+  /// Whether the chrome is kept off screen: keys and taps still act, but
+  /// nothing raises the controls (an Old School film's own trailer,
+  /// PLAN_SHA_46/47).
+  bool get suppressed => _suppressed;
+
+  void setSuppressed(bool suppressed) {
+    if (_suppressed == suppressed) return;
+    _suppressed = suppressed;
+    if (suppressed) hide(ignoreHolds: true);
+  }
 
   /// [directionalNavigation] marks a D-pad / keyboard-driven viewer: the
   /// paused chrome then stays up until dismissed, because the remote has no
@@ -92,6 +104,7 @@ class PlayerChromeController extends ChangeNotifier implements ValueListenable<b
   }
 
   void show({bool restartAutoHide = true, bool focusPlayPause = false}) {
+    if (_suppressed) return;
     _controlsPresented = true;
     var shouldNotify = false;
     if (focusPlayPause) {
@@ -207,6 +220,7 @@ class PlayerChromeController extends ChangeNotifier implements ValueListenable<b
   void hold(PlayerChromeHold hold) {
     if (!_holds.add(hold)) return;
     cancelAutoHide();
+    if (_suppressed) return;
     if (!_controlsVisible) {
       _controlsVisible = true;
     }
