@@ -144,14 +144,14 @@ void main() {
   });
 
   group('JellyfinLibraryQueryTranslator', () {
-    const translator = JellyfinLibraryQueryTranslator(userId: 'user-1', parentId: 'lib-1', fields: 'UserData');
+    const translator = JellyfinLibraryQueryTranslator(userId: 'user-1', parentId: 'lib-1', fields: 'Overview');
 
     test('always sets userId, ParentId, Recursive, IncludeItemTypes', () {
       final params = translator.toQueryParameters(const LibraryQuery());
       expect(params['userId'], 'user-1');
       expect(params['ParentId'], 'lib-1');
       expect(params['Recursive'], 'true');
-      expect(params['Fields'], 'UserData');
+      expect(params['Fields'], 'Overview');
       expect(params['IncludeItemTypes'], isNotEmpty);
       expect(params['EnableTotalRecordCount'], 'true');
       expect(params['EnableImageTypes'], 'Primary,Backdrop,Logo');

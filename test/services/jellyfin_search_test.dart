@@ -363,8 +363,10 @@ void main() {
     expect(album.queryParameters['Fields'], isNot(contains('UserData')));
     expect(album.queryParameters['Fields'], isNot(contains('RecursiveItemCount')));
     expect(album.queryParameters['Fields'], isNot(contains('ChildCount')));
-    // Audio is a leaf, so retaining its direct play-state lookup is cheap.
-    expect(audio.queryParameters['Fields'], contains('UserData'));
+    // Audio is a leaf, so retaining its direct play-state lookup is cheap. It
+    // comes back by default; `UserData` is not an ItemFields value.
+    expect(audio.queryParameters.containsKey('EnableUserData'), isFalse);
+    expect(audio.queryParameters['Fields'], isNot(contains('UserData')));
     final movies = captured.singleWhere(
       (uri) => uri.path == '/Items' && uri.queryParameters['ParentId'] == 'lib-movies',
     );

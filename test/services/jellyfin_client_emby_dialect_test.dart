@@ -263,10 +263,7 @@ void main() {
 
       final fields = requests.requests.last.url.queryParameters['Fields']!.split(',');
       expect(fields.where((field) => field == 'PremiereDate').length, 1, reason: 'duplicated PremiereDate: $fields');
-      expect(
-        fields,
-        containsAll(<String>['UserData', 'PremiereDate', 'ProductionYear', 'OfficialRating', 'DateCreated']),
-      );
+      expect(fields, containsAll(<String>['PremiereDate', 'ProductionYear', 'OfficialRating', 'DateCreated']));
     });
 
     test('Emby scopes trailers and special features while Jellyfin keeps item routes', () async {

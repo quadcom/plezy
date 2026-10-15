@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -20,6 +21,12 @@ class OldSchoolController extends ChangeNotifier {
   /// [maxGuideHours] (the server plans 7 days).
   static const blockHours = 12;
   static const maxGuideHours = 7 * 24;
+
+  /// The first guide call asks for only this many hours so the grid shows
+  /// quickly: the server spends about 1 ms per entry, and 12 hours of every
+  /// channel took it 2.5-6.5 s (PlezyFin PLAN_SHA_48). The next block is
+  /// fetched straight after, in the background.
+  static const firstBlockHours = 3;
 
   List<OldSchoolChannel> _channels = const [];
   final Map<String, List<OldSchoolEntry>> _entries = {};
@@ -100,18 +107,21 @@ class OldSchoolController extends ChangeNotifier {
     return _channels[(index + step) % _channels.length];
   }
 
-  /// Load the line-up and the first guide block, starting at the half hour
-  /// before now.
+  /// Load the line-up and the first [firstBlockHours] of the guide, starting
+  /// at the half hour before now, then fetch the next block in the background.
   Future<void> load() async {
     if (_loading) return;
     _loading = true;
     _error = null;
     _notify();
     try {
-      final channels = await client.fetchOldSchoolChannels();
       final now = DateTime.now().toUtc();
       final start = DateTime.utc(now.year, now.month, now.day, now.hour, now.minute >= 30 ? 30 : 0);
-      final guide = await client.fetchOldSchoolGuide(start: start, hours: blockHours);
+      // Both calls at once. ignore() only stops a failed line-up call being
+      // reported as unhandled when the guide call throws first.
+      final channelsCall = client.fetchOldSchoolChannels()..ignore();
+      final guide = await client.fetchOldSchoolGuide(start: start, hours: firstBlockHours);
+      final channels = await channelsCall;
       if (_disposed) return;
       _channels = channels;
       _clockSkew = guide.serverTime.difference(DateTime.now().toUtc());
@@ -119,7 +129,7 @@ class OldSchoolController extends ChangeNotifier {
         ..clear()
         ..addAll(guide.entriesByChannel);
       _guideStart = start;
-      _guideEnd = start.add(const Duration(hours: blockHours));
+      _guideEnd = start.add(const Duration(hours: firstBlockHours));
     } catch (e, st) {
       appLogger.w('Old School: could not load the guide', error: e, stackTrace: st);
       _error = e;
@@ -127,6 +137,8 @@ class OldSchoolController extends ChangeNotifier {
       _loading = false;
       _notify();
     }
+    final end = _guideEnd;
+    if (!_disposed && _error == null && end != null) unawaited(extendIfNeeded(end));
   }
 
   /// Fetch the next guide block when [visibleEnd] comes within two hours of
@@ -136,11 +148,14 @@ class OldSchoolController extends ChangeNotifier {
     final end = _guideEnd;
     if (start == null || end == null || _extending) return;
     if (visibleEnd.isBefore(end.subtract(const Duration(hours: 2)))) return;
-    if (end.difference(start).inHours >= maxGuideHours) return;
+    final loadedHours = end.difference(start).inHours;
+    if (loadedHours >= maxGuideHours) return;
+    final hours = math.min(blockHours, maxGuideHours - loadedHours);
     _extending = true;
     try {
-      final guide = await client.fetchOldSchoolGuide(start: end, hours: blockHours);
-      if (_disposed) return;
+      final guide = await client.fetchOldSchoolGuide(start: end, hours: hours);
+      // Gone, or reloaded from scratch while this block was on its way.
+      if (_disposed || _guideStart != start || _guideEnd != end) return;
       for (final row in guide.entriesByChannel.entries) {
         final list = _entries.putIfAbsent(row.key, () => []);
         for (final entry in row.value) {
@@ -149,7 +164,7 @@ class OldSchoolController extends ChangeNotifier {
         }
         list.sort((a, b) => a.start.compareTo(b.start));
       }
-      _guideEnd = end.add(const Duration(hours: blockHours));
+      _guideEnd = end.add(Duration(hours: hours));
       _notify();
     } catch (e, st) {
       appLogger.w('Old School: could not load more of the guide', error: e, stackTrace: st);

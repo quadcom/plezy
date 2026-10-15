@@ -3238,13 +3238,13 @@ void main() {
 
       expect(albumBrowse['Fields'], 'PremiereDate,OriginalTitle,SortName,DateCreated');
       expect(albumBrowse['EnableUserData'], 'false');
-      expect(trackBrowse['Fields'], 'UserData,PremiereDate,OriginalTitle,SortName');
+      expect(trackBrowse['Fields'], 'PremiereDate,OriginalTitle,SortName');
       expect(albumBrowse['IncludeItemTypes'], 'MusicAlbum');
       expect(trackBrowse['IncludeItemTypes'], 'Audio');
       expect(trackBrowse.containsKey('EnableUserData'), isFalse);
       expect(artistAlbums['Fields'], 'PremiereDate,OriginalTitle,SortName,DateCreated');
       expect(artistAlbums['EnableUserData'], 'false');
-      expect(albumTracks['Fields'], 'UserData,PremiereDate,OriginalTitle,SortName');
+      expect(albumTracks['Fields'], 'PremiereDate,OriginalTitle,SortName');
     });
 
     test('fetchArtistDiscography wraps the album listing in one albums group', () async {
@@ -3408,9 +3408,11 @@ void main() {
       expect(folderQuery.queryParameters['IncludeItemTypes'], 'Folder,CollectionFolder');
       expect(folderQuery.queryParameters['EnableUserData'], 'false');
       expect(folderQuery.queryParameters['Fields'], isNot(contains('UserData')));
-      // Media rows keep user data (watched state, series unwatched badge).
+      // Media rows keep user data (watched state, series unwatched badge),
+      // which comes back by default; `UserData` is not an ItemFields value.
       expect(mediaQuery.queryParameters['ExcludeItemTypes'], 'Folder,CollectionFolder');
-      expect(mediaQuery.queryParameters['Fields'], contains('UserData'));
+      expect(mediaQuery.queryParameters.containsKey('EnableUserData'), isFalse);
+      expect(mediaQuery.queryParameters['Fields'], isNot(contains('UserData')));
       expect(items.map((item) => item.id), ['folder-z', 'series-a', 'movie-m', 'track-z']);
       // Folder rows classify as MediaKind.folder so the tree never reads raw.
       expect(items.first.kind, MediaKind.folder);
@@ -3989,7 +3991,8 @@ void main() {
       expect(lookup.queryParameters['SortBy'], 'DatePlayed');
       expect(lookup.queryParameters['SortOrder'], 'Descending');
       expect(lookup.queryParameters['Limit'], '1');
-      expect(lookup.queryParameters['Fields'], 'UserData');
+      // User data comes back by default; Fields=UserData only logs a server error.
+      expect(lookup.queryParameters.containsKey('Fields'), isFalse);
       // No Filters=IsPlayed: a series' newest engagement can sit on an episode
       // with a LastPlayedDate but Played==false (see _attachSeriesLastPlayed).
       expect(lookup.queryParameters.containsKey('Filters'), isFalse);
@@ -4643,7 +4646,7 @@ void main() {
       expect(captured!.queryParameters['Recursive'], 'true');
       expect(captured!.queryParameters['Filters'], 'IsPlayed');
       expect(captured!.queryParameters['SortBy'], 'DatePlayed');
-      expect(captured!.queryParameters['Fields'], 'UserData,PremiereDate,OriginalTitle,SortName');
+      expect(captured!.queryParameters['Fields'], 'PremiereDate,OriginalTitle,SortName');
       client.close();
     });
 

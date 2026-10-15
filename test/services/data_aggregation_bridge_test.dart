@@ -1228,7 +1228,7 @@ void main() {
       // Audio LEAF dtos: UserData stays (cheap, drives play state); the
       // folder count fields and Overview are dropped.
       expect(playedQueries.map((uri) => uri.queryParameters['Fields']).toSet(), {
-        'UserData,PremiereDate,OriginalTitle,SortName',
+        'PremiereDate,OriginalTitle,SortName',
       });
     });
 

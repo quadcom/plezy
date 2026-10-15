@@ -125,7 +125,7 @@ const _searchItemTypes = 'Movie,Series,Episode,MusicAlbum,Audio';
 /// Jellyfin web's folder view requests none of them either. The unwatched
 /// badge survives via `UserData.UnplayedItemCount`
 /// ([MediaItem.unwatchedCount] fallback).
-const _baseFolderBrowseFields = 'UserData,PremiereDate,OriginalTitle,SortName';
+const _baseFolderBrowseFields = 'PremiereDate,OriginalTitle,SortName';
 
 /// Folder-tree field set for FILESYSTEM FOLDER children, which render only
 /// their name. Queried with `EnableUserData=false`: user data on a folder dto
@@ -150,20 +150,23 @@ const _baseFolderRowFields = 'SortName';
 const _baseMusicAlbumRowFields = 'PremiereDate,OriginalTitle,SortName,DateCreated';
 
 /// Played-track hub rows (Recently Played / Most Played): Audio LEAF dtos.
-/// Keeps `UserData` — a cheap direct lookup on leaves that drives the
-/// play-state overlay — and drops the folder count fields (meaningless on
-/// Audio) and `Overview` (never rendered on track cards).
-const _baseMusicTrackRowFields = 'UserData,PremiereDate,OriginalTitle,SortName';
+/// User data (a cheap direct lookup on leaves that drives the play-state
+/// overlay) comes back through `EnableUserData`, which defaults on; `UserData`
+/// is not an `ItemFields` value, and naming it only logs a binding error on the
+/// server. Drops the folder count fields (meaningless on Audio) and `Overview`
+/// (never rendered on track cards).
+const _baseMusicTrackRowFields = 'PremiereDate,OriginalTitle,SortName';
 
 /// Even slimmer set used by [fetchClientSideEpisodeQueue]. Queue rows
 /// only need title, thumbnail (`ImageTags['Primary']`), season/episode
 /// index, watched state, and the air date that drives the watch order.
-/// Title + indices come back without any `Fields` request; we ask for
-/// `UserData` (watched indicator) and `PremiereDate` (air-date sort, so
-/// Specials can interleave — see [sortEpisodesByWatchOrder]). Drops
+/// Title + indices come back without any `Fields` request, and the watched
+/// indicator through `EnableUserData` (default on); we ask only for
+/// `PremiereDate` (air-date sort, so Specials can interleave — see
+/// [sortEpisodesByWatchOrder]). Drops
 /// `Overview` etc. so even a thousand-episode shounen show fits in one
 /// response.
-const _baseQueueFields = 'UserData,PremiereDate';
+const _baseQueueFields = 'PremiereDate';
 
 /// Page size for [fetchClientSideEpisodeQueue]. Keeps each server response
 /// bounded while still returning the full series queue.
@@ -241,7 +244,7 @@ const _filtersTimeout = Duration(seconds: 8);
 /// pre-fetch paths. Mirrors what the Jellyfin web detail view requests.
 const _detailFields =
     'Overview,Genres,People,Studios,ProductionLocations,Tags,Taglines,DateCreated,DateLastSaved,'
-    'PremiereDate,RecursiveItemCount,ChildCount,UserData,MediaSources,OriginalTitle,SortName,'
+    'PremiereDate,RecursiveItemCount,ChildCount,MediaSources,OriginalTitle,SortName,'
     // Chapters: both dialects return them at the item level; playback plucks
     // `raw['Chapters']` and feeds the seek-bar tick UI.
     'Chapters,'
@@ -1331,7 +1334,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   /// Paging is stable in every mode: the server materializes the full episode
   /// list before applying `StartIndex`/`Limit`.
   ///
-  /// Uses [_queueFields] (`UserData` + `PremiereDate`) instead of the full
+  /// Uses [_queueFields] (`PremiereDate`) instead of the full
   /// browse field set so the response stays small even for shows with thousands
   /// of episodes.
   ///
@@ -2730,8 +2733,8 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
           'Recursive': 'true',
           'SortBy': 'DatePlayed',
           'SortOrder': 'Descending',
-          // Only `UserData.LastPlayedDate` is read off the row.
-          'Fields': 'UserData',
+          // Only `UserData.LastPlayedDate` is read off the row; user data comes
+          // back by default, and `Fields=UserData` only logs a server error.
           'Limit': '1',
           'EnableImages': 'false',
           'EnableTotalRecordCount': 'false',
