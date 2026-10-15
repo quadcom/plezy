@@ -610,7 +610,11 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
             child: _slideStep(
               _step(a, 9, 14, n, _slideCurve),
               (_CornerLayout.posterWidth + 24 + 40) * s,
-              _poster(widget.controller, entry.promoItemId!, entry.promoImageTag!, s, dpr),
+              _PulseGlow(
+                active: canOpen,
+                scale: s,
+                child: _poster(widget.controller, entry.promoItemId!, entry.promoImageTag!, s, dpr),
+              ),
             ),
           ),
       ],
@@ -629,6 +633,89 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
               : layout,
         ),
       ),
+    );
+  }
+}
+
+/// A slow amber glow pulsing round [child] while [active], so a poster
+/// that OK (or a click) opens reads as pressable (Adrian, 2026-10-14).
+class _PulseGlow extends StatefulWidget {
+  final bool active;
+  final double scale;
+  final Widget child;
+
+  const _PulseGlow({required this.active, required this.scale, required this.child});
+
+  @override
+  State<_PulseGlow> createState() => _PulseGlowState();
+}
+
+class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1100),
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(_PulseGlow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active) {
+      unawaited(_pulse.repeat(reverse: true));
+    } else {
+      _pulse
+        ..stop()
+        ..value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.active) return widget.child;
+    final s = widget.scale;
+    return AnimatedBuilder(
+      animation: _pulse,
+      builder: (context, child) {
+        final t = Curves.easeInOut.transform(_pulse.value);
+        // The glow sits behind the poster, the edge on top of it.
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: _amber.withValues(alpha: 0.25 + 0.45 * t),
+                blurRadius: (10 + 14 * t) * s,
+                spreadRadius: (1 + 3 * t) * s,
+              ),
+            ],
+          ),
+          child: DecoratedBox(
+            position: DecorationPosition.foreground,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: _amber.withValues(alpha: 0.55 + 0.45 * t),
+                width: 2.5 * s,
+              ),
+            ),
+            child: child,
+          ),
+        );
+      },
+      child: widget.child,
     );
   }
 }
