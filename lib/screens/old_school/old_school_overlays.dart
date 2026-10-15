@@ -454,13 +454,15 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
     final visible = entry != null && (widget.controlsVisible || lead);
     // "Ends at" counts from now, so it moves on with the clock.
     final minute = DateTime.now().minute;
-    // A guide refresh brings new objects for the same trailer.
-    final sameEntry = entry == null || (entry.start == _entry?.start && entry.itemId == _entry?.itemId);
+    // A guide refresh brings new objects for the same trailer. A hidden
+    // block keeps what it showed last, so fading out as the next trailer
+    // starts never flashes that trailer's block (Adrian, 2026-10-14).
+    final sameEntry = entry == null || !visible || (entry.start == _entry?.start && entry.itemId == _entry?.itemId);
     if (visible == _visible && sameEntry && minute == _minute) return;
     final arriving = visible && (!_visible || !sameEntry);
     void apply() {
       _visible = visible;
-      if (entry != null) _entry = entry;
+      if (visible) _entry = entry;
       _minute = minute;
     }
 
