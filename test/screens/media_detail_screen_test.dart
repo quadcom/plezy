@@ -2336,7 +2336,8 @@ void main() {
       MediaItem withPosters(MediaItem season) =>
           season.copyWith(thumbPath: '/poster/${season.id}', grandparentThumbPath: '/poster/show');
       final season1 = withPosters(buildSeason(show, 1));
-      final season2 = withPosters(buildSeason(show, 2));
+      // Season 2 has no poster of its own, so it keeps the show's.
+      final season2 = buildSeason(show, 2).copyWith(grandparentThumbPath: '/poster/show');
       final season3 = withPosters(buildSeason(show, 3));
       MediaItem clip(String id, String title, String type) => testMediaItem(
         id: id,
@@ -2378,7 +2379,7 @@ void main() {
         for (final card in tester.widgetList<MediaCard>(find.descendant(of: row, matching: find.byType(MediaCard))))
           (card.item as MediaItem).posterThumb(),
       ];
-      expect(posters, ['/poster/season_1', '/poster/season_2']);
+      expect(posters, ['/poster/season_1', '/poster/show']);
       // Extras keeps only what the row doesn't show.
       expect(find.text('Making of'), findsOneWidget);
       expect(find.text('The Show S01'), findsNothing);
