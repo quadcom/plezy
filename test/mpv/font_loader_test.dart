@@ -78,6 +78,32 @@ void main() {
     });
   });
 
+  test('re-extracts when the cache is emptied while the app keeps running', () async {
+    // Android can clear the app cache under a long-running process. The
+    // in-memory result must not keep pointing libass at an empty directory.
+    final first = await SubtitleFontLoader.loadSubtitleFont();
+    expect(first, isNotNull);
+    Directory(first!).deleteSync(recursive: true);
+
+    final second = await SubtitleFontLoader.loadSubtitleFont();
+
+    expect(second, first);
+    for (final font in SubtitleFontLoader.fonts) {
+      final fontFile = File(p.join(second!, font.fileName));
+      expect(fontFile.existsSync(), isTrue, reason: '${font.fileName} was not restored');
+      expect(fontFile.lengthSync(), font.length);
+    }
+  });
+
+  test('restores a single font deleted after the first load', () async {
+    final dir = await SubtitleFontLoader.loadSubtitleFont();
+    final primary = File(p.join(dir!, SubtitleFontLoader.fonts.first.fileName))..deleteSync();
+
+    await SubtitleFontLoader.loadSubtitleFont();
+
+    expect(primary.lengthSync(), SubtitleFontLoader.fonts.first.length);
+  });
+
   test('default font name stays Go Noto Current-Regular', () {
     // configureSubtitleFonts() sets sub-font to this exact name.
     expect(SubtitleFontLoader.fontName, 'Go Noto Current-Regular');

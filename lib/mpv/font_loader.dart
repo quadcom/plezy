@@ -53,14 +53,36 @@ class SubtitleFontLoader {
   /// Suffix of a copy still being written; a leftover one is stale by definition.
   static const String _partialSuffix = '.partial';
 
-  /// In-memory cache of the resolved font directory. The filesystem work
-  /// (temp dir lookup, length checks, asset extraction) is idempotent per
-  /// process — caching the result skips ~20ms on every subsequent Player
-  /// instantiation.
+  /// In-memory cache of the resolved font directory. The full filesystem work
+  /// (temp dir lookup, directory sweep, asset extraction) runs once per
+  /// process; later Player instantiations only re-stat the font files.
   static Future<String?>? _cachedFontDir;
 
-  static Future<String?> loadSubtitleFont() {
+  /// The directory lives in the app's cache, which Android may empty while
+  /// the process keeps running (seen on a Google TV Streamer that had been up
+  /// for days, 2026-10-14). libass then finds no font and every subtitle
+  /// renders as nothing, until the app is restarted. So a cached result is
+  /// trusted only while every font file is still there at its full length;
+  /// otherwise the extraction runs again.
+  static Future<String?> loadSubtitleFont() async {
+    final cached = _cachedFontDir;
+    if (cached != null) {
+      final dir = await cached;
+      if (dir != null && await _fontsPresent(dir)) return dir;
+      if (identical(_cachedFontDir, cached)) _cachedFontDir = null;
+    }
     return _cachedFontDir ??= _loadSubtitleFontOnce();
+  }
+
+  static Future<bool> _fontsPresent(String dir) async {
+    try {
+      for (final font in fonts) {
+        if (await File(path.join(dir, font.fileName)).length() != font.length) return false;
+      }
+      return true;
+    } on FileSystemException {
+      return false;
+    }
   }
 
   /// Forget the resolved directory so the next [loadSubtitleFont] re-runs the
