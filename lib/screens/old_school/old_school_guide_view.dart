@@ -190,26 +190,34 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     return index >= 0 && index < channels.length ? channels[index] : null;
   }
 
-  /// The cell on [channel] closest to [focusTime]: the one airing then,
-  /// else the next.
+  /// Blocks with less than this left (from now, or from their start) are
+  /// passed over by the remote: at the grid's scale they are slivers, and
+  /// a stop on one looked like the highlight had gone (Adrian, 2026-10-14).
+  static const _minStop = Duration(minutes: 5);
+
+  /// Whether the remote stops on [p]: not over, and not a sliver.
+  bool _isStop(OldSchoolEntry p) {
+    final now = _c.serverNow;
+    return p.end.difference(p.start.isAfter(now) ? p.start : now) >= _minStop;
+  }
+
+  /// The cell on [channel] closest to [focusTime] (never earlier than now):
+  /// the stop airing then, else the next stop; failing both, whatever is on
+  /// then or next.
   OldSchoolEntry? _programmeNear(OldSchoolChannel channel, DateTime focusTime) {
-    final programmes = _c.guideEntriesFor(channel.id);
-    for (final p in programmes) {
-      if (p.isOnAt(focusTime)) return p;
-    }
-    for (final p in programmes) {
-      if (p.start.isAfter(focusTime) && p.end.isAfter(_c.serverNow)) return p;
-    }
-    return null;
+    final now = _c.serverNow;
+    final at = focusTime.isBefore(now) ? now : focusTime;
+    final live = _c.guideEntriesFor(channel.id).where((p) => p.end.isAfter(now)).toList(growable: false);
+    return live.where((p) => _isStop(p) && p.isOnAt(at)).firstOrNull ??
+        live.where((p) => _isStop(p) && p.start.isAfter(at)).firstOrNull ??
+        live.where((p) => p.isOnAt(at) || p.start.isAfter(at)).firstOrNull;
   }
 
   void _moveRow(int delta) {
     final next = _row + delta;
     final channel = _channelAt(next);
     if (channel == null) return;
-    final focusTime = _focused == null
-        ? _start
-        : (_focused!.start.isBefore(_start) ? _start : _focused!.start).add(const Duration(minutes: 1));
+    final focusTime = _focused == null ? _c.serverNow : _focused!.start.add(const Duration(minutes: 1));
     setState(() {
       _row = next;
       _focused = _programmeNear(channel, focusTime);
@@ -231,13 +239,22 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
       return true;
     }
     final index = programmes.indexWhere((p) => p.start == focused.start);
-    final target = index < 0
-        ? null
-        : (index + delta >= 0 && index + delta < programmes.length ? programmes[index + delta] : null);
-    if (target == null || !target.end.isAfter(_c.serverNow)) return false;
+    if (index < 0) return false;
+    // Step over slivers; never onto something already over.
+    OldSchoolEntry? target;
+    for (var i = index + delta; i >= 0 && i < programmes.length; i += delta) {
+      final candidate = programmes[i];
+      if (!candidate.end.isAfter(_c.serverNow)) break;
+      if (_isStop(candidate)) {
+        target = candidate;
+        break;
+      }
+    }
+    final picked = target;
+    if (picked == null) return false;
     setState(() {
-      _focused = target;
-      _revealEntry(target);
+      _focused = picked;
+      _revealEntry(picked);
     });
     return true;
   }
@@ -260,7 +277,9 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   }
 
   void _activate(OldSchoolChannel channel, OldSchoolEntry? entry) {
-    if (entry == null || entry.isOnAt(_c.serverNow) || entry.start.isBefore(_c.serverNow)) {
+    // Starting within [_minStop] counts as on now: the remote skips the
+    // sliver before it, so OK on it tunes the channel as before.
+    if (entry == null || entry.start.isBefore(_c.serverNow.add(_minStop))) {
       widget.onTune(channel);
       return;
     }
@@ -836,6 +855,16 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
               ),
             ],
           ),
+          // What has already aired since the half hour is shaded; the
+          // remote no longer stops there.
+          if (nowX > 6)
+            Positioned(
+              left: layout.channelColumnWidth + 6,
+              width: math.min(nowX, _blocksWidth) - 6,
+              top: layout.timeHeaderHeight,
+              bottom: 0,
+              child: IgnorePointer(child: ColoredBox(color: tokens(context).bg.withValues(alpha: 0.55))),
+            ),
           if (nowX >= 0 && nowX <= _blocksWidth)
             Positioned(
               left: layout.channelColumnWidth + nowX - 1,
