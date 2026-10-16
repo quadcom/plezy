@@ -86,4 +86,80 @@ void main() {
     await client.fetchContinueWatching(count: 5);
     expect(paths.where((path) => path == '/PlezyFin/ContinueWatching').length, greaterThanOrEqualTo(2));
   });
+
+  // Amendment 1: the route takes StartIndex and ParentId, so "see all" and the
+  // per-library rows use it too.
+  test('see all pages through the PlezyFin route', () async {
+    final paths = <String>[];
+    final client = testJellyfinClient(
+      plezyFinRoutes: true,
+      handler: (request) async {
+        paths.add(request.url.path);
+        if (request.url.path == '/PlezyFin/ContinueWatching') {
+          expect(request.url.queryParameters['StartIndex'], '2');
+          expect(request.url.queryParameters['Limit'], '3');
+          return jsonResponse({
+            'Items': [movie('c'), movie('d'), movie('e')],
+            'TotalRecordCount': 9,
+            'StartIndex': 2,
+          });
+        }
+        return jsonResponse({'Items': <Object?>[], 'TotalRecordCount': 0});
+      },
+    );
+    addTearDown(client.close);
+
+    final page = await client.fetchMoreHubItemsPage('home.continue', start: 2, size: 3);
+
+    expect(page.items.map((item) => item.id), ['c', 'd', 'e']);
+    expect(page.totalCount, 9);
+    expect(paths, isNot(contains('/UserItems/Resume')));
+  });
+
+  test('a library row asks the PlezyFin route for that library', () async {
+    final paths = <String>[];
+    final client = testJellyfinClient(
+      plezyFinRoutes: true,
+      handler: (request) async {
+        paths.add(request.url.path);
+        if (request.url.path == '/PlezyFin/ContinueWatching') {
+          expect(request.url.queryParameters['ParentId'], 'tv-lib');
+          return jsonResponse({
+            'Items': [movie('t')],
+            'TotalRecordCount': 1,
+          });
+        }
+        return jsonResponse({'Items': <Object?>[], 'TotalRecordCount': 0});
+      },
+    );
+    addTearDown(client.close);
+
+    final hubs = await client.fetchLibraryHubs('tv-lib', libraryName: 'TV');
+    final page = await client.fetchMoreHubItemsPage('library.tv-lib.continue', start: 0, size: 10);
+
+    expect(hubs.firstWhere((hub) => hub.id.endsWith('.continue')).items.map((item) => item.id), ['t']);
+    expect(page.items.map((item) => item.id), ['t']);
+    expect(paths, isNot(contains('/UserItems/Resume')));
+  });
+
+  test('see all falls back to resume on a server without the route', () async {
+    final client = testJellyfinClient(
+      plezyFinRoutes: true,
+      handler: (request) async {
+        if (request.url.path == '/PlezyFin/ContinueWatching') return http.Response('', 404);
+        if (request.url.path == '/UserItems/Resume') {
+          return jsonResponse({
+            'Items': [movie('r')],
+            'TotalRecordCount': 1,
+          });
+        }
+        return jsonResponse({'Items': <Object?>[], 'TotalRecordCount': 0});
+      },
+    );
+    addTearDown(client.close);
+
+    final page = await client.fetchMoreHubItemsPage('home.continue', start: 0, size: 10);
+
+    expect(page.items.map((item) => item.id), ['r']);
+  });
 }

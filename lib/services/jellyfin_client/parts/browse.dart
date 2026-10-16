@@ -271,8 +271,8 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   /// Runs [fetch] on PlezyFin's Continue Watching route, or on the plain
   /// resume route when the server lacks it or that request fails. [fetch]
   /// must throw on an HTTP error for the PlezyFin path, so a failure can fall
-  /// back. Only for the whole-server row: the route takes no ParentId and no
-  /// StartIndex yet.
+  /// back. The route takes the resume route's ParentId and StartIndex
+  /// (PLAN_SHA_29 amendment 1), so every Continue Watching surface uses it.
   Future<T> _withContinueWatchingPath<T>(Future<T> Function(String path) fetch) async {
     if (_noPlezyFinContinueWatching) return fetch(paths.resumeItems);
     try {
@@ -2009,23 +2009,12 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     final Future<List<Map<String, dynamic>>> resumeRowsFuture;
     final Future<List<Map<String, dynamic>>> nextUpRowsFuture;
     if (dialect.resumeReturnsOnlyStartedItems) {
-      resumeRowsFuture = parentId == null
-          ? _withContinueWatchingPath(
-              (path) => path == paths.resumeItems
-                  ? _safeFetchItemsArray(
-                      path,
-                      _resumeItemsQuery(limit: limit),
-                      retry: retry,
-                      diagnostics: diagnostics,
-                    )
-                  : _fetchItemsArray(path, _resumeItemsQuery(limit: limit), retry: retry),
-            )
-          : _safeFetchItemsArray(
-              paths.resumeItems,
-              _resumeItemsQuery(limit: limit, parentId: parentId),
-              retry: retry,
-              diagnostics: diagnostics,
-            );
+      final resumeQuery = _resumeItemsQuery(limit: limit, parentId: parentId);
+      resumeRowsFuture = _withContinueWatchingPath(
+        (path) => path == paths.resumeItems
+            ? _safeFetchItemsArray(path, resumeQuery, retry: retry, diagnostics: diagnostics)
+            : _fetchItemsArray(path, resumeQuery, retry: retry),
+      );
       nextUpRowsFuture = includeNextUp
           ? _safeFetchItemsArray(
               '/Shows/NextUp',
@@ -2258,18 +2247,21 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
           final window = resume.skip(offset).take(pageSize).toList(growable: false);
           return LibraryPage<MediaItem>(items: _mapItems(window), totalCount: resume.length, offset: offset);
         }
-        return _safeFetchMediaPage(
-          paths.resumeItems,
-          _resumeItemsQuery(
-            limit: pageSize,
-            parentId: parentId,
-            start: offset,
-            totalCount: true,
-            videoOnly: parentId == null,
+        // _safeFetchMediaPage rethrows, so a PlezyFin failure still falls back.
+        return _withContinueWatchingPath(
+          (path) => _safeFetchMediaPage(
+            path,
+            _resumeItemsQuery(
+              limit: pageSize,
+              parentId: parentId,
+              start: offset,
+              totalCount: true,
+              videoOnly: parentId == null,
+            ),
+            offset: offset,
+            requestedSize: pageSize,
+            abort: abort,
           ),
-          offset: offset,
-          requestedSize: pageSize,
-          abort: abort,
         );
       case 'nextup':
         if (dialect.supportsGlobalNextUp) {
