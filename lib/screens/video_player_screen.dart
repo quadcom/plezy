@@ -115,6 +115,13 @@ import 'video_player/open_failure_log.dart';
 import 'video_player/live_tv_session_args.dart';
 import 'video_player/live_tv_session_state.dart';
 import 'video_player/old_school_session.dart';
+import 'video_player/iptv_session.dart';
+import 'iptv/iptv_controller.dart';
+import 'iptv/iptv_guide_view.dart';
+import 'iptv/iptv_layout.dart';
+import 'iptv/iptv_number_entry.dart';
+import 'iptv/iptv_overlays.dart';
+import '../models/iptv.dart';
 import 'old_school/old_school_controller.dart';
 import 'old_school/old_school_guide_view.dart';
 import 'old_school/old_school_layout.dart';
@@ -150,6 +157,7 @@ part 'video_player/parts/errors.dart';
 part 'video_player/parts/lifecycle.dart';
 part 'video_player/parts/live_tv.dart';
 part 'video_player/parts/old_school.dart';
+part 'video_player/parts/iptv.dart';
 part 'video_player/parts/pip.dart';
 part 'video_player/parts/playback_open.dart';
 part 'video_player/parts/playback_prompts.dart';
@@ -496,6 +504,12 @@ class VideoPlayerScreen extends StatefulWidget {
 
   bool get isOldSchool => oldSchool != null;
 
+  /// Present iff this screen plays an IPTV channel (PLAN_SHA_61), straight
+  /// from its source, with the guide on the same page. [live] is set too.
+  final IptvSessionArgs? iptv;
+
+  bool get isIptv => iptv != null;
+
   const VideoPlayerScreen({
     super.key,
     required this.metadata,
@@ -510,6 +524,7 @@ class VideoPlayerScreen extends StatefulWidget {
     this.selectedAudioStreamId,
     this.live,
     this.oldSchool,
+    this.iptv,
     this.watchTogetherLease,
     this.initialPosition,
     this.strictMediaSelection = false,
@@ -719,6 +734,12 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   late MediaItem _currentMetadata;
   final EpisodeSessionState _episode = EpisodeSessionState();
   final OldSchoolPlayerState _os = OldSchoolPlayerState();
+  final IptvPlayerState _iptv = IptvPlayerState();
+  late final FocusNode _iptvFullFocusNode = FocusNode(debugLabel: 'iptv_full_screen');
+  late final IptvNumberEntry _iptvNumbers = IptvNumberEntry(
+    onNumber: _iptvTuneNumber,
+    couldGrow: (digits) => widget.iptv?.controller.numberCouldGrow(digits) ?? false,
+  );
   late final PlaybackCornerGate _cornerGate = PlaybackCornerGate(
     onChanged: () {
       if (mounted) _setPlayerState(() {});
@@ -1658,7 +1679,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       // Literal `mounted` check: the kickoff block below reads `context`, and
       // the lint cannot see the mounted check inside the helper.
       if (!mounted || !_isPlayerInitializationCurrent(generation)) return;
-      _autoPipEnabled = settingsService.read(SettingsService.autoPip);
+      // IPTV leaves picture-in-picture out of its first build (Adrian,
+      // 2026-10-16).
+      _autoPipEnabled = !widget.isIptv && settingsService.read(SettingsService.autoPip);
       _exitFullscreenOnPlayerClose = settingsService.read(SettingsService.exitFullscreenOnPlayerClose);
       _rewindOnResume = settingsService.read(SettingsService.rewindOnResume);
       final playbackBufferTier = settingsService.read(SettingsService.playbackBufferTier);
@@ -2114,7 +2137,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
           // Check rotation lock setting before applying orientation
           final isRotationLocked = settingsService.read(SettingsService.rotationLocked);
 
-          if (isRotationLocked) {
+          if (widget.isIptv) {
+            // IPTV: upright with the guide on a phone, sideways full screen.
+            _iptvApplyOrientation(rotationLocked: isRotationLocked);
+          } else if (isRotationLocked) {
             // Locked: Apply landscape orientation only
             OrientationHelper.setLandscapeOrientation();
           } else {
@@ -2248,6 +2274,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       _oldSchoolBack();
       return;
     }
+    if (widget.isIptv && !navigateHome && _playbackFailureMessage == null && _playerInitializationError == null) {
+      _iptvBack();
+      return;
+    }
     if (!navigateHome && (_episode.showPlayNextDialog || _showStillWatchingPrompt)) {
       _dismissPlaybackPromptForBack();
       return;
@@ -2318,7 +2348,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         return;
       }
     }
-    if (widget.isOldSchool &&
+    if ((widget.isOldSchool || widget.isIptv) &&
         (navigationKey == PlayerNavigationKey.back || navigationKey == PlayerNavigationKey.physicalEscape)) {
       unawaited(_handleBackButton());
       return;
@@ -2370,6 +2400,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     _readAheadRamp.dispose();
     _os.dispose();
     widget.oldSchool?.controller.dispose();
+    _iptv.dispose();
+    _iptvNumbers.dispose();
+    _iptvFullFocusNode.dispose();
+    widget.iptv?.controller.dispose();
     WidgetsBinding.instance.removeObserver(this);
     CarUxRestrictionsService.instance.listenable.removeListener(_handleCarRestrictionsChanged);
 
@@ -2963,6 +2997,16 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
             unawaited(_oldSchoolChannelStep(event.logicalKey == LogicalKeyboardKey.channelUp ? 1 : -1));
           }
           return KeyEventResult.handled;
+        }
+        // IPTV: channel keys and typed numbers wherever focus is.
+        if (widget.isIptv) {
+          if (event.logicalKey == LogicalKeyboardKey.channelUp || event.logicalKey == LogicalKeyboardKey.channelDown) {
+            if (event is KeyDownEvent) {
+              unawaited(_iptvChannelStep(event.logicalKey == LogicalKeyboardKey.channelUp ? 1 : -1));
+            }
+            return KeyEventResult.handled;
+          }
+          if (_iptvNumbers.handleKey(event) == KeyEventResult.handled) return KeyEventResult.handled;
         }
         // Hardware media transport must act even when focus rests on this
         // node or a sibling overlay — otherwise the key only reveals the

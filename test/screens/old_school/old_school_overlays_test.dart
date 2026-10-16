@@ -34,7 +34,7 @@ void main() {
           home: Center(
             child: Stack(
               children: [
-                OldSchoolPromoCorner(controller: controller, controlsVisible: false),
+                OldSchoolPromoCorner(controller: controller),
                 OldSchoolPreRollCard(controller: controller, channel: channel, film: null, trailerLeft: () => null),
               ],
             ),
@@ -86,6 +86,21 @@ void main() {
 
     test('nothing to open without an item id', () {
       expect(oldSchoolPromoOpens(_trailer({'promo': 'have'})), isFalse);
+    });
+  });
+
+  group('Old School promo corner timing (Adrian, 2026-10-16)', () {
+    final trailer = _trailer({'promo': 'have', 'promoItemId': 'm1'});
+
+    test('shows from the first second, not only in the last 15 s', () {
+      expect(oldSchoolPromoShows(trailer, trailer.start), isTrue);
+      expect(oldSchoolPromoShows(trailer, trailer.start.add(const Duration(minutes: 1))), isTrue);
+    });
+
+    test('fades out over the last 0.4 s', () {
+      expect(oldSchoolPromoShows(trailer, trailer.end.subtract(const Duration(milliseconds: 500))), isTrue);
+      expect(oldSchoolPromoShows(trailer, trailer.end.subtract(oldSchoolPromoFadeOut)), isFalse);
+      expect(oldSchoolPromoShows(trailer, trailer.end), isFalse);
     });
   });
 

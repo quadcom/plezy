@@ -36,6 +36,10 @@ class MediaLibrary {
   final String? serverId;
   final String? serverName;
 
+  /// A PlezyFin IPTV library (`CollectionType` "iptv", PLAN_SHA_61): live
+  /// channels with a guide, opened as the IPTV guide rather than a grid.
+  final bool isIptv;
+
   const MediaLibrary({
     required this.id,
     required this.backend,
@@ -49,6 +53,7 @@ class MediaLibrary {
     this.isShared = false,
     this.serverId,
     this.serverName,
+    this.isIptv = false,
   });
 
   String get globalKey => serverId != null ? buildGlobalKey(ServerId(serverId!), id) : id;
@@ -67,5 +72,6 @@ class MediaLibrary {
     isShared: isShared,
     serverId: serverId,
     serverName: serverName,
+    isIptv: isIptv,
   );
 }

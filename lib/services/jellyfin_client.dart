@@ -44,6 +44,7 @@ import '../models/livetv_program.dart';
 import '../models/livetv_dvr.dart';
 import '../models/media_grab_operation.dart';
 import '../models/media_subscription.dart';
+import '../models/iptv.dart';
 import '../models/old_school.dart';
 import '../models/transcode_quality_preset.dart';
 import '../media/media_source_info.dart';
@@ -101,6 +102,7 @@ part 'jellyfin_client/parts/live_tv_dvr.dart';
 part 'jellyfin_client/parts/images_downloads.dart';
 part 'jellyfin_client/parts/metadata_edit.dart';
 part 'jellyfin_client/parts/old_school.dart';
+part 'jellyfin_client/parts/iptv.dart';
 
 /// Canonical declarations of the [JellyfinClient] internals that the `part`
 /// mixins call into.
@@ -268,7 +270,8 @@ class JellyfinClient
         _JellyfinImageDownloadMethods,
         _JellyfinMetadataEditMethods,
         _JellyfinLibraryLayoutMethods,
-        _JellyfinOldSchoolMethods
+        _JellyfinOldSchoolMethods,
+        _JellyfinIptvMethods
     implements
         MediaServerClient,
         SeasonEpisodePagingClient,

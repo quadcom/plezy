@@ -285,7 +285,7 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
     if (key.isSelectKey && _focusNode.hasPrimaryFocus) {
       // Old School: OK opens what a trailer points at, while its corner
       // block shows (PLAN_SHA_43/47).
-      final promo = widget.oldSchool?.promoAction?.call(_showControls);
+      final promo = widget.oldSchool?.promoAction?.call();
       if (promo != null) return handleOneShotSelect(event, promo);
       return handleOneShotSelect(
         event,

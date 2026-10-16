@@ -300,7 +300,8 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                           ? _navigateToNextItem
                           : null;
                       final onPrevious = _hasPreviousItem && canNavigateItems ? _navigateToPreviousItem : null;
-                      final showControls = !widget.isOldSchool || _os.fullScreen;
+                      // IPTV draws its own banner over the picture.
+                      final showControls = !widget.isIptv && (!widget.isOldSchool || _os.fullScreen);
 
                       final sourceAudioTracks = _currentMediaInfo?.audioTracks ?? const <MediaAudioTrack>[];
                       final sourceSubtitleSidecars = _sourceSubtitleSidecarsForControls();
@@ -410,11 +411,13 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
               ),
               // Buffering indicator (also shows during initial load, but not when exiting)
               // Hidden in PiP mode
-              VideoPlayerBufferingOverlay(
-                isBuffering: _isBuffering,
-                hasFirstFrame: _firstFrame.uiReady,
-                isExiting: _isExiting,
-              ),
+              // IPTV in the corner shows its own, inside the window.
+              if (!widget.isIptv || _iptv.fullScreen)
+                VideoPlayerBufferingOverlay(
+                  isBuffering: _isBuffering,
+                  hasFirstFrame: _firstFrame.uiReady,
+                  isExiting: _isExiting,
+                ),
               // Watch Together overlays (isolated from video surface repaints)
               const VideoPlayerWatchTogetherOverlays(),
               // Black overlay during exit (no spinner - just covers transparency)

@@ -12,6 +12,7 @@ import '../../mixins/tab_navigation_mixin.dart';
 import '../../mixins/tab_visibility_aware.dart';
 import '../../media/ids.dart';
 import '../../media/media_library.dart';
+import '../iptv/iptv_screen.dart';
 import '../../providers/hidden_libraries_provider.dart';
 import '../../providers/libraries_provider.dart';
 import '../../providers/multi_server_provider.dart';
@@ -163,7 +164,8 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     }
 
     final hiddenKeys = hiddenLibrariesProvider.hiddenLibraryKeys;
-    final visibleLibraries = allLibraries.where((lib) => !hiddenKeys.contains(lib.globalKey)).toList();
+    // An IPTV library opens as its own full-screen guide, only when picked.
+    final visibleLibraries = allLibraries.where((lib) => !hiddenKeys.contains(lib.globalKey) && !lib.isIptv).toList();
 
     final storage = await StorageService.getInstance();
     if (!mounted || _selectedLibraryGlobalKey != null) return;
@@ -440,6 +442,9 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     if (selectedLibrary == null) return;
     // Not shown means not reachable from anywhere.
     if (context.read<HiddenLibrariesProvider>().offLibraryKeys.contains(libraryGlobalKey)) return;
+    // IPTV opens its guide over the app; the library shown here stays.
+    if (selectedLibrary.isIptv && await openIptv(context, selectedLibrary)) return;
+    if (!mounted) return;
 
     final isLibraryChange = _selectedLibraryGlobalKey != libraryGlobalKey;
 
@@ -557,7 +562,7 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     final firstShown = context
         .read<LibrariesProvider>()
         .libraries
-        .where((lib) => !hiddenKeys.contains(lib.globalKey))
+        .where((lib) => !hiddenKeys.contains(lib.globalKey) && !lib.isIptv)
         .firstOrNull;
     if (firstShown != null) unawaited(_loadLibraryContent(firstShown.globalKey));
   }
@@ -586,7 +591,7 @@ class _LibrariesScreenState extends State<LibrariesScreen>
     final isSelected = library.globalKey == _selectedLibraryGlobalKey;
     return AppMenuItem<String>(
       value: library.globalKey,
-      icon: ContentTypeHelper.getLibraryIcon(library.kind.id),
+      icon: ContentTypeHelper.iconForLibrary(library),
       label: library.title,
       selected: isSelected,
       subtitleWidget: showServerName
@@ -769,7 +774,7 @@ class _LibrariesScreenState extends State<LibrariesScreen>
         child: Row(
           mainAxisSize: .min,
           children: [
-            AppIcon(ContentTypeHelper.getLibraryIcon(selectedLibrary.kind.id), fill: 1, size: 20),
+            AppIcon(ContentTypeHelper.iconForLibrary(selectedLibrary), fill: 1, size: 20),
             const SizedBox(width: 8),
             if (librariesSpanMultipleServers(visibleLibraries) && selectedLibrary.serverName != null)
               Column(

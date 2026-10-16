@@ -45,10 +45,9 @@ class OldSchoolControls {
   final VoidCallback onGuide;
 
   /// What OK on the bare picture does instead of toggling playback while a
-  /// trailer's item can be opened (PLAN_SHA_43/47): during the trailer with
-  /// the controls up, or in its last seconds. Given whether the controls
-  /// show; returns null when nothing can be opened.
-  final VoidCallback? Function(bool controlsVisible)? promoAction;
+  /// trailer's item can be opened (PLAN_SHA_43/47): any time its corner block
+  /// shows, controls up or down. Returns null when nothing can be opened.
+  final VoidCallback? Function()? promoAction;
 
   /// The title over a break trailer with an item behind it, read when the
   /// controls build; null for anything else. While set, the header shows

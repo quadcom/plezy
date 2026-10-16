@@ -56,6 +56,18 @@ class OrientationHelper {
     ]);
   }
 
+  /// Holds a phone upright, for screens laid out for that way up (the IPTV
+  /// guide with its video window on top; Adrian, 2026-10-16). Tablets and
+  /// TVs keep the app's default.
+  static Future<void> lockPortraitOnPhone() async {
+    if (_platformOwnsOrientation) return;
+    if (Platform.isAndroid && _isTabletDisplay) {
+      await lockLandscapeOrientation();
+      return;
+    }
+    await SystemChrome.setPreferredOrientations(const [DeviceOrientation.portraitUp]);
+  }
+
   /// Enters the player's full-screen presentation with rotation locked.
   static void setLandscapeOrientation() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);

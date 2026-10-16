@@ -37,11 +37,14 @@ void main() {
     expect(find.text(t.auth.quickConnectScanInstructions), findsOneWidget);
   });
 
-  testWidgets('narrow screen keeps the code only', (tester) async {
+  testWidgets('narrow screen shows the QR above the code', (tester) async {
     await pumpPanel(tester, screen: const Size(400, 800), approveUrl: _approveUrl);
 
-    expect(find.byType(QrImageView), findsNothing);
-    expect(find.text(t.auth.quickConnectInstructions), findsOneWidget);
+    expect(find.byType(QrImageView), findsOneWidget);
+    expect(find.text(t.auth.quickConnectScanInstructions), findsOneWidget);
+    final qr = tester.getRect(find.byType(QrImageView));
+    expect(qr.bottom, lessThan(tester.getRect(find.text('123456')).top));
+    expect(qr.width, lessThanOrEqualTo(220));
   });
 
   testWidgets('no approve link means no QR, even on a wide screen', (tester) async {

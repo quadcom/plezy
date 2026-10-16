@@ -7,6 +7,8 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     // HLS playlist refreshes or crosses a discontinuity.
     if (widget.isLive) {
       _logVideoCompleted('live');
+      // An IPTV feed that ends has dropped: try it again or the next one.
+      if (widget.isIptv) _iptvOnStreamEnded();
       return;
     }
     // Ignore spurious EOF from the old file during an in-place media-source

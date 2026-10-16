@@ -196,9 +196,9 @@ class OldSchoolBackNote extends StatelessWidget {
   }
 }
 
-/// How long before a trailer's end its corner block shows by itself
-/// (PLAN_SHA_43 default).
-const oldSchoolPromoLead = Duration(seconds: 15);
+/// How long before a trailer's end its corner block fades out (Adrian,
+/// 2026-10-16; the web does the same).
+const oldSchoolPromoFadeOut = Duration(milliseconds: 400);
 
 /// The break trailer on the tuned channel now when it points at a film,
 /// show or course (it has a promo); null otherwise.
@@ -213,13 +213,17 @@ OldSchoolEntry? oldSchoolPromoTrailer(OldSchoolController controller) {
   return null;
 }
 
-/// [oldSchoolPromoTrailer] in its last [oldSchoolPromoLead], when its corner
-/// block shows with the controls down. Null otherwise.
+/// [oldSchoolPromoTrailer] while its corner block shows: the whole trailer
+/// up to its last [oldSchoolPromoFadeOut]. Null otherwise.
 OldSchoolEntry? oldSchoolActivePromo(OldSchoolController controller) {
   final entry = oldSchoolPromoTrailer(controller);
-  if (entry == null || entry.end.difference(controller.serverNow) > oldSchoolPromoLead) return null;
+  if (entry == null || !oldSchoolPromoShows(entry, controller.serverNow)) return null;
   return entry;
 }
+
+/// Whether [entry]'s corner block shows at [now]: from the trailer's first
+/// second until it fades out at the end (Adrian, 2026-10-16: "on full time").
+bool oldSchoolPromoShows(OldSchoolEntry entry, DateTime now) => entry.end.difference(now) > oldSchoolPromoFadeOut;
 
 /// Whether OK (or a click) on [entry]'s corner block opens its item: a film,
 /// show or course you have. Coming soon is never pressable (PLAN_SHA_47
@@ -270,16 +274,16 @@ Widget _poster(OldSchoolController controller, String itemId, String tag, double
 
 /// The top-right block over a break trailer for a film, show or course
 /// (PlezyFin PLAN_SHA_47): "Watch it now · Films › Real Steel · Also on … ·
-/// Press OK to open it · Ends at 5:23 PM", with the item's poster. Shows
-/// with the controls for the whole trailer, and by itself for its last
-/// [oldSchoolPromoLead], arriving step by step. OK (or a click) opens a film,
-/// show or course you have; coming soon is not pressable.
+/// Press OK to open it · Ends at 5:23 PM", with the item's poster. Shows for
+/// the whole trailer whether the controls are up or not: it arrives step by
+/// step once as the trailer starts (or on tuning into it) and fades out over
+/// its last [oldSchoolPromoFadeOut]. OK (or a click) opens a film, show or
+/// course you have; coming soon is not pressable.
 class OldSchoolPromoCorner extends StatefulWidget {
   final OldSchoolController controller;
-  final bool controlsVisible;
   final ValueChanged<OldSchoolEntry>? onOpen;
 
-  const OldSchoolPromoCorner({super.key, required this.controller, required this.controlsVisible, this.onOpen});
+  const OldSchoolPromoCorner({super.key, required this.controller, this.onOpen});
 
   @override
   State<OldSchoolPromoCorner> createState() => _OldSchoolPromoCornerState();
@@ -289,6 +293,9 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
   static const _steps = 20;
   late final AnimationController _entrance = AnimationController(vsync: this, duration: cornerUnit * _steps, value: 1);
   Timer? _tick;
+
+  /// Fires at the fade-out point, which the half-second tick would miss.
+  Timer? _fade;
 
   /// The trailer whose block shows, or showed last (kept while it fades out).
   OldSchoolEntry? _entry;
@@ -305,14 +312,9 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
   }
 
   @override
-  void didUpdateWidget(OldSchoolPromoCorner oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.controlsVisible != widget.controlsVisible) _update();
-  }
-
-  @override
   void dispose() {
     _tick?.cancel();
+    _fade?.cancel();
     _entrance.dispose();
     super.dispose();
   }
@@ -320,8 +322,10 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
   void _update({bool initial = false}) {
     if (!mounted) return;
     final entry = oldSchoolPromoTrailer(widget.controller);
-    final lead = entry != null && entry.end.difference(widget.controller.serverNow) <= oldSchoolPromoLead;
-    final visible = entry != null && (widget.controlsVisible || lead);
+    final now = widget.controller.serverNow;
+    final visible = entry != null && oldSchoolPromoShows(entry, now);
+    _fade?.cancel();
+    if (visible) _fade = Timer(entry.end.difference(now) - oldSchoolPromoFadeOut, _update);
     // "Ends at" counts from now, so it moves on with the clock.
     final minute = DateTime.now().minute;
     // A guide refresh brings new objects for the same trailer. A hidden
@@ -341,15 +345,9 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
     } else {
       setState(apply);
     }
-    if (arriving) {
-      // With the controls down it arrives step by step; with them up it
-      // comes in with them.
-      if (widget.controlsVisible) {
-        _entrance.value = 1;
-      } else {
-        unawaited(_entrance.forward(from: 0));
-      }
-    }
+    // Step by step, once per trailer; the controls coming and going don't
+    // replay it.
+    if (arriving) unawaited(_entrance.forward(from: 0));
   }
 
   @override
@@ -365,9 +363,9 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
         ignoring: !canOpen,
         child: AnimatedOpacity(
           opacity: _visible ? 1 : 0,
-          // Comes and goes with the controls; the entrance does its own
+          // The fade out at the trailer's end; the entrance does its own
           // arriving.
-          duration: const Duration(milliseconds: 250),
+          duration: oldSchoolPromoFadeOut,
           child: _block(context, entry, canOpen),
         ),
       ),

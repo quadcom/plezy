@@ -1,3 +1,5 @@
+import 'dart:ui' show DisplayFeature, DisplayFeatureState, DisplayFeatureType;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/i18n/strings.g.dart';
@@ -215,6 +217,98 @@ void main() {
       TvDetectionService.debugSetAppleTVOverride(true);
       addTearDown(() => TvDetectionService.debugSetAppleTVOverride(null));
       expect(await evaluate(tester, size: const Size(1080, 600)), isFalse);
+    });
+  });
+
+  group('camera hole on the rail edge (sideways phone)', () {
+    // The Pixel 11 Pro held sideways: 952 x 427, a 37-tall hole centred on
+    // the left edge with Android's 68 reserved along it (2026-10-16).
+    const hole = Rect.fromLTWH(0, 195, 68, 37);
+
+    Widget withHole(Widget rail, {Rect bounds = hole}) {
+      return MaterialApp(
+        home: Builder(
+          builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(
+              displayFeatures: [
+                DisplayFeature(bounds: bounds, type: DisplayFeatureType.cutout, state: DisplayFeatureState.unknown),
+              ],
+            ),
+            child: Scaffold(
+              body: Row(
+                children: [
+                  rail,
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    void phoneSideways(WidgetTester tester) {
+      tester.view.physicalSize = const Size(952, 427);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+    }
+
+    final four = tabs
+        .where(
+          (tab) => const {
+            NavigationTabId.discover,
+            NavigationTabId.libraries,
+            NavigationTabId.search,
+            NavigationTabId.downloads,
+          }.contains(tab.id),
+        )
+        .toList();
+
+    testWidgets('splits the destinations around the hole, close to the edge', (tester) async {
+      phoneSideways(tester);
+      NavigationTabId? selected;
+      await tester.pumpWidget(
+        withHole(
+          MobileNavigationRail(
+            tabs: four,
+            selectedTab: NavigationTabId.discover,
+            showLabels: true,
+            onDestinationSelected: (id) => selected = id,
+          ),
+        ),
+      );
+
+      expect(find.byType(NavigationRail), findsNothing);
+      final libraries = tester.getRect(find.text(t.navigation.libraries));
+      final search = tester.getRect(find.text(t.common.search));
+      expect(libraries.bottom, lessThanOrEqualTo(hole.top));
+      expect(
+        tester.getRect(find.byIcon(four.firstWhere((x) => x.id == NavigationTabId.search).icon)).top,
+        greaterThanOrEqualTo(hole.bottom),
+      );
+      expect(search.top, greaterThan(hole.bottom));
+      // Clear of the hole's spot only, not Android's whole reserved strip.
+      expect(libraries.center.dx, lessThan(hole.right));
+
+      await tester.tap(find.text(t.common.search));
+      expect(selected, NavigationTabId.search);
+    });
+
+    testWidgets('no hole on the rail edge keeps the standard rail', (tester) async {
+      phoneSideways(tester);
+      await tester.pumpWidget(
+        withHole(
+          MobileNavigationRail(
+            tabs: four,
+            selectedTab: NavigationTabId.discover,
+            showLabels: true,
+            onDestinationSelected: (_) {},
+          ),
+          // The phone turned the other way: the hole is on the right.
+          bounds: const Rect.fromLTWH(884, 195, 68, 37),
+        ),
+      );
+      expect(find.byType(NavigationRail), findsOneWidget);
     });
   });
 }

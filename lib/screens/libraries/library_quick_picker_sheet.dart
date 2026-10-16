@@ -56,7 +56,7 @@ class LibraryQuickPickerSheet extends StatelessWidget {
       visualDensity: VisualDensity.standard,
       selected: isSelected,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      leading: AppIcon(ContentTypeHelper.getLibraryIcon(library.kind.id), fill: 1, size: 22, color: foregroundColor),
+      leading: AppIcon(ContentTypeHelper.iconForLibrary(library), fill: 1, size: 22, color: foregroundColor),
       title: Text(
         library.title,
         maxLines: 1,

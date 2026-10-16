@@ -23,6 +23,11 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
     // reporting again, and re-running the policy per event is what turned a
     // failed HLS open into an ANR. A new open resets the latch.
     if (_hasFatalPlaybackError) return;
+    // IPTV fails over between feeds instead of the live retry ladder.
+    if (widget.isIptv) {
+      _iptvOnPlayerError(err);
+      return;
+    }
 
     // A sidecar subtitle fetch can also log a status, but it never raises the
     // end-file error this handler is wired to, so a latched status belongs to

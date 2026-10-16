@@ -434,8 +434,8 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
     if (mediaClient != null) {
       // Discord renders a timeline the live placeholder does not have; the
       // tracker coordinator takes the live decision itself.
-      if (widget.isOldSchool) {
-        // Old School plays aren't counted anywhere (PLAN_SHA_21): no presence
+      if (widget.isOldSchool || widget.isIptv) {
+        // Old School and IPTV plays aren't counted anywhere (PLAN_SHA_21): no presence
         // and no scrobbles. A live start resets the coordinator, so every
         // later update, pause and stop in this screen does nothing.
         unawaited(DiscordRPCService.instance.stopPlayback());

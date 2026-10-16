@@ -100,7 +100,7 @@ class HomeSectionsScreen extends StatelessWidget {
               for (final library in rowLibraries)
                 FocusableListTile(
                   key: ValueKey(library.globalKey),
-                  leading: AppIcon(ContentTypeHelper.getLibraryIcon(library.kind.id), fill: 1),
+                  leading: AppIcon(ContentTypeHelper.iconForLibrary(library), fill: 1),
                   title: Text(library.title),
                   subtitle: Text(_cardStyleLabel(layout.libraryCardStyle(library))),
                   onTap: () => _pickLibraryCards(context, layout, library),
@@ -267,7 +267,7 @@ class _HomeRow {
 
   String get title => library?.title ?? _sectionTitle(section!);
 
-  IconData get icon => library == null ? _sectionIcon(section!) : ContentTypeHelper.getLibraryIcon(library!.kind.id);
+  IconData get icon => library == null ? _sectionIcon(section!) : ContentTypeHelper.iconForLibrary(library!);
 
   /// Rows that hold episodes choose between the show's and the season's
   /// poster; the rest have one poster (Adrian, 2026-10-10).

@@ -42,6 +42,7 @@ import '../providers/catalog_sources_provider.dart';
 import '../providers/account_preferences_controller.dart';
 import '../providers/download_provider.dart';
 import '../providers/multi_server_provider.dart';
+import 'iptv/iptv_screen.dart';
 import '../providers/hidden_libraries_provider.dart';
 import '../providers/libraries_provider.dart';
 import '../providers/playback_state_provider.dart';
@@ -1885,6 +1886,17 @@ class _MainScreenState extends State<MainScreen>
   /// Handle library selection from side navigation rail
   void _selectLibrary(String libraryGlobalKey) {
     if (!_getVisibleTabs(_isOffline).any((tab) => tab.id == NavigationTabId.libraries)) return;
+    // An IPTV library opens its own full-screen guide (PLAN_SHA_61) and
+    // leaves the Libraries tab as it was.
+    final library = context
+        .read<LibrariesProvider>()
+        .libraries
+        .where((l) => l.globalKey == libraryGlobalKey)
+        .firstOrNull;
+    if (library != null && library.isIptv && iptvClientFor(context, library) != null) {
+      unawaited(openIptv(context, library));
+      return;
+    }
 
     _selectedLibraryGlobalKey = libraryGlobalKey;
     _selectTab(NavigationTabId.libraries);

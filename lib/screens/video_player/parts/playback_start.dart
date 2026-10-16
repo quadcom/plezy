@@ -95,12 +95,14 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
           targetEpoch = captureBuffer == null ? null : _live.streamStartEpoch.round();
         }
 
+        if (session is IptvPlaybackSession) _iptvDidStartSession(session);
         await _openLiveStream(
           currentPlayer,
           streamUrl,
           targetEpoch: targetEpoch,
           play: !PlatformDetector.isAutomotive(),
           timeShifted: offsetSeconds != null,
+          headers: session is IptvPlaybackSession ? session.headers : null,
         );
         if (!attempt.isCurrent) return;
 
@@ -120,6 +122,13 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
         }
       } catch (e, st) {
         appLogger.e('Failed to start live TV playback', error: e, stackTrace: st);
+        // IPTV: the next feed, or the dead-channel message and the guide;
+        // never out of the page.
+        if (widget.isIptv && mounted && !_shuttingDown) {
+          _setPlayerState(() => _isPlayerInitialized = true);
+          _iptvStartFailed();
+          return;
+        }
         unawaited(_sendLiveTimeline('stopped'));
         widget.launchObserver?.mark('failed', failure: 'playbackFailed');
         if (mounted && !_shuttingDown) {

@@ -329,6 +329,7 @@ class JellyfinMappers {
       isShared: false,
       serverId: serverId,
       serverName: serverName,
+      isIptv: collectionType?.trim().toLowerCase() == 'iptv',
     );
   }
 

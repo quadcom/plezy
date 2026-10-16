@@ -94,6 +94,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$course$en course = Translations$course$en.internal(_root);
 	late final Translations$seasonPage$en seasonPage = Translations$seasonPage$en.internal(_root);
 	late final Translations$oldSchool$en oldSchool = Translations$oldSchool$en.internal(_root);
+	late final Translations$iptv$en iptv = Translations$iptv$en.internal(_root);
 }
 
 // Path: app
@@ -6077,6 +6078,102 @@ class Translations$oldSchool$en {
 	String runMinutes({required Object minutes}) => '${minutes} min';
 }
 
+// Path: iptv
+class Translations$iptv$en {
+	Translations$iptv$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'IPTV'
+	String get title => 'IPTV';
+
+	/// en: 'Exit'
+	String get exit => 'Exit';
+
+	/// en: 'LIVE'
+	String get live => 'LIVE';
+
+	/// en: 'All'
+	String get all => 'All';
+
+	/// en: 'Favourites'
+	String get favourites => 'Favourites';
+
+	/// en: 'Other'
+	String get otherGroup => 'Other';
+
+	/// en: 'Today'
+	String get today => 'Today';
+
+	/// en: '${done} of ${total} min'
+	String minutesOf({required Object done, required Object total}) => '${done} of ${total} min';
+
+	/// en: 'May not be working'
+	String get mayNotWork => 'May not be working';
+
+	/// en: 'Not 24/7'
+	String get not247 => 'Not 24/7';
+
+	/// en: 'No listings'
+	String get noListings => 'No listings';
+
+	/// en: 'Next at ${time}'
+	String nextAt({required Object time}) => 'Next at ${time}';
+
+	/// en: 'until ${time}'
+	String until({required Object time}) => 'until ${time}';
+
+	/// en: 'Press Back again to leave'
+	String get pressBackAgain => 'Press Back again to leave';
+
+	/// en: 'Pick a channel to start watching'
+	String get pickChannel => 'Pick a channel to start watching';
+
+	/// en: 'Couldn't load the channels.'
+	String get loadFailed => 'Couldn\'t load the channels.';
+
+	/// en: 'No channels yet. An admin can pick channel groups in the library settings.'
+	String get noChannels => 'No channels yet. An admin can pick channel groups in the library settings.';
+
+	/// en: 'No favourite channels yet.'
+	String get noFavourites => 'No favourite channels yet.';
+
+	/// en: 'This channel isn't working right now. Try another channel.'
+	String get channelDead => 'This channel isn\'t working right now. Try another channel.';
+
+	/// en: 'Channel down'
+	String get channelDown => 'Channel down';
+
+	/// en: 'Channel up'
+	String get channelUp => 'Channel up';
+
+	/// en: 'Last'
+	String get last => 'Last';
+
+	/// en: 'Guide'
+	String get guide => 'Guide';
+
+	/// en: 'Favourite'
+	String get favourite => 'Favourite';
+
+	/// en: 'Remove from favourites'
+	String get unfavourite => 'Remove from favourites';
+
+	/// en: 'No channel ${number}'
+	String noChannelNumber({required Object number}) => 'No channel ${number}';
+
+	/// en: 'IPTV can't be used during Watch Together.'
+	String get noWatchTogether => 'IPTV can\'t be used during Watch Together.';
+
+	/// en: 'On now'
+	String get onNowRow => 'On now';
+
+	/// en: 'What's on your favourite IPTV channels'
+	String get onNowRowHint => 'What\'s on your favourite IPTV channels';
+}
+
 // Path: common.ratingSource
 class Translations$common$ratingSource$en {
 	Translations$common$ratingSource$en.internal(this._root);
@@ -9923,6 +10020,35 @@ extension on Translations {
 			'oldSchool.startsIn' => ({required Object time}) => 'Starts in ${time}',
 			'oldSchool.runHoursMinutes' => ({required Object hours, required Object minutes}) => '${hours} h ${minutes} min',
 			'oldSchool.runMinutes' => ({required Object minutes}) => '${minutes} min',
+			'iptv.title' => 'IPTV',
+			'iptv.exit' => 'Exit',
+			'iptv.live' => 'LIVE',
+			'iptv.all' => 'All',
+			'iptv.favourites' => 'Favourites',
+			'iptv.otherGroup' => 'Other',
+			'iptv.today' => 'Today',
+			'iptv.minutesOf' => ({required Object done, required Object total}) => '${done} of ${total} min',
+			'iptv.mayNotWork' => 'May not be working',
+			'iptv.not247' => 'Not 24/7',
+			'iptv.noListings' => 'No listings',
+			'iptv.nextAt' => ({required Object time}) => 'Next at ${time}',
+			'iptv.until' => ({required Object time}) => 'until ${time}',
+			'iptv.pressBackAgain' => 'Press Back again to leave',
+			'iptv.pickChannel' => 'Pick a channel to start watching',
+			'iptv.loadFailed' => 'Couldn\'t load the channels.',
+			'iptv.noChannels' => 'No channels yet. An admin can pick channel groups in the library settings.',
+			'iptv.noFavourites' => 'No favourite channels yet.',
+			'iptv.channelDead' => 'This channel isn\'t working right now. Try another channel.',
+			'iptv.channelDown' => 'Channel down',
+			'iptv.channelUp' => 'Channel up',
+			'iptv.last' => 'Last',
+			'iptv.guide' => 'Guide',
+			'iptv.favourite' => 'Favourite',
+			'iptv.unfavourite' => 'Remove from favourites',
+			'iptv.noChannelNumber' => ({required Object number}) => 'No channel ${number}',
+			'iptv.noWatchTogether' => 'IPTV can\'t be used during Watch Together.',
+			'iptv.onNowRow' => 'On now',
+			'iptv.onNowRowHint' => 'What\'s on your favourite IPTV channels',
 			_ => null,
 		};
 	}

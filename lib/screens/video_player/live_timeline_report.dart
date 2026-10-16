@@ -36,6 +36,9 @@ class LiveTimelineReportQueue {
   Future<void>? _pending;
   Future<void>? _stopped;
 
+  /// A terminal report is queued; later sends get it back unsent.
+  bool get isClosed => _stopped != null;
+
   Future<void> send({required bool stopped, required Future<void> Function() report}) {
     final terminal = _stopped;
     if (terminal != null) return terminal;

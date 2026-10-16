@@ -83,6 +83,11 @@ class DiscoverScreen extends StatefulWidget {
 class _DiscoverScreenState extends State<DiscoverScreen>
     with Refreshable, ManualRefreshable, FullRefreshable, TabVisibilityAware, FocusableTab, WidgetsBindingObserver {
   static const Duration _heroAutoScrollDuration = Duration(seconds: 8);
+
+  /// The smallest banner meta line ("Movie • 2026") and synopsis on a phone
+  /// or tablet (Adrian, 2026-10-16: too small to read).
+  static const double _phoneBannerMetaSize = 14;
+  static const double _phoneBannerSynopsisSize = 16;
   static const Duration _indicatorUpdateInterval = Duration(milliseconds: 200);
 
   /// Data + refresh policy live in [DiscoverProvider]; this state keeps only
@@ -913,7 +918,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     return ToolbarScrim(
       child: Row(
         children: [
-          if (!PlatformDetector.isTV())
+          // No "Discover" title on TVs, phones or tablets (Adrian, 2026-10-16:
+          // take it out on mobile); the PC keeps it.
+          if (!PlatformDetector.isTV() && !PlatformDetector.isMobile(context))
             Text(
               t.discover.title,
               style: Theme.of(context).textTheme.titleLarge?.copyWith(color: foregroundColor, fontWeight: .bold),
@@ -1551,7 +1558,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 ].join(' • '),
                                 style: TextStyle(
                                   color: colorScheme.onSurface,
-                                  fontSize: isTv ? 18 : 14,
+                                  fontSize: isTv
+                                      ? 18
+                                      : (PlatformDetector.isMobile(context) ? _phoneBannerMetaSize : 14),
                                   fontWeight: .w600,
                                 ),
                                 textAlign: alignLeft ? TextAlign.left : TextAlign.center,
@@ -1569,7 +1578,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 text: TextSpan(
                                   style: TextStyle(
                                     color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    fontSize: isTv ? 18 : 14,
+                                    fontSize: isTv
+                                        ? 18
+                                        : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14),
                                     height: isTv ? 1.45 : 1.4,
                                   ),
                                   children: [
@@ -1598,7 +1609,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 textAlign: alignLeft ? TextAlign.left : TextAlign.center,
                                 style: TextStyle(
                                   color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                  fontSize: isTv ? 18 : 14,
+                                  fontSize: isTv
+                                      ? 18
+                                      : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14),
                                   height: isTv ? 1.45 : 1.4,
                                 ),
                               ),
@@ -1825,6 +1838,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     // The look was set at 1920x1080; smaller windows scale it down.
     final viewportHeight = MediaQuery.sizeOf(context).height;
     final scale = math.min(screenWidth / 1920, viewportHeight / 1080).clamp(0.55, 1.0);
+    // Scaled down from 1920x1080, a phone's meta line came out about 8 and
+    // its synopsis about 13: too small to read (Adrian, 2026-10-16).
+    final phone = PlatformDetector.isMobile(context);
+    final metaSize = math.max((narrow ? 14 : 15) * scale, phone ? _phoneBannerMetaSize : 0.0);
+    final synopsisSize = math.max(23 * scale, phone ? _phoneBannerSynopsisSize : 0.0);
     final topClear = kToolbarHeight + MediaQuery.paddingOf(context).top;
     // A new episode raises only its text, never the poster.
     final textLift = slide.kind == BannerKind.newEpisode ? 60.0 * scale : 0.0;
@@ -1872,7 +1890,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
         if (item.contentRating != null) formatContentRating(item.contentRating!),
         if (item.year != null) item.year.toString(),
       ].join(' • '),
-      style: TextStyle(color: Colors.white, fontSize: (narrow ? 14 : 15) * scale, fontWeight: FontWeight.w700),
+      style: TextStyle(color: Colors.white, fontSize: metaSize, fontWeight: FontWeight.w700),
       textAlign: narrow ? TextAlign.center : TextAlign.left,
     );
     final button = slide.isUpcoming ? _buildTrailerButton(slide) : _buildSmartPlayButton(item);
@@ -1957,7 +1975,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 maxLines: viewportHeight < 850 ? 3 : 5,
                 overflow: TextOverflow.ellipsis,
                 text: TextSpan(
-                  style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: 23 * scale, height: 1.5),
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.88), fontSize: synopsisSize, height: 1.5),
                   children: [
                     if (episodePrefix != null)
                       TextSpan(

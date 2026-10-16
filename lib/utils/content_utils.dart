@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
+import '../media/media_library.dart';
+
 class ContentTypes {
   ContentTypes._();
 
@@ -25,6 +27,10 @@ class ContentTypeHelper {
   static bool isMusicContent(String type) => ContentTypes.musicTypes.contains(type.toLowerCase());
 
   static bool isVideoContent(String type) => ContentTypes.videoTypes.contains(type.toLowerCase());
+
+  /// A library's icon; IPTV libraries get the TV icon rather than a folder.
+  static IconData iconForLibrary(MediaLibrary library) =>
+      library.isIptv ? Symbols.live_tv_rounded : getLibraryIcon(library.kind.id);
 
   static IconData getLibraryIcon(String type) {
     switch (type.toLowerCase()) {

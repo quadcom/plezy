@@ -13,9 +13,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     onChannelUp: () => unawaited(_oldSchoolChannelStep(1)),
     onChannelDown: () => unawaited(_oldSchoolChannelStep(-1)),
     onGuide: () => _oldSchoolSetFullScreen(false),
-    promoAction: (controlsVisible) {
+    // The corner shows for the whole trailer, so OK opens it controls up or
+    // down.
+    promoAction: () {
       if (!_os.fullScreen || _os.playingPreRoll) return null;
-      final promo = controlsVisible ? oldSchoolPromoTrailer(_osController) : oldSchoolActivePromo(_osController);
+      final promo = oldSchoolActivePromo(_osController);
       if (promo == null || !oldSchoolPromoOpens(promo)) return null;
       return () => unawaited(_oldSchoolOpenPromo(promo));
     },
@@ -361,9 +363,12 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     unawaited(_oldSchoolTune(current, reason: 'carry on', showCard: false));
   }
 
-  /// [video] as it is, or inside the Old School page.
-  Widget _wrapOldSchool(BuildContext context, Widget video) =>
-      widget.isOldSchool ? _buildOldSchoolPage(context, video) : video;
+  /// [video] as it is, or inside the Old School or IPTV page.
+  Widget _wrapOldSchool(BuildContext context, Widget video) => widget.isOldSchool
+      ? _buildOldSchoolPage(context, video)
+      : widget.isIptv
+      ? _buildIptvPage(context, video)
+      : video;
 
   /// The page: the guide with the video in its corner window, or the video
   /// full screen with the channel watermark.
@@ -418,14 +423,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
                     OldSchoolWatermark(controller: controller, channel: channel, controlsVisible: controlsVisible),
               ),
             if (full && channel != null)
-              ValueListenableBuilder<bool>(
-                valueListenable: _chromeController,
-                builder: (context, controlsVisible, _) => OldSchoolPromoCorner(
-                  controller: controller,
-                  controlsVisible: controlsVisible,
-                  onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
-                ),
-              ),
+              OldSchoolPromoCorner(controller: controller, onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry))),
             // The main feature's poster corner (local/plans/playback-corner.md).
             if (full && channel != null && _posterCornerShows(context)) _posterCorner(),
             if (full && channel != null)

@@ -43,6 +43,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
 
   JellyfinClient? _account;
   JellyfinClient? _oldSchoolClient;
+  JellyfinClient? _iptvClient;
   String? _ownServerId;
   LibraryLayout? _layout;
 
@@ -166,6 +167,10 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
   /// The PlezyFin server's client when it offers Old School (PlezyFinVersion 2
   /// or later, PLAN_SHA_21); null otherwise.
   JellyfinClient? get oldSchoolClient => _oldSchoolClient;
+
+  /// The PlezyFin server's client when it offers IPTV libraries
+  /// (PlezyFinVersion 3 or later, PLAN_SHA_61); null otherwise.
+  JellyfinClient? get iptvClient => _iptvClient;
 
   /// The PlezyFin server's client, for its Favourites entry; null without a
   /// reachable account.
@@ -621,8 +626,9 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       if (_layout != null && !_libraries.any((l) => l.serverId != null && clientFor(ServerId(l.serverId!)) == null)) {
         await _setAccount(null, null, null);
       }
-      if (_oldSchoolClient != null) {
+      if (_oldSchoolClient != null || _iptvClient != null) {
         _oldSchoolClient = null;
+        _iptvClient = null;
         safeNotifyListeners();
       }
       return;
@@ -630,8 +636,10 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     final level = int.tryParse(await account.plezyFinVersion() ?? '') ?? 0;
     if (isDisposed) return;
     final oldSchool = level >= 2 ? account : null;
-    if (!identical(oldSchool, _oldSchoolClient)) {
+    final iptv = level >= 3 ? account : null;
+    if (!identical(oldSchool, _oldSchoolClient) || !identical(iptv, _iptvClient)) {
       _oldSchoolClient = oldSchool;
+      _iptvClient = iptv;
       safeNotifyListeners();
     }
     try {

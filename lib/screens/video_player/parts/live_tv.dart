@@ -94,6 +94,12 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     final playbackTime = _live.playbackStartTime != null
         ? DateTime.now().difference(_live.playbackStartTime!).inMilliseconds
         : 0;
+    if (state == 'stopped' && requestSession is IptvPlaybackSession) {
+      appLogger.i(
+        'IPTV: stopping ${requestSession.channel.numberLabel}'
+        '${_live.timelineReports.isClosed ? ' (queue already closed)' : ''}',
+      );
+    }
 
     try {
       await _live.timelineReports.send(
@@ -146,6 +152,8 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
   /// session on it — the shared resolution path for initial launch and
   /// channel zapping (Plex tunes a DVR, Jellyfin negotiates a direct URL).
   Future<LiveTvPlaybackSession?> _startLiveSession(LiveTvChannel channel) async {
+    // IPTV: no server step, the feeds are in the line-up already.
+    if (widget.isIptv) return _iptvStartSession(channel);
     final multiServer = context.read<MultiServerProvider>();
     final serverInfo = liveTvServerInfoForChannel(multiServer, channel);
     if (serverInfo == null) {
@@ -269,10 +277,13 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
     bool applyOptions = true,
     bool timeShifted = false,
     void Function()? onOpenStarted,
+    Map<String, String>? headers,
   }) async {
     if (_shuttingDown || !_launchCurrent) return false;
     _live.streamGeneration++;
-    final media = Media(streamUrl, headers: const {'Accept-Language': 'en'});
+    // An IPTV feed goes to an outside server and gets exactly the headers
+    // its playlist asked for (plan 61).
+    final media = Media(streamUrl, headers: headers ?? const {'Accept-Language': 'en'});
     final playNow = play ?? automotivePlaybackAllowedNow();
     if (targetEpoch == null || player is! PlayerNative) {
       if (applyOptions) await _setLiveStreamOptions(player);
@@ -474,6 +485,7 @@ extension _VideoPlayerLiveTvMethods on VideoPlayerScreenState {
 
   Future<void> _switchLiveChannel(int delta) async {
     if (_shuttingDown) return;
+    if (widget.isIptv) return _iptvChannelStep(delta);
     final channels = widget.live?.channels;
     if (channels == null || channels.isEmpty) return;
     final newIndex = _live.channelIndex + delta;
