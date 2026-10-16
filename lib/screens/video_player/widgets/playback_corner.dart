@@ -61,9 +61,10 @@ class PlaybackCornerGate {
   /// answer lands, never during the build that asked.
   void _lookUp(MediaServerClient client, MediaItem item) {
     if (!_pending.add(item.id)) return;
+    // Future.sync: a client that throws at once must not throw into the
+    // build that asked.
     unawaited(
-      client
-          .stampLibrary(item)
+      Future.sync(() => client.stampLibrary(item))
           .then((stamped) => stamped.libraryTitle)
           .catchError((Object e) {
             appLogger.d('Playback corner: library lookup failed for ${item.id}', error: e);

@@ -685,8 +685,9 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
     final leftSeconds = left.isNegative ? 0 : (left.inMilliseconds / 1000).round();
     final countdown = '${leftSeconds ~/ 60}:${(leftSeconds % 60).toString().padLeft(2, '0')}';
     final runTime = film.runTime;
-    // The film starts when its trailer ends.
-    final ends = runTime == null ? null : DateTime.now().add(Duration(seconds: leftSeconds)).add(runTime);
+    // The film starts when its trailer ends, and may play a little slowed.
+    final wallRunTime = film.wallRunTime;
+    final ends = wallRunTime == null ? null : DateTime.now().add(Duration(seconds: leftSeconds)).add(wallRunTime);
     final details = [
       if (film.year != null) '${film.year}',
       if (film.rating?.isNotEmpty ?? false) film.rating!,

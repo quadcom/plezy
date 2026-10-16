@@ -864,6 +864,12 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       );
       if (!shouldContinue()) return const _MediaOpenResult(didOpen: false);
     }
+    // Old School's speed is set before the file opens, so the audio path is
+    // built once for it (a speed other than 1 cannot pass audio through).
+    if (widget.isOldSchool) {
+      await _oldSchoolApplyRate(player);
+      if (!shouldContinue()) return const _MediaOpenResult(didOpen: false);
+    }
 
     final media = Media(videoUrl, start: timing.mediaStart, headers: headers);
     final sidecarOpenGuard = MpvSidecarOpenGuard.armIfNeeded(outcome: outcome, subtitles: externalSubtitlesAtOpen);

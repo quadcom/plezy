@@ -224,6 +224,13 @@ class OldSchoolEntry {
   final String? preItemId;
   final Duration? preRunTime;
 
+  /// The speed [itemId] plays at (PlezyFin PLAN_SHA_26 Amendment 1, "stretch
+  /// to fit"): a programme or break trailer slowed by a few percent so the
+  /// next programme starts on time. 1 when absent. [start] and [end] are
+  /// wall-clock and already allow for it; a pre-roll trailer always plays
+  /// at 1.
+  final double rate;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -257,6 +264,7 @@ class OldSchoolEntry {
     this.promoRating,
     this.preItemId,
     this.preRunTime,
+    this.rate = 1.0,
   });
 
   /// One block for a break (or, with [kind] musicVideos, a run of music
@@ -326,8 +334,12 @@ class OldSchoolEntry {
   /// The trailer's share of the slot; zero without one.
   Duration get preRollTime => hasPreRoll ? preRunTime! : Duration.zero;
 
-  /// The whole programme's running time: the trailer plus the file.
-  Duration? get slotRunTime => runTime == null ? null : runTime! + preRollTime;
+  /// How long the file takes to play at [rate], by the clock.
+  Duration? get wallRunTime => runTime == null ? null : runTime! * (1 / rate);
+
+  /// The whole programme's running time by the clock: the trailer plus the
+  /// file at its [rate].
+  Duration? get slotRunTime => runTime == null ? null : wallRunTime! + preRollTime;
 
   bool get isProgramme =>
       kind == OldSchoolEntryKind.movie || kind == OldSchoolEntryKind.episode || kind == OldSchoolEntryKind.musicVideo;
@@ -413,8 +425,21 @@ class OldSchoolEntry {
       promoRating: _string(map, 'PromoOfficialRating'),
       preItemId: _string(map, 'PreItemId'),
       preRunTime: preTicks == null ? null : Duration(microseconds: preTicks ~/ 10),
+      rate: _rate(map),
     );
   }
+
+  /// The contract allows (0, 1], and maybe up to 1.04 later. Anything far
+  /// outside that is a fault, not a schedule, and plays at 1.
+  static double _rate(Map<String, dynamic> map) {
+    final value = map['Rate'] ?? map['rate'];
+    final rate = value is num ? value.toDouble() : (value is String ? double.tryParse(value) : null);
+    return rate == null || rate < minRate || rate > maxRate ? 1.0 : rate;
+  }
+
+  /// The slowest and fastest [rate] taken from the server.
+  static const minRate = 0.5;
+  static const maxRate = 1.1;
 }
 
 /// `GET Guide`: the server's clock and every channel's entries overlapping
@@ -504,10 +529,11 @@ class OldSchoolTune {
 
   /// Where in [entry]'s file playback should be at [deviceNow], never
   /// negative: past the trailer when the slot opens with one, so the film
-  /// starts at 0 when the trailer ends.
+  /// starts at 0 when the trailer ends. Clock time since then times the
+  /// entry's [OldSchoolEntry.rate], as the file plays that much slower.
   Duration offsetInto(OldSchoolEntry entry, DateTime deviceNow) {
     final offset = slotOffset(entry, deviceNow) - entry.preRollTime;
-    return offset.isNegative ? Duration.zero : offset;
+    return offset.isNegative ? Duration.zero : offset * entry.rate;
   }
 }
 

@@ -33,6 +33,25 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     if (_os.playingPreRoll != on) _setPlayerState(() => _os.playingPreRoll = on);
   }
 
+  /// The speed the open file plays at (PLAN_SHA_26 Amendment 1): the slot's
+  /// stretch for its own item; 1 for a film's own trailer, and after Start
+  /// over, which is off the schedule anyway (the web does the same).
+  double get _oldSchoolRate {
+    final entry = _os.slotTune?.now;
+    if (entry == null || _os.playingPreRoll || _os.filmFromStart) return 1.0;
+    return entry.rate;
+  }
+
+  /// Put the player at [_oldSchoolRate]. Every Old School open goes through
+  /// here before the file starts; the player is thrown away when Old School
+  /// is left, so normal viewing never inherits a slowed speed.
+  Future<void> _oldSchoolApplyRate(Player currentPlayer) async {
+    final rate = _oldSchoolRate;
+    if (currentPlayer.state.rate == rate) return;
+    appLogger.d('Old School: playback speed $rate');
+    await currentPlayer.setRate(rate);
+  }
+
   /// How much of the playing film trailer is left: from the player once the
   /// trailer is the open file, else from the schedule.
   Duration? _oldSchoolTrailerLeft() {
@@ -184,8 +203,12 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         await _performSeekPlayback(position());
         if (!mounted || generation != _os.tuneGeneration) return true;
         final currentPlayer = player;
-        if (currentPlayer != null && !currentPlayer.state.playing) await currentPlayer.play();
         _oldSchoolSetPreRoll(true);
+        if (currentPlayer != null) {
+          await _oldSchoolApplyRate(currentPlayer);
+          if (!mounted || generation != _os.tuneGeneration) return true;
+          if (!currentPlayer.state.playing) await currentPlayer.play();
+        }
         return true;
       }
       final item = await _osController.client.fetchItem(trailerId);
@@ -223,6 +246,8 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       // Same file (Back to live, or the channel's next slot is the same
       // item): jump to the scheduled point. This is the one forward seek Old
       // School makes, so it goes past the lock.
+      await _oldSchoolApplyRate(currentPlayer);
+      if (!mounted || generation != _os.tuneGeneration) return;
       await _performSeekPlayback(position());
       if (!mounted || generation != _os.tuneGeneration) return;
       if (!currentPlayer.state.playing) await currentPlayer.play();
@@ -273,6 +298,10 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   Future<void> _oldSchoolRestart() async {
     final tune = _os.slotTune;
     if (tune == null || !tune.now.hasPreRoll || tune.channelId != _osController.tunedChannelId) {
+      // Off the schedule from here, so at normal speed.
+      _os.filmFromStart = true;
+      final currentPlayer = player;
+      if (currentPlayer != null) await _oldSchoolApplyRate(currentPlayer);
       await _seekPlayback(Duration.zero);
       return;
     }

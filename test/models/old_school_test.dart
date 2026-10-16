@@ -375,6 +375,60 @@ void main() {
     });
   });
 
+  group('OldSchoolTune rate (PLAN_SHA_26 Amendment 1)', () {
+    // Heat (170 min) slowed to 0.96, optionally after its 2-minute trailer.
+    OldSchoolTune tuneAt(String serverTime, {Object? rate = 0.96, bool preRoll = false}) =>
+        OldSchoolTune.fromJson('c2', {
+          'serverTime': serverTime,
+          'now': {
+            'kind': 'show',
+            'itemType': 'Movie',
+            'itemId': 'heat',
+            'start': '2026-10-14T01:00:00Z',
+            'end': '2026-10-14T04:00:00Z',
+            'runTimeTicks': 170 * 60 * 10000000,
+            'rate': ?rate,
+            if (preRoll) 'preItemId': 'heattrailer',
+            if (preRoll) 'preRunTimeTicks': 120 * 10000000,
+          },
+        }, receivedAt: DateTime.parse(serverTime))!;
+
+    test('reads the rate; absent is 1', () {
+      expect(tuneAt('2026-10-14T01:00:00Z').now.rate, 0.96);
+      expect(tuneAt('2026-10-14T01:00:00Z', rate: null).now.rate, 1.0);
+      expect(
+        OldSchoolEntry.fromJson({'Rate': 0.98, 'Start': '2026-10-14T01:00:00Z', 'End': '2026-10-14T02:00:00Z'})!.rate,
+        0.98,
+      );
+    });
+
+    test('a rate far outside the contract plays at 1', () {
+      for (final bad in [0, -1, 0.2, 1.5, 'fast']) {
+        expect(tuneAt('2026-10-14T01:00:00Z', rate: bad).now.rate, 1.0, reason: '$bad');
+      }
+    });
+
+    test('the file joins at clock time times the rate', () {
+      final tune = tuneAt('2026-10-14T02:00:00Z');
+      expect(tune.offsetInto(tune.now, tune.receivedAt), const Duration(minutes: 57, seconds: 36));
+    });
+
+    test('with a pre-roll the trailer runs at 1 and the rate starts after it', () {
+      final inTrailer = tuneAt('2026-10-14T01:01:00Z', preRoll: true);
+      expect(inTrailer.inPreRoll(inTrailer.now, inTrailer.receivedAt), isTrue);
+      expect(inTrailer.slotOffset(inTrailer.now, inTrailer.receivedAt), const Duration(minutes: 1));
+      final pastIt = tuneAt('2026-10-14T01:52:00Z', preRoll: true);
+      expect(pastIt.offsetInto(pastIt.now, pastIt.receivedAt), const Duration(minutes: 48));
+    });
+
+    test('run times by the clock allow for the rate', () {
+      final entry = tuneAt('2026-10-14T01:00:00Z', preRoll: true).now;
+      expect(entry.runTime, const Duration(minutes: 170));
+      expect(entry.wallRunTime!.inSeconds, 10625); // 10200 s / 0.96
+      expect(entry.slotRunTime!.inSeconds, 10625 + 120);
+    });
+  });
+
   group('OldSchoolEntry.joinBreaks', () {
     OldSchoolEntry at(OldSchoolEntryKind kind, int startMin, int endMin, String name, {String? series}) =>
         OldSchoolEntry(
