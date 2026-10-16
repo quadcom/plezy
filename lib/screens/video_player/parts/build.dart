@@ -167,10 +167,37 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
     _pinchStartZoomScale = null;
   }
 
+  /// Whether the poster corner shows over what's playing (local/plans/
+  /// playback-corner.md): a film or episode, not live TV; in Old School only
+  /// over the main feature full screen, never over a break item or a film's
+  /// own trailer.
+  bool _posterCornerShows(BuildContext context) {
+    if (widget.isLive || player == null) return false;
+    if (widget.isOldSchool) {
+      if (!_os.fullScreen || _os.playingPreRoll) return false;
+      final channelId = _osController.tunedChannelId;
+      if (channelId == null) return false;
+      final id = _currentMetadata.id;
+      final feature = _osController
+          .entriesFor(channelId)
+          .any((e) => e.itemId == id && (e.kind == OldSchoolEntryKind.movie || e.kind == OldSchoolEntryKind.episode));
+      if (!feature) return false;
+    }
+    return _cornerGate.shows(context, _currentMetadata);
+  }
+
+  /// The poster corner, coming and going with the controls.
+  Widget _posterCorner() => ValueListenableBuilder<bool>(
+    valueListenable: _chromeController,
+    builder: (context, controlsVisible, _) =>
+        PlaybackCorner(metadata: _currentMetadata, player: player!, controlsVisible: controlsVisible),
+  );
+
   Widget _buildVideoPlayer(BuildContext context) {
     // Cache platform detection to avoid multiple calls
     final isMobile = PlatformDetector.isMobile(context);
     final hideChromeOnMouseExit = !(isMobile && !PlatformDetector.isTV());
+    final posterCorner = _posterCornerShows(context);
 
     // Back handling (sheet-close + player exit) is owned by the OverlaySheetHost
     // that wraps this widget — see video_player_screen.dart (canPop/onSystemBack).
@@ -350,12 +377,16 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                                     : null,
                                 toastController: _toastController,
                                 oldSchool: widget.isOldSchool ? _oldSchoolControls : null,
+                                posterCorner: posterCorner,
                               ),
                       );
                     },
                   ),
                 ),
               ),
+              // The poster corner over a film or episode; Old School puts its
+              // own in the page.
+              if (posterCorner && !widget.isOldSchool) _posterCorner(),
               // Netflix-style auto-play overlay (hidden in PiP mode)
               VideoPlayerPlayNextOverlay(
                 visible: _episode.showPlayNextDialog,

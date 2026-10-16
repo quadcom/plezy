@@ -44,6 +44,10 @@ class VideoControlsHeader extends StatelessWidget {
   final String? titleOverride;
   final String? subtitleOverride;
 
+  /// Whether to show the title at all. Off while the poster corner names the
+  /// item at the top right (Adrian, 2026-10-15).
+  final bool showTitle;
+
   const VideoControlsHeader({
     super.key,
     required this.metadata,
@@ -55,6 +59,7 @@ class VideoControlsHeader extends StatelessWidget {
     this.showClock = true,
     this.titleOverride,
     this.subtitleOverride,
+    this.showTitle = true,
   });
 
   @override
@@ -65,7 +70,9 @@ class VideoControlsHeader extends StatelessWidget {
         AppBarBackButton(style: BackButtonStyle.video, onPressed: onBack ?? () => Navigator.of(context).pop(true)),
         const SizedBox(width: 16),
         Expanded(
-          child: titleOverride != null
+          child: !showTitle
+              ? const SizedBox()
+              : titleOverride != null
               ? _buildOverrideTitle(titleOverride!)
               : style == VideoHeaderStyle.singleLine
               ? _buildSingleLineTitle(itemTitle)

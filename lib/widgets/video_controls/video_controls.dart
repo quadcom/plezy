@@ -665,6 +665,10 @@ class PlexVideoControls extends StatefulWidget {
   /// item skipping, and its own buttons.
   final OldSchoolControls? oldSchool;
 
+  /// The poster corner shows at the top right (local/plans/playback-corner.md),
+  /// so the header's clock and title stand down; the corner carries them.
+  final bool posterCorner;
+
   /// Whether ambient lighting is enabled (passed to settings sheet)
   final bool isAmbientLightingEnabled;
 
@@ -747,6 +751,7 @@ class PlexVideoControls extends StatefulWidget {
     this.onLiveSeekBy,
     this.onJumpToLive,
     this.oldSchool,
+    this.posterCorner = false,
     this.isAmbientLightingEnabled = false,
     this.onToggleAmbientLighting,
   });
@@ -1350,6 +1355,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
                                                       thumbnailDataBuilder: widget.thumbnailDataBuilder,
                                                       isLive: widget.isLive,
                                                       oldSchool: widget.oldSchool,
+                                                      posterCorner: widget.posterCorner,
                                                       liveChannelName: widget.liveChannelName,
                                                       captureBuffer: widget.captureBuffer,
                                                       isAtLiveEdge: widget.isAtLiveEdge,

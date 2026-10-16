@@ -17,6 +17,17 @@ void main() {
     await initializeDateFormatting('en');
   });
 
+  testWidgets('no title while the poster corner names the item', (tester) async {
+    final item = _mappedItem({'Id': 'movie-1', 'Type': 'Movie', 'Name': 'Real Steel'});
+
+    for (final style in VideoHeaderStyle.values) {
+      await _pumpHeader(tester, metadata: item, style: style, showTitle: false);
+
+      expect(find.text('Real Steel'), findsNothing, reason: style.name);
+      expect(tester.takeException(), isNull, reason: style.name);
+    }
+  });
+
   testWidgets('title-less mapped movie builds with localized fallback in both layouts', (tester) async {
     final item = _mappedItem({'Id': 'movie-without-name', 'Type': 'Movie'});
 
@@ -81,7 +92,12 @@ MediaItem _mappedItem(Map<String, dynamic> json) {
   )!;
 }
 
-Future<void> _pumpHeader(WidgetTester tester, {required MediaItem metadata, required VideoHeaderStyle style}) async {
+Future<void> _pumpHeader(
+  WidgetTester tester, {
+  required MediaItem metadata,
+  required VideoHeaderStyle style,
+  bool showTitle = true,
+}) async {
   final watchTogether = WatchTogetherProvider();
   addTearDown(watchTogether.dispose);
 
@@ -94,7 +110,7 @@ Future<void> _pumpHeader(WidgetTester tester, {required MediaItem metadata, requ
             backgroundColor: Colors.black,
             body: SizedBox(
               width: 900,
-              child: VideoControlsHeader(metadata: metadata, style: style, onBack: () {}),
+              child: VideoControlsHeader(metadata: metadata, style: style, onBack: () {}, showTitle: showTitle),
             ),
           ),
         ),

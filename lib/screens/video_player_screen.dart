@@ -125,6 +125,7 @@ import '../widgets/video_controls/old_school_controls.dart';
 import 'video_player/tv_background_suspend_policy.dart';
 import 'video_player/tv_background_suspend_state.dart';
 import 'video_player/visual_effects_controller.dart';
+import 'video_player/widgets/playback_corner.dart';
 import 'video_player/widgets/player_prompt_overlays.dart';
 import '../widgets/overlay_sheet.dart';
 import '../widgets/video_controls/player_chrome_controller.dart';
@@ -718,6 +719,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   late MediaItem _currentMetadata;
   final EpisodeSessionState _episode = EpisodeSessionState();
   final OldSchoolPlayerState _os = OldSchoolPlayerState();
+  late final PlaybackCornerGate _cornerGate = PlaybackCornerGate(
+    onChanged: () {
+      if (mounted) _setPlayerState(() {});
+    },
+  );
 
   // In-flight media-source transition. At most one can run at a time: reloads
   // and channel switches are mutually exclusive.

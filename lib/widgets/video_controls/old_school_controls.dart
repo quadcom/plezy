@@ -1,5 +1,27 @@
 import 'package:flutter/foundation.dart';
 
+/// The channel logo's place in the bottom-right corner of the full-screen
+/// picture, as fractions of the screen: [oldSchoolLogoRight] in from the right
+/// edge, [oldSchoolLogoWidth] wide, [oldSchoolLogoBottom] up from the bottom.
+/// With the controls up it grows by [oldSchoolLogoGrow] (Adrian, 2026-10-15).
+const oldSchoolLogoRight = 0.03;
+const oldSchoolLogoWidth = 0.06;
+const oldSchoolLogoBottom = 0.05;
+const oldSchoolLogoGrow = 1.25;
+
+/// With the controls up the logo also lifts so its bottom sits this far
+/// above the screen's bottom edge, clear of the controls' button row and
+/// beside the shortened timeline (the Greatroom TV, 2026-10-15: the grown
+/// logo covered the settings and subtitle buttons). Logical pixels, like
+/// the controls themselves.
+const oldSchoolLogoLiftedBottom = 72.0;
+
+/// How far in from the right edge the Old School timeline stops, so the
+/// grown channel logo sits clear of it (Adrian, 2026-10-15: the timeline
+/// covered part of the logo).
+double oldSchoolTimelineClearance(double screenWidth) =>
+    screenWidth * (oldSchoolLogoRight + oldSchoolLogoWidth * oldSchoolLogoGrow + 0.015);
+
 /// The top-left title over a break trailer that points at a film, show or
 /// course (PLAN_SHA_47): the item's name, never the trailer file's, and
 /// "Trailer · 2011 · PG-13" (or "Trailer · coming soon").

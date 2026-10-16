@@ -66,6 +66,10 @@ class MobileVideoControls extends StatefulWidget {
   /// Old School mode: no seeking ahead, its own buttons (PLAN_SHA_21).
   final OldSchoolControls? oldSchool;
 
+  /// The poster corner shows at the top right (local/plans/playback-corner.md),
+  /// so the header's clock and title stand down; the corner carries them.
+  final bool posterCorner;
+
   final String? liveChannelName;
 
   // Live TV time-shift
@@ -117,6 +121,7 @@ class MobileVideoControls extends StatefulWidget {
     this.thumbnailDataBuilder,
     this.isLive = false,
     this.oldSchool,
+    this.posterCorner = false,
     this.liveChannelName,
     this.captureBuffer,
     this.isAtLiveEdge = true,
@@ -337,7 +342,8 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
           onStartAutoHide: widget.onStartAutoHide,
           trailing: widget.trackChapterControls,
           onBack: widget.onBack,
-          showClock: !isPortraitPhone && trailerTitle == null,
+          showClock: !isPortraitPhone && trailerTitle == null && !widget.posterCorner,
+          showTitle: !widget.posterCorner,
           titleOverride: trailerTitle?.title,
           subtitleOverride: trailerTitle?.line,
         ),
@@ -512,7 +518,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
                 horizontalLayout: false,
                 // Shows where the programme is; Old School can't be scrubbed ahead.
                 enabled: false,
-                showFinishTime: true,
+                showFinishTime: !widget.posterCorner,
               ),
               const SizedBox(height: 8),
               Row(
@@ -561,7 +567,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
           onScrubEnd: widget.onScrubEnd,
           horizontalLayout: false,
           enabled: widget.canControl,
-          showFinishTime: true,
+          showFinishTime: !widget.posterCorner,
           thumbnailDataBuilder: widget.thumbnailDataBuilder,
         ),
       ),

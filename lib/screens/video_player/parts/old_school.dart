@@ -383,7 +383,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
             // During a film's own trailer its card's logo stands in for the
             // watermark, and nothing else shows (PLAN_SHA_46/47).
             if (full && channel != null && !_os.playingPreRoll)
-              OldSchoolWatermark(controller: controller, channel: channel),
+              ValueListenableBuilder<bool>(
+                valueListenable: _chromeController,
+                builder: (context, controlsVisible, _) =>
+                    OldSchoolWatermark(controller: controller, channel: channel, controlsVisible: controlsVisible),
+              ),
             if (full && channel != null)
               ValueListenableBuilder<bool>(
                 valueListenable: _chromeController,
@@ -393,6 +397,8 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
                   onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
                 ),
               ),
+            // The main feature's poster corner (local/plans/playback-corner.md).
+            if (full && channel != null && _posterCornerShows(context)) _posterCorner(),
             if (full && channel != null)
               OldSchoolPreRollCard(
                 controller: controller,

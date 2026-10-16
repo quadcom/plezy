@@ -11,6 +11,7 @@ import '../../services/image_cache_service.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/dev_log_file.dart';
 import '../../utils/formatters.dart';
+import '../../widgets/corner_band.dart';
 import '../../widgets/video_controls/old_school_controls.dart';
 import 'old_school_controller.dart';
 
@@ -28,23 +29,47 @@ Widget _logo(OldSchoolController controller, OldSchoolChannel channel, double wi
 
 /// The channel's logo, faint in the bottom-right corner of the full-screen
 /// picture like a real channel's: about 35% opacity, about 6% of the
-/// picture's width (about 230 px on 4K).
+/// picture's width (about 230 px on 4K). With the controls up it grows a
+/// little, shows in full and lifts above the button row, so it reads easily;
+/// it settles back when they go (Adrian, 2026-10-15).
 class OldSchoolWatermark extends StatelessWidget {
   final OldSchoolController controller;
   final OldSchoolChannel channel;
+  final bool controlsVisible;
 
-  const OldSchoolWatermark({super.key, required this.controller, required this.channel});
+  const OldSchoolWatermark({super.key, required this.controller, required this.channel, this.controlsVisible = false});
+
+  static const _change = Duration(milliseconds: 300);
 
   @override
   Widget build(BuildContext context) {
     if (channel.logoTag == null) return const SizedBox.shrink();
     final size = MediaQuery.sizeOf(context);
-    final width = size.width * 0.06;
+    final width = size.width * oldSchoolLogoWidth;
+    final bottom = size.height * oldSchoolLogoBottom;
+    final lift = math.max(0.0, oldSchoolLogoLiftedBottom - bottom);
+    // Drawn at the grown size and scaled down when faint, so it stays sharp.
     return Positioned(
-      right: size.width * 0.03,
-      bottom: size.height * 0.05,
+      right: size.width * oldSchoolLogoRight,
+      bottom: bottom,
       child: IgnorePointer(
-        child: Opacity(opacity: 0.35, child: _logo(controller, channel, width, MediaQuery.devicePixelRatioOf(context))),
+        child: AnimatedPadding(
+          padding: EdgeInsets.only(bottom: controlsVisible ? lift : 0),
+          duration: _change,
+          curve: Curves.easeOut,
+          child: AnimatedScale(
+            scale: controlsVisible ? 1 : 1 / oldSchoolLogoGrow,
+            alignment: Alignment.bottomRight,
+            duration: _change,
+            curve: Curves.easeOut,
+            child: AnimatedOpacity(
+              opacity: controlsVisible ? 1 : 0.35,
+              duration: _change,
+              curve: Curves.easeOut,
+              child: _logo(controller, channel, width * oldSchoolLogoGrow, MediaQuery.devicePixelRatioOf(context)),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -227,169 +252,14 @@ String oldSchoolRunLength(Duration length) {
       : t.oldSchool.runHoursMinutes(hours: '${length.inHours}', minutes: '$minutes');
 }
 
-// The corner look agreed with Adrian on 2026-10-14 (local/plans/
-// trailer-overlays.md): a square band flush to a screen edge with a 45-degree
-// slant on its inner end, solid from the right edge to half its width, then
-// fading to nothing at the tip; a square poster drawn over it, breaking out.
-// Sizes are in units of a 960-wide screen (a 1080p TV) and grow with it.
-const _amber = Color(0xFFF5B400);
-const _bandColour = Color(0xF00E0F12); // the app's dark surface at 94%
-const _unit = Duration(milliseconds: 120); // one step of the entrance
-
-/// Slides of the entrance ease out like the mock-up's cubic-bezier(.2,.7,.2,1).
-const _slideCurve = Cubic(0.2, 0.7, 0.2, 1);
-
-class _CornerBand extends StatelessWidget {
-  /// Sits on the top edge with its slant wider at the top; else on the bottom
-  /// edge, wider at the bottom.
-  final bool onTop;
-
-  const _CornerBand({required this.onTop});
-
-  @override
-  Widget build(BuildContext context) =>
-      DevLogFile.flag('noband') ? const SizedBox.expand() : CustomPaint(painter: _CornerBandPainter(onTop: onTop));
-}
-
-class _CornerBandPainter extends CustomPainter {
-  final bool onTop;
-
-  const _CornerBandPainter({required this.onTop});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final slant = h < w ? h : w;
-    final path = Path();
-    if (onTop) {
-      path
-        ..moveTo(0, 0)
-        ..lineTo(w, 0)
-        ..lineTo(w, h)
-        ..lineTo(slant, h);
-    } else {
-      path
-        ..moveTo(slant, 0)
-        ..lineTo(w, 0)
-        ..lineTo(w, h)
-        ..lineTo(0, h);
-    }
-    path.close();
-    final paint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.centerRight,
-        end: Alignment.centerLeft,
-        colors: [_bandColour, _bandColour, _bandColour.withValues(alpha: 0)],
-        stops: const [0, 0.5, 1],
-      ).createShader(Offset.zero & size);
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(_CornerBandPainter oldDelegate) => oldDelegate.onTop != onTop;
-}
-
-enum _Part { band, text, poster }
-
-/// Lays the band, the text and the poster out over the whole screen: the
-/// text against the right edge (beside the poster), the band as tall as the
-/// text and flush to its edge, the poster breaking out of the band.
-class _CornerLayout extends MultiChildLayoutDelegate {
-  final bool onTop;
-  final double scale;
-  final bool hasPoster;
-
-  _CornerLayout({required this.onTop, required this.scale, required this.hasPoster});
-
-  static const posterHeight = 144.0;
-  static const posterWidth = posterHeight * 2 / 3;
-
-  @override
-  void performLayout(Size size) {
-    final s = scale;
-    final panel = size.width * 0.66;
-    final right = 24 * s + (hasPoster ? posterWidth * s + 16 * s : 0);
-    final text = layoutChild(_Part.text, BoxConstraints(maxWidth: panel - right));
-    final bandHeight = text.height;
-    final bandWidth = panel * 0.78;
-    layoutChild(_Part.band, BoxConstraints.tight(Size(bandWidth, bandHeight)));
-    positionChild(_Part.band, Offset(size.width - bandWidth, onTop ? 0 : size.height - bandHeight));
-    positionChild(_Part.text, Offset(size.width - right - text.width, onTop ? 0 : size.height - text.height));
-    if (hasPoster) {
-      final ph = posterHeight * s;
-      layoutChild(_Part.poster, BoxConstraints.tight(Size(posterWidth * s, ph)));
-      // On top: 22 down. At the bottom: its top 17 above the band's, never
-      // closer than 22 to the bottom edge.
-      final bottomGap = math.max(22 * s, bandHeight + 17 * s - ph);
-      final top = onTop ? 22 * s : size.height - ph - bottomGap;
-      positionChild(_Part.poster, Offset(size.width - 24 * s - posterWidth * s, top));
-    }
-  }
-
-  @override
-  bool shouldRelayout(_CornerLayout oldDelegate) =>
-      oldDelegate.onTop != onTop || oldDelegate.scale != scale || oldDelegate.hasPoster != hasPoster;
-}
-
-/// A ClipRect, which a test build can switch off (dev-flags `noclip`).
-class _DevClip extends StatelessWidget {
-  final Widget child;
-
-  const _DevClip({required this.child});
-
-  @override
-  Widget build(BuildContext context) => DevLogFile.flag('noclip') ? child : ClipRect(child: child);
-}
-
-/// The overlays' base text: the app's body font, whatever page they sit on.
-Widget _textBase(BuildContext context, Widget child) => DefaultTextStyle(
-  style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle()).copyWith(decoration: TextDecoration.none),
-  child: child,
-);
-
-/// One step of the entrance: [from]-[to] in units of [_unit] out of [total].
-Animation<double> _step(Animation<double> parent, int from, int to, int total, Curve curve) => CurvedAnimation(
-  parent: parent,
-  curve: Interval(from / total, to / total, curve: curve),
-);
-
-/// Fades in over its step.
-Widget _fadeStep(Animation<double> a, Widget child) => FadeTransition(opacity: a, child: child);
-
-/// Slides in from 24 to the right, fading, over its step.
-Widget _riseStep(Animation<double> a, double scale, Widget child) => AnimatedBuilder(
-  animation: a,
-  builder: (context, child) => Opacity(
-    opacity: a.value.clamp(0.0, 1.0),
-    child: Transform.translate(offset: Offset((1 - a.value) * 24 * scale, 0), child: child),
-  ),
-  child: child,
-);
-
-/// Slides in from beyond the right edge over its step: [distance] is how far
-/// off it starts.
-Widget _slideStep(Animation<double> a, double distance, Widget child) => AnimatedBuilder(
-  animation: a,
-  builder: (context, child) => Transform.translate(offset: Offset((1 - a.value) * distance, 0), child: child),
-  child: child,
-);
-
-/// Slides in from its own width to the right over its step.
-Widget _bandStep(Animation<double> a, Widget child) => AnimatedBuilder(
-  animation: a,
-  builder: (context, child) => FractionalTranslation(translation: Offset(1 - a.value, 0), child: child),
-  child: child,
-);
-
 Widget _poster(OldSchoolController controller, String itemId, String tag, double scale, double dpr) {
   if (DevLogFile.flag('noposter')) return const SizedBox.expand();
   return Image(
     image: CachedNetworkImageProvider(
       controller.client.thumbnailUrl(
         '/Items/${Uri.encodeComponent(itemId)}/Images/Primary?tag=${Uri.encodeQueryComponent(tag)}',
-        width: (_CornerLayout.posterWidth * scale * dpr).round(),
-        height: (_CornerLayout.posterHeight * scale * dpr).round(),
+        width: (CornerLayout.posterWidth * scale * dpr).round(),
+        height: (CornerLayout.posterHeight * scale * dpr).round(),
       ),
       cacheManager: PlexImageCacheManager.instance,
     ),
@@ -417,7 +287,7 @@ class OldSchoolPromoCorner extends StatefulWidget {
 
 class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with SingleTickerProviderStateMixin {
   static const _steps = 20;
-  late final AnimationController _entrance = AnimationController(vsync: this, duration: _unit * _steps, value: 1);
+  late final AnimationController _entrance = AnimationController(vsync: this, duration: cornerUnit * _steps, value: 1);
   Timer? _tick;
 
   /// The trailer whose block shows, or showed last (kept while it fades out).
@@ -550,8 +420,8 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
         mainAxisSize: .min,
         crossAxisAlignment: .end,
         children: [
-          _riseStep(
-            _step(a, 4, 9, n, _slideCurve),
+          cornerRiseStep(
+            cornerStep(a, 4, 9, n, cornerSlideCurve),
             s,
             Column(
               mainAxisSize: .min,
@@ -560,7 +430,7 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
                 Text(
                   headline,
                   textAlign: .right,
-                  style: TextStyle(color: _amber, fontSize: 22 * s, fontWeight: .w800, height: 1.15),
+                  style: TextStyle(color: cornerAmber, fontSize: 22 * s, fontWeight: .w800, height: 1.15),
                 ),
                 if (line != null)
                   Padding(
@@ -575,24 +445,24 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
             ),
           ),
           if (onAirLine != null)
-            _fadeStep(
-              _step(a, 10, 14, n, Curves.ease),
+            cornerFadeStep(
+              cornerStep(a, 10, 14, n, Curves.ease),
               Padding(
                 padding: EdgeInsets.only(top: 2 * s),
                 child: Text(onAirLine, textAlign: .right, style: small),
               ),
             ),
           if (opens && PlatformDetector.isTV())
-            _fadeStep(
-              _step(a, 13, 17, n, Curves.ease),
+            cornerFadeStep(
+              cornerStep(a, 13, 17, n, Curves.ease),
               Padding(
                 padding: EdgeInsets.only(top: 6 * s),
                 child: Text(t.oldSchool.promoOpenHint, textAlign: .right, style: small),
               ),
             ),
           if (endsLine != null)
-            _fadeStep(
-              _step(a, 16, 20, n, Curves.ease),
+            cornerFadeStep(
+              cornerStep(a, 16, 20, n, Curves.ease),
               Padding(
                 padding: EdgeInsets.only(top: 2 * s),
                 child: Text(endsLine, textAlign: .right, style: small),
@@ -602,16 +472,19 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
       ),
     );
     final layout = CustomMultiChildLayout(
-      delegate: _CornerLayout(onTop: true, scale: s, hasPoster: hasPoster),
+      delegate: CornerLayout(onTop: true, scale: s, hasPoster: hasPoster),
       children: [
-        LayoutId(id: _Part.band, child: _bandStep(_step(a, 0, 5, n, _slideCurve), const _CornerBand(onTop: true))),
-        LayoutId(id: _Part.text, child: text),
+        LayoutId(
+          id: CornerPart.band,
+          child: cornerBandStep(cornerStep(a, 0, 5, n, cornerSlideCurve), const CornerBand(onTop: true)),
+        ),
+        LayoutId(id: CornerPart.text, child: text),
         if (hasPoster)
           LayoutId(
-            id: _Part.poster,
-            child: _slideStep(
-              _step(a, 9, 14, n, _slideCurve),
-              (_CornerLayout.posterWidth + 24 + 40) * s,
+            id: CornerPart.poster,
+            child: cornerSlideStep(
+              cornerStep(a, 9, 14, n, cornerSlideCurve),
+              (CornerLayout.posterWidth + 24 + 40) * s,
               _PulseGlow(
                 active: canOpen,
                 scale: s,
@@ -623,9 +496,9 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
     );
     return KeyedSubtree(
       key: ValueKey(entry.start),
-      child: _textBase(
+      child: cornerTextBase(
         context,
-        _DevClip(
+        CornerClip(
           child: canOpen
               ? GestureDetector(
                   behavior: HitTestBehavior.deferToChild,
@@ -699,7 +572,7 @@ class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMi
           decoration: BoxDecoration(
             boxShadow: [
               BoxShadow(
-                color: _amber.withValues(alpha: 0.25 + 0.45 * t),
+                color: cornerAmber.withValues(alpha: 0.25 + 0.45 * t),
                 blurRadius: (10 + 14 * t) * s,
                 spreadRadius: (1 + 3 * t) * s,
               ),
@@ -709,7 +582,7 @@ class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMi
             position: DecorationPosition.foreground,
             decoration: BoxDecoration(
               border: Border.all(
-                color: _amber.withValues(alpha: 0.55 + 0.45 * t),
+                color: cornerAmber.withValues(alpha: 0.55 + 0.45 * t),
                 width: 2.5 * s,
               ),
             ),
@@ -753,7 +626,7 @@ class OldSchoolPreRollCard extends StatefulWidget {
 
 class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with SingleTickerProviderStateMixin {
   static const _steps = 17;
-  late final AnimationController _entrance = AnimationController(vsync: this, duration: _unit * _steps);
+  late final AnimationController _entrance = AnimationController(vsync: this, duration: cornerUnit * _steps);
   Timer? _tick;
 
   /// The film shown, or shown last (kept while the card fades out).
@@ -824,7 +697,7 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
 
     final a = _entrance;
     const n = _steps;
-    final headline = TextStyle(color: _amber, fontSize: 22 * s, fontWeight: .w800, height: 1.15);
+    final headline = TextStyle(color: cornerAmber, fontSize: 22 * s, fontWeight: .w800, height: 1.15);
     final text = Padding(
       // The band's top edge sits a fixed 7 above "Up next", so a long name
       // makes it taller with the same gap.
@@ -833,8 +706,8 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
         mainAxisSize: .min,
         crossAxisAlignment: .end,
         children: [
-          _riseStep(
-            _step(a, 4, 9, n, _slideCurve),
+          cornerRiseStep(
+            cornerStep(a, 4, 9, n, cornerSlideCurve),
             s,
             Column(
               mainAxisSize: .min,
@@ -856,8 +729,8 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
             ),
           ),
           if (details.isNotEmpty)
-            _fadeStep(
-              _step(a, 10, 14, n, Curves.ease),
+            cornerFadeStep(
+              cornerStep(a, 10, 14, n, Curves.ease),
               Padding(
                 padding: EdgeInsets.only(top: 6 * s),
                 child: Text(
@@ -867,8 +740,8 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
                 ),
               ),
             ),
-          _fadeStep(
-            _step(a, 13, 17, n, Curves.ease),
+          cornerFadeStep(
+            cornerStep(a, 13, 17, n, Curves.ease),
             Padding(
               padding: EdgeInsets.only(top: 6 * s),
               child: Text(
@@ -882,26 +755,26 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
       ),
     );
     final logoHeight = 54 * s;
-    return _textBase(
+    return cornerTextBase(
       context,
-      _DevClip(
+      CornerClip(
         child: Stack(
           children: [
             Positioned.fill(
               child: CustomMultiChildLayout(
-                delegate: _CornerLayout(onTop: false, scale: s, hasPoster: poster != null),
+                delegate: CornerLayout(onTop: false, scale: s, hasPoster: poster != null),
                 children: [
                   LayoutId(
-                    id: _Part.band,
-                    child: _bandStep(_step(a, 0, 5, n, _slideCurve), const _CornerBand(onTop: false)),
+                    id: CornerPart.band,
+                    child: cornerBandStep(cornerStep(a, 0, 5, n, cornerSlideCurve), const CornerBand(onTop: false)),
                   ),
-                  LayoutId(id: _Part.text, child: text),
+                  LayoutId(id: CornerPart.text, child: text),
                   if (poster != null)
                     LayoutId(
-                      id: _Part.poster,
-                      child: _slideStep(
-                        _step(a, 9, 14, n, _slideCurve),
-                        (_CornerLayout.posterWidth + 24 + 40) * s,
+                      id: CornerPart.poster,
+                      child: cornerSlideStep(
+                        cornerStep(a, 9, 14, n, cornerSlideCurve),
+                        (CornerLayout.posterWidth + 24 + 40) * s,
                         _poster(widget.controller, poster.itemId, poster.tag, s, dpr),
                       ),
                     ),
@@ -915,8 +788,8 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
                 top: size.height * 0.04,
                 right: size.width * 0.025,
                 height: logoHeight,
-                child: _fadeStep(
-                  _step(a, 0, 5, n, Curves.ease),
+                child: cornerFadeStep(
+                  cornerStep(a, 0, 5, n, Curves.ease),
                   Image(
                     image: CachedNetworkImageProvider(
                       widget.controller.client.oldSchoolLogoUrl(widget.channel, width: (logoHeight * 2 * dpr).round()),

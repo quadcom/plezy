@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io' show Platform;
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -90,6 +91,10 @@ class DesktopVideoControls extends StatefulWidget {
   /// Old School mode: no seeking ahead, its own buttons (PLAN_SHA_21).
   final OldSchoolControls? oldSchool;
 
+  /// The poster corner shows at the top right (local/plans/playback-corner.md),
+  /// so the header's clock and title stand down; the corner carries them.
+  final bool posterCorner;
+
   /// Whether to use dpad navigation for content strip (TV or keyboard nav mode)
   final bool useDpadNavigation;
 
@@ -152,6 +157,7 @@ class DesktopVideoControls extends StatefulWidget {
     this.onLiveSeekBy,
     this.onJumpToLive,
     this.oldSchool,
+    this.posterCorner = false,
     required this.useDpadNavigation,
     this.serverId,
     this.showQueueTab = false,
@@ -703,7 +709,8 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
               style: Platform.isMacOS ? VideoHeaderStyle.singleLine : VideoHeaderStyle.multiLine,
               titleOverride: trailerTitle?.title,
               subtitleOverride: trailerTitle?.line,
-              showClock: trailerTitle == null,
+              showClock: trailerTitle == null && !widget.posterCorner,
+              showTitle: !widget.posterCorner,
               onBack: widget.onBack,
               onCancelAutoHide: widget.onCancelAutoHide,
               onStartAutoHide: widget.onStartAutoHide,
@@ -751,24 +758,33 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
               enabled: canInteract,
             ),
           ] else if (!_isLive) ...[
-            VideoTimelineBar(
-              player: widget.player,
-              chapters: widget.chapters,
-              chaptersLoaded: widget.chaptersLoaded,
-              showChapterMarkersOnTimeline: widget.showChapterMarkersOnTimeline,
-              onSeek: widget.onSeek,
-              onSeekEnd: widget.onSeekEnd,
-              onScrubStart: widget.onScrubStart,
-              onScrubEnd: widget.onScrubEnd,
-              horizontalLayout: true,
-              focusNode: _timelineFocusNode,
-              onKeyEvent: _handleTimelineKeyEvent,
-              onFocusChange: _onFocusChange,
-              // Old School shows the timeline but can't be scrubbed ahead.
-              enabled: canInteract && widget.oldSchool == null,
-              thumbnailDataBuilder: widget.thumbnailDataBuilder,
-              showKeyRepeatThumbnail: _showKeyRepeatThumbnail,
-              previewPosition: _timelineSeek.pendingPosition,
+            // In Old School the timeline stops short of the channel logo in
+            // the bottom-right corner (Adrian, 2026-10-15).
+            Padding(
+              padding: EdgeInsets.only(
+                right: widget.oldSchool == null
+                    ? 0
+                    : math.max(0, oldSchoolTimelineClearance(MediaQuery.sizeOf(context).width) - 24),
+              ),
+              child: VideoTimelineBar(
+                player: widget.player,
+                chapters: widget.chapters,
+                chaptersLoaded: widget.chaptersLoaded,
+                showChapterMarkersOnTimeline: widget.showChapterMarkersOnTimeline,
+                onSeek: widget.onSeek,
+                onSeekEnd: widget.onSeekEnd,
+                onScrubStart: widget.onScrubStart,
+                onScrubEnd: widget.onScrubEnd,
+                horizontalLayout: true,
+                focusNode: _timelineFocusNode,
+                onKeyEvent: _handleTimelineKeyEvent,
+                onFocusChange: _onFocusChange,
+                // Old School shows the timeline but can't be scrubbed ahead.
+                enabled: canInteract && widget.oldSchool == null,
+                thumbnailDataBuilder: widget.thumbnailDataBuilder,
+                showKeyRepeatThumbnail: _showKeyRepeatThumbnail,
+                previewPosition: _timelineSeek.pendingPosition,
+              ),
             ),
           ],
           if (!barOnly)
@@ -944,8 +960,9 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
                       ),
                     ),
                   ],
-                  // Finish time (hidden for live TV, faded when too narrow)
-                  if (_isLive)
+                  // Finish time (hidden for live TV, faded when too narrow;
+                  // the poster corner carries it when it shows)
+                  if (_isLive || widget.posterCorner)
                     const Spacer()
                   else
                     Expanded(

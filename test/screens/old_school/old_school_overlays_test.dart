@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/models/old_school.dart';
 import 'package:plezy/screens/old_school/old_school_controller.dart';
 import 'package:plezy/screens/old_school/old_school_overlays.dart';
+import 'package:plezy/widgets/video_controls/old_school_controls.dart';
 import 'package:plezy/widgets/video_controls/player_chrome_controller.dart';
 
 import '../../test_helpers/backend_client_fixtures.dart';
@@ -85,6 +86,46 @@ void main() {
 
     test('nothing to open without an item id', () {
       expect(oldSchoolPromoOpens(_trailer({'promo': 'have'})), isFalse);
+    });
+  });
+
+  group('Channel logo with the controls (Adrian, 2026-10-15)', () {
+    Future<void> pump(WidgetTester tester, OldSchoolController controller, {required bool up}) => tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            OldSchoolWatermark(
+              controller: controller,
+              channel: const OldSchoolChannel(id: 'c1', number: 1, name: 'Giggle Box', logoTag: 't1'),
+              controlsVisible: up,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    testWidgets('grows and shows in full with the controls, then goes back', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      await pump(tester, controller, up: false);
+      expect(tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale, 1 / oldSchoolLogoGrow);
+      expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 0.35);
+      await pump(tester, controller, up: true);
+      expect(tester.widget<AnimatedScale>(find.byType(AnimatedScale)).scale, 1);
+      expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 1);
+      expect(tester.widget<AnimatedScale>(find.byType(AnimatedScale)).alignment, Alignment.bottomRight);
+      // Lifted clear of the controls' button row.
+      final lifted = tester.widget<AnimatedPadding>(find.byType(AnimatedPadding)).padding as EdgeInsets;
+      expect(lifted.bottom + 600 * oldSchoolLogoBottom, oldSchoolLogoLiftedBottom);
+      await pump(tester, controller, up: false);
+      final settled = tester.widget<AnimatedPadding>(find.byType(AnimatedPadding)).padding as EdgeInsets;
+      expect(settled.bottom, 0);
+    });
+
+    test('the timeline stops clear of the grown logo', () {
+      const width = 960.0;
+      final logoLeftEdge = width * (oldSchoolLogoRight + oldSchoolLogoWidth * oldSchoolLogoGrow);
+      expect(oldSchoolTimelineClearance(width), greaterThan(logoLeftEdge));
     });
   });
 
