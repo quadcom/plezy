@@ -604,18 +604,21 @@ class OldSchoolPreRollCard extends StatefulWidget {
   final OldSchoolController controller;
   final OldSchoolChannel channel;
 
-  /// The film whose trailer is playing; null hides the card.
+  /// The film whose trailer is playing, or the programme starting; null
+  /// hides the card.
   final OldSchoolEntry? film;
 
-  /// How much of the trailer is left; null when unknown.
-  final Duration? Function() trailerLeft;
+  /// How much of the trailer is left; null when unknown. Without it the
+  /// card is "Now playing" for a programme starting, with no countdown
+  /// (local/plans/old-school-episode-banner.md).
+  final Duration? Function()? trailerLeft;
 
   const OldSchoolPreRollCard({
     super.key,
     required this.controller,
     required this.channel,
     required this.film,
-    required this.trailerLeft,
+    this.trailerLeft,
   });
 
   @override
@@ -679,13 +682,15 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
     final dpr = MediaQuery.devicePixelRatioOf(context);
     final s = size.width / 960;
     final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
-    final left = widget.trailerLeft() ?? Duration.zero;
+    final upNext = widget.trailerLeft != null;
+    final left = widget.trailerLeft?.call() ?? Duration.zero;
     final leftSeconds = left.isNegative ? 0 : (left.inMilliseconds / 1000).round();
     final countdown = '${leftSeconds ~/ 60}:${(leftSeconds % 60).toString().padLeft(2, '0')}';
     final runTime = film.runTime;
     // The film starts when its trailer ends, and may play a little slowed.
     final wallRunTime = film.wallRunTime;
     final ends = wallRunTime == null ? null : DateTime.now().add(Duration(seconds: leftSeconds)).add(wallRunTime);
+    final episodeLine = film.kind == OldSchoolEntryKind.episode ? film.subtitle : '';
     final details = [
       if (film.year != null) '${film.year}',
       if (film.rating?.isNotEmpty ?? false) film.rating!,
@@ -712,7 +717,7 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
               mainAxisSize: .min,
               crossAxisAlignment: .end,
               children: [
-                Text(t.oldSchool.upNext, textAlign: .right, style: headline),
+                Text(upNext ? t.oldSchool.upNext : t.oldSchool.nowPlaying, textAlign: .right, style: headline),
                 Padding(
                   padding: EdgeInsets.only(top: 2 * s),
                   child: ConstrainedBox(
@@ -724,6 +729,18 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
                     ),
                   ),
                 ),
+                if (episodeLine.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 2 * s),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: 300 * s),
+                      child: Text(
+                        episodeLine,
+                        textAlign: .right,
+                        style: TextStyle(color: Colors.white, fontSize: 16 * s, fontWeight: .w600, height: 1.2),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -739,17 +756,18 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
                 ),
               ),
             ),
-          cornerFadeStep(
-            cornerStep(a, 13, 17, n, Curves.ease),
-            Padding(
-              padding: EdgeInsets.only(top: 6 * s),
-              child: Text(
-                t.oldSchool.startsIn(time: countdown),
-                textAlign: .right,
-                style: headline.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+          if (upNext)
+            cornerFadeStep(
+              cornerStep(a, 13, 17, n, Curves.ease),
+              Padding(
+                padding: EdgeInsets.only(top: 6 * s),
+                child: Text(
+                  t.oldSchool.startsIn(time: countdown),
+                  textAlign: .right,
+                  style: headline.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

@@ -62,12 +62,30 @@ class OldSchoolPlayerState {
   /// A Match source switch, on or off, is under way.
   bool matchSourceBusy = false;
 
+  /// The "Now playing" card for a programme that just started at its
+  /// beginning: a TV episode, or a film with no trailer of its own
+  /// (local/plans/old-school-episode-banner.md). Shows until [startCardUntil].
+  OldSchoolEntry? startCardEntry;
+  DateTime? startCardUntil;
+  Timer? startCardTimer;
+
   /// A tune is in flight (channel change, carry-on or Back to live).
   bool tuning = false;
   int tuneGeneration = 0;
 
   static const backAgainWindow = Duration(seconds: 3);
   static const cardTime = Duration(seconds: 3);
+
+  /// How long the "Now playing" card shows (Adrian, 2026-10-18), and how far
+  /// into its slot a programme may be and still count as starting.
+  static const startCardTime = Duration(seconds: 5);
+  static const startCardWindow = Duration(seconds: 15);
+
+  /// The entry the "Now playing" card shows now, or null.
+  OldSchoolEntry? get startCardShowing {
+    final until = startCardUntil;
+    return until != null && DateTime.now().isBefore(until) ? startCardEntry : null;
+  }
 
   bool get backNoteVisible {
     final shown = backNoteShownAt;
@@ -82,6 +100,7 @@ class OldSchoolPlayerState {
   void dispose() {
     backNoteTimer?.cancel();
     cardTimer?.cancel();
+    startCardTimer?.cancel();
     standbyTimer?.cancel();
   }
 }

@@ -2400,6 +2400,7 @@
     "live": "LIVE",
     "onNow": "On now",
     "upNext": "Up next",
+    "nowPlaying": "Now playing",
     "today": "Today",
     "minutesOf": "${done} of ${total} min",
     "minutesLeft": "${minutes} min left",

@@ -174,7 +174,9 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
   bool _posterCornerShows(BuildContext context) {
     if (widget.isLive || player == null) return false;
     if (widget.isOldSchool) {
-      if (!_os.fullScreen || _os.playingPreRoll) return false;
+      // Not under the "Now playing" card either, so the two never show
+      // together when the controls come up (Adrian, 2026-10-18).
+      if (!_os.fullScreen || _os.playingPreRoll || _os.startCardShowing != null) return false;
       final channelId = _osController.tunedChannelId;
       if (channelId == null) return false;
       final id = _currentMetadata.id;

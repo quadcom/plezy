@@ -47,6 +47,54 @@ void main() {
     });
   });
 
+  group('"Now playing" card as a programme starts (2026-10-18)', () {
+    final episode = OldSchoolEntry.fromJson({
+      'kind': 'show',
+      'itemType': 'Episode',
+      'itemId': 'e1',
+      'start': '2026-10-18T19:00:00Z',
+      'end': '2026-10-18T19:22:00Z',
+      'name': 'The Beginning',
+      'seriesName': 'Giggle Show',
+      'parentIndexNumber': 2,
+      'indexNumber': 5,
+    })!;
+    const channel = OldSchoolChannel(id: 'c1', number: 1, name: 'Giggle Box');
+
+    Future<void> pump(WidgetTester tester, OldSchoolController controller, {Duration? Function()? trailerLeft}) =>
+        tester.pumpWidget(
+          MaterialApp(
+            home: Stack(
+              children: [
+                OldSchoolPreRollCard(controller: controller, channel: channel, film: episode, trailerLeft: trailerLeft),
+              ],
+            ),
+          ),
+        );
+
+    testWidgets('says Now playing with the show and episode, and no countdown', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      await pump(tester, controller);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Now playing'), findsOneWidget);
+      expect(find.text('Giggle Show'), findsOneWidget);
+      expect(find.text('S2 E5 · The Beginning'), findsOneWidget);
+      expect(find.textContaining('Starts in'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets("a film's trailer keeps Up next and its countdown", (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      await pump(tester, controller, trailerLeft: () => const Duration(seconds: 42));
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Up next'), findsOneWidget);
+      expect(find.textContaining('Starts in'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   group('Old School trailer title (PLAN_SHA_47)', () {
     test("names the film with its own year and rating, never the trailer file's", () {
       final title = oldSchoolTrailerTitle(

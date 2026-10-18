@@ -280,10 +280,40 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     });
   }
 
+  /// Show the "Now playing" card for [entry] for
+  /// [OldSchoolPlayerState.startCardTime].
+  void _oldSchoolShowStartCard(OldSchoolEntry entry) {
+    _os.startCardTimer?.cancel();
+    _setPlayerState(() {
+      _os.startCardEntry = entry;
+      _os.startCardUntil = DateTime.now().add(OldSchoolPlayerState.startCardTime);
+    });
+    _os.startCardTimer = Timer(OldSchoolPlayerState.startCardTime, () {
+      if (mounted) _setPlayerState(() {});
+    });
+  }
+
+  void _oldSchoolHideStartCard() {
+    _os.startCardTimer?.cancel();
+    if (_os.startCardUntil == null) return;
+    _setPlayerState(() => _os.startCardUntil = null);
+  }
+
+  /// Whether [entry] gets the "Now playing" card as it opens: a TV episode,
+  /// or a film without a trailer of its own (one with a trailer had the
+  /// "Up next" card over it), starting at its beginning on the schedule.
+  bool _oldSchoolStartsWithCard(OldSchoolTune tune, OldSchoolEntry entry) {
+    final kind = entry.kind;
+    final counts = kind == OldSchoolEntryKind.episode || (kind == OldSchoolEntryKind.movie && !entry.hasPreRoll);
+    if (!counts || _os.filmFromStart) return false;
+    return tune.offsetInto(entry, DateTime.now()) < OldSchoolPlayerState.startCardWindow;
+  }
+
   /// Tune [channelId] and play what's on at its scheduled point.
   Future<void> _oldSchoolTune(String channelId, {required String reason, bool showCard = true}) async {
     if (_shuttingDown) return;
     final generation = ++_os.tuneGeneration;
+    _oldSchoolHideStartCard();
     _os.standbyTimer?.cancel();
     _os.filmFromStart = false;
     _setPlayerState(() => _os.tuning = true);
@@ -400,7 +430,8 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     final item = await _osController.client.fetchItem(entry.itemId!);
     if (!mounted || generation != _os.tuneGeneration) return;
     if (item == null) throw StateError('Old School item ${entry.itemId} not found');
-    await _reloadMediaInPlace(
+    final startCard = _oldSchoolStartsWithCard(tune, entry);
+    final outcome = await _reloadMediaInPlace(
       metadata: item,
       selectedMediaIndex: 0,
       // Worked out after the item lookup, so the request time is allowed for.
@@ -411,6 +442,9 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       preservedSubtitleTrack: _sessionSubtitlePreference,
       reason: 'old school $reason',
     );
+    if (startCard && outcome == MediaReloadOutcome.opened && mounted && generation == _os.tuneGeneration) {
+      _oldSchoolShowStartCard(entry);
+    }
   }
 
   /// The pre-roll trailer ended or would not play: the film follows in the
@@ -558,7 +592,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
             ),
             // During a film's own trailer its card's logo stands in for the
             // watermark, and nothing else shows (PLAN_SHA_46/47).
-            if (full && channel != null && !_os.playingPreRoll)
+            if (full && channel != null && !_os.playingPreRoll && _os.startCardShowing == null)
               ValueListenableBuilder<bool>(
                 valueListenable: _chromeController,
                 builder: (context, controlsVisible, _) =>
@@ -575,6 +609,10 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
                 film: _os.playingPreRoll ? _os.slotTune?.now : null,
                 trailerLeft: _oldSchoolTrailerLeft,
               ),
+            // The same card as "Now playing", no countdown, as a programme
+            // starts (local/plans/old-school-episode-banner.md).
+            if (full && channel != null)
+              OldSchoolPreRollCard(controller: controller, channel: channel, film: _os.startCardShowing),
             if (full && channel != null && _os.cardVisible && !_os.playingPreRoll)
               OldSchoolChannelCard(
                 controller: controller,

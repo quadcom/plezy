@@ -5951,6 +5951,9 @@ class Translations$oldSchool$en {
 	/// en: 'Up next'
 	String get upNext => 'Up next';
 
+	/// en: 'Now playing'
+	String get nowPlaying => 'Now playing';
+
 	/// en: 'Today'
 	String get today => 'Today';
 
@@ -9990,6 +9993,7 @@ extension on Translations {
 			'oldSchool.live' => 'LIVE',
 			'oldSchool.onNow' => 'On now',
 			'oldSchool.upNext' => 'Up next',
+			'oldSchool.nowPlaying' => 'Now playing',
 			'oldSchool.today' => 'Today',
 			'oldSchool.minutesOf' => ({required Object done, required Object total}) => '${done} of ${total} min',
 			'oldSchool.minutesLeft' => ({required Object minutes}) => '${minutes} min left',
