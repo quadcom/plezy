@@ -526,12 +526,12 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     if (url == null) return const SizedBox.shrink();
     final tk = tokens(context);
     final top = layout.gridRect.top;
-    // While a channel plays, the fan art sits beside the window rather than
-    // mostly under it (web PLAN_SHA_21a, 2026-10-11).
-    final playing = widget.videoActive;
+    // The fan art sits beside the window rather than mostly under it (web
+    // PLAN_SHA_21a, 2026-10-11). The window is always shown now, even before
+    // a channel is picked, so this holds whether or not one plays (2026-10-18).
     return Positioned(
-      left: layout.size.width * (playing ? 0.15 : 0.3),
-      right: playing ? layout.size.width - layout.windowRect.left : 0,
+      left: layout.size.width * 0.15,
+      right: layout.size.width - layout.windowRect.left,
       top: 0,
       height: top,
       child: Stack(

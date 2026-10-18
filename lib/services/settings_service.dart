@@ -623,6 +623,10 @@ class SettingsService extends BaseSharedPreferencesService {
   /// library is 24p), so programmes and channel changes never blank the TV.
   /// Off keeps the TV's own mode. Old School ignores the two settings above.
   static const oldSchoolFilmRate = BoolPref('old_school_film_rate');
+
+  /// The Old School channel last tuned on this device; Old School opens on it
+  /// and starts it playing. Runtime state, so neither reset nor exported.
+  static const oldSchoolLastChannel = NullableStringPref('old_school_last_channel');
   static const tunneledPlayback = BoolPref('tunneled_playback', defaultValue: false);
   static const dvConversionMode = EnumPref<DvConversionModePreference>(
     'dv_conversion_mode',

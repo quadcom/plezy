@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../models/old_school.dart';
 import '../../services/jellyfin_client.dart';
+import '../../services/settings_service.dart';
 import '../../utils/app_logger.dart';
 
 /// State shared by the Old School guide and the player while Old School is
@@ -174,11 +175,12 @@ class OldSchoolController extends ChangeNotifier {
   }
 
   /// Ask the server what is on [channelId] now; remembers it as the tuned
-  /// channel.
+  /// channel, and on this device as the one to open on next time.
   Future<OldSchoolTune> tuneTo(String channelId) async {
     final tune = await client.tuneOldSchool(channelId);
     if (_disposed) return tune;
     _tunedChannelId = channelId;
+    unawaited(SettingsService.instanceOrNull?.write(SettingsService.oldSchoolLastChannel, channelId));
     _tune = tune;
     _clockSkew = tune.serverTime.difference(tune.receivedAt.toUtc());
     _notify();

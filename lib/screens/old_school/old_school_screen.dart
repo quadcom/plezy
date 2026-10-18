@@ -8,6 +8,7 @@ import '../../i18n/strings.g.dart';
 import '../../media/media_item.dart';
 import '../../models/old_school.dart';
 import '../../providers/hidden_libraries_provider.dart';
+import '../../services/settings_service.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/snackbar_helper.dart';
@@ -25,7 +26,8 @@ import 'old_school_overlays.dart';
 bool oldSchoolAvailable(BuildContext context) => context.watch<HiddenLibrariesProvider>().oldSchoolClient != null;
 
 /// Open Old School full screen over the app (no side rail, top bar or
-/// bottom bar). Nothing plays until a programme that's on now is picked.
+/// bottom bar). It starts on the channel last tuned on this device; with none
+/// remembered, nothing plays until a programme that's on now is picked.
 Future<void> openOldSchool(BuildContext context) async {
   final client = context.read<HiddenLibrariesProvider>().oldSchoolClient;
   if (client == null) return;
@@ -61,6 +63,7 @@ class OldSchoolScreen extends StatefulWidget {
 class _OldSchoolScreenState extends State<OldSchoolScreen> {
   bool _handedOver = false;
   bool _tuning = false;
+  bool _resumeChecked = false;
   DateTime? _backNoteAt;
   Timer? _backNoteTimer;
 
@@ -70,7 +73,27 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_resumeLastChannel);
+    _resumeLastChannel();
+  }
+
+  /// Once the line-up is in, tune the channel last played on this device
+  /// (Adrian, 2026-10-18). A channel that's gone, or one with nothing on,
+  /// leaves the guide as it is.
+  void _resumeLastChannel() {
+    final controller = widget.controller;
+    if (_resumeChecked || !controller.hasLoaded) return;
+    _resumeChecked = true;
+    controller.removeListener(_resumeLastChannel);
+    final channel = controller.channelById(SettingsService.instanceOrNull?.read(SettingsService.oldSchoolLastChannel));
+    if (channel != null) unawaited(_tune(channel, quiet: true));
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_resumeLastChannel);
     _backNoteTimer?.cancel();
     // Once the player has taken over, it owns the controller.
     if (!_handedOver) widget.controller.dispose();
@@ -94,7 +117,9 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
     });
   }
 
-  Future<void> _tune(OldSchoolChannel channel) async {
+  /// [quiet] (the automatic start) shows no message when nothing is on or
+  /// the tune fails; the guide is still there to pick from.
+  Future<void> _tune(OldSchoolChannel channel, {bool quiet = false}) async {
     if (_tuning) return;
     setState(() => _tuning = true);
     final controller = widget.controller;
@@ -111,7 +136,7 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
       final entry = tune.now;
       if (!mounted) return;
       if (!entry.isPlayable) {
-        showAppSnackBar(context, t.oldSchool.nothingOn);
+        if (!quiet) showAppSnackBar(context, t.oldSchool.nothingOn);
         return;
       }
       // A film's own trailer first while it is still on (PLAN_SHA_46); a
@@ -144,7 +169,7 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
     } catch (e, st) {
       appLogger.w('Old School: could not start playback', error: e, stackTrace: st);
       _handedOver = false;
-      if (mounted) showErrorSnackBar(context, t.oldSchool.tuneFailed);
+      if (mounted && !quiet) showErrorSnackBar(context, t.oldSchool.tuneFailed);
     } finally {
       if (mounted) setState(() => _tuning = false);
     }
