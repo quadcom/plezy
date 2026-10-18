@@ -54,6 +54,12 @@ class OldSchoolControls {
   /// it and TVs show the progress bar alone, without buttons (PLAN_SHA_47).
   final OldSchoolTrailerTitle? Function()? promoTrailer;
 
+  /// "Match source" (local/plans/old-school-match-source.md): whether it is
+  /// on for the programme playing, read when the controls build; null while
+  /// it can't be offered (not Android TV, a film's own trailer, nothing on).
+  final bool? Function()? matchSourceActive;
+  final VoidCallback? onToggleMatchSource;
+
   const OldSchoolControls({
     required this.onRestart,
     required this.onBackToLive,
@@ -62,5 +68,7 @@ class OldSchoolControls {
     required this.onGuide,
     this.promoAction,
     this.promoTrailer,
+    this.matchSourceActive,
+    this.onToggleMatchSource,
   });
 }

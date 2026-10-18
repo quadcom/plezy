@@ -26,7 +26,142 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       final promo = oldSchoolPromoTrailer(_osController);
       return promo == null ? null : oldSchoolTrailerTitle(promo);
     },
+    matchSourceActive: () => _oldSchoolMatchSourceOffered ? _os.matchSourceEntry != null : null,
+    onToggleMatchSource: () => unawaited(_oldSchoolToggleMatchSource()),
   );
+
+  /// Match source (local/plans/old-school-match-source.md) is offered on
+  /// Android TV, where display modes can be switched, while a programme
+  /// plays: not during a film's own trailer, which comes before the feature.
+  bool get _oldSchoolMatchSourceOffered {
+    if (!Platform.isAndroid || !PlatformDetector.isTV()) return false;
+    final tune = _os.slotTune;
+    return tune != null && tune.channelId == _osController.tunedChannelId && tune.now.isPlayable && !_os.playingPreRoll;
+  }
+
+  /// Whether [tune] plays the entry Match source was turned on for.
+  bool _oldSchoolIsMatchedEntry(OldSchoolTune tune) {
+    final matched = _os.matchSourceEntry;
+    return matched != null &&
+        tune.channelId == _os.matchSourceChannelId &&
+        tune.now.start == matched.start &&
+        tune.now.itemId == matched.itemId;
+  }
+
+  Future<void> _oldSchoolToggleMatchSource() async {
+    if (_os.matchSourceBusy) return;
+    if (_os.matchSourceEntry != null) {
+      await _oldSchoolEndMatchSource(rejoin: true);
+    } else if (_oldSchoolMatchSourceOffered) {
+      await _oldSchoolStartMatchSource();
+    }
+  }
+
+  /// Switch the display to the programme's own resolution and frame rate,
+  /// so the TV or the receiver does the upscaling (Adrian, 2026-10-18: the
+  /// Theater's Onkyo upscales 1080p better than the SHIELD). For this
+  /// programme only; the next entry or a channel change ends it.
+  Future<void> _oldSchoolStartMatchSource() async {
+    final tune = _os.slotTune;
+    final currentPlayer = player;
+    if (tune == null || currentPlayer == null) return;
+    _setPlayerState(() {
+      _os.matchSourceEntry = tune.now;
+      _os.matchSourceChannelId = tune.channelId;
+      _os.matchSourceBusy = true;
+    });
+    try {
+      final settingsService = await SettingsService.getInstance();
+      final output = await PlayerOutputFormat.read(currentPlayer);
+      if (!mounted || player != currentPlayer) return;
+      final target = _displayTargetFor(settingsService, output);
+      if (target == null) {
+        appLogger.d('Old School: Match source found no display target');
+        _setPlayerState(() => _os.matchSourceEntry = null);
+        return;
+      }
+      await _oldSchoolSwitchDisplay(
+        currentPlayer,
+        () => _switchDisplayToTarget(
+          currentPlayer: currentPlayer,
+          settingsService: settingsService,
+          target: target,
+          reason: 'old school match source',
+        ),
+      );
+      await _oldSchoolRejoinAfterSwitch(currentPlayer);
+    } catch (e, st) {
+      appLogger.w('Old School: Match source failed', error: e, stackTrace: st);
+      if (mounted) _setPlayerState(() => _os.matchSourceEntry = null);
+    } finally {
+      if (mounted) _setPlayerState(() => _os.matchSourceBusy = false);
+    }
+  }
+
+  /// Back to Old School's fixed mode: film rate at full resolution with the
+  /// 24 Hz setting on, else the TV's own mode. [rejoin] (the button) picks
+  /// the programme up again at its scheduled point; otherwise the next
+  /// entry is about to open.
+  Future<void> _oldSchoolEndMatchSource({required bool rejoin}) async {
+    final currentPlayer = player;
+    _setPlayerState(() {
+      _os.matchSourceEntry = null;
+      _os.matchSourceChannelId = null;
+      _os.matchSourceBusy = true;
+    });
+    try {
+      if (currentPlayer == null) return;
+      final settingsService = await SettingsService.getInstance();
+      if (!mounted || player != currentPlayer) return;
+      await _oldSchoolSwitchDisplay(currentPlayer, () async {
+        if (settingsService.read(SettingsService.oldSchoolFilmRate)) {
+          await _switchDisplayToTarget(
+            currentPlayer: currentPlayer,
+            settingsService: settingsService,
+            target: (fps: _oldSchoolFilmFps, width: _oldSchoolFixedWidth, height: _oldSchoolFixedHeight),
+            reason: 'old school match source off',
+            matchResolution: true,
+            refreshDecoder: rejoin,
+          );
+        } else {
+          await currentPlayer.clearVideoFrameRate();
+          await Future<void>.delayed(_oldSchoolRestoreSettle);
+          if (rejoin && mounted && player == currentPlayer) {
+            await _refreshAndroidMpvDecoderAfterFrameRateSwitch(reason: 'old school match source off');
+          }
+        }
+      });
+      if (rejoin) await _oldSchoolRejoinAfterSwitch(currentPlayer);
+    } catch (e, st) {
+      appLogger.w('Old School: ending Match source failed', error: e, stackTrace: st);
+    } finally {
+      if (mounted) _setPlayerState(() => _os.matchSourceBusy = false);
+    }
+  }
+
+  /// Run a display switch with playback paused, so the clock doesn't run on
+  /// while the HDMI chain resyncs.
+  Future<void> _oldSchoolSwitchDisplay(Player currentPlayer, Future<void> Function() doSwitch) async {
+    try {
+      await currentPlayer.pause();
+    } catch (e) {
+      appLogger.w('Old School: failed to pause before a display switch', error: e);
+    }
+    await doSwitch();
+  }
+
+  /// After a Match source switch: back to the programme's scheduled point
+  /// (the switch paused it for a few seconds), or just play on after a
+  /// Start over, which is off the schedule.
+  Future<void> _oldSchoolRejoinAfterSwitch(Player currentPlayer) async {
+    if (!mounted || player != currentPlayer) return;
+    final tune = _os.slotTune;
+    if (tune != null && !_os.filmFromStart && !_os.playingPreRoll && _currentMetadata.id == tune.now.itemId) {
+      await _oldSchoolPlayFilm(tune, reason: 'match source', generation: _os.tuneGeneration);
+      return;
+    }
+    await _playWithPlaybackIntent(currentPlayer);
+  }
 
   /// A film's own trailer starts or stops playing (PLAN_SHA_46): while it
   /// plays, its "Up next" card is all that shows and the controls stay down.
@@ -166,6 +301,13 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   }
 
   Future<void> _oldSchoolPlay(OldSchoolTune tune, {required String reason, required int generation}) async {
+    // Match source lasts for its programme only: anything else on, or
+    // another channel, goes back to the fixed mode first so quick channel
+    // changes work again (Adrian, 2026-10-18).
+    if (_os.matchSourceEntry != null && !_oldSchoolIsMatchedEntry(tune)) {
+      await _oldSchoolEndMatchSource(rejoin: false);
+      if (!mounted || generation != _os.tuneGeneration) return;
+    }
     final entry = tune.now;
     final currentPlayer = player;
     if (currentPlayer == null) return;

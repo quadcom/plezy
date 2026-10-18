@@ -60,6 +60,40 @@ void main() {
     expect(find.text('Audio Passthrough'), findsNothing);
   });
 
+  group('Old School Match source', () {
+    testWidgets('shows in the sheet when offered and not on the bar, and toggles', (tester) async {
+      var toggles = 0;
+      await _pumpSheet(
+        tester,
+        withSheetHost: true,
+        height: 4000,
+        trackControlsState: TrackControlsState(matchSourceActive: false, onToggleMatchSource: () => toggles++),
+      );
+      expect(find.text('Match source'), findsOneWidget);
+      await tester.tap(find.text('Match source'));
+      await tester.pumpAndSettle();
+      expect(toggles, 1);
+    });
+
+    testWidgets('stays out of the sheet when it lives on the bar', (tester) async {
+      await _pumpSheet(
+        tester,
+        height: 4000,
+        trackControlsState: TrackControlsState(
+          matchSourceActive: true,
+          matchSourceOnBar: true,
+          onToggleMatchSource: () {},
+        ),
+      );
+      expect(find.text('Match source'), findsNothing);
+    });
+
+    testWidgets('stays out of the sheet when it is not offered', (tester) async {
+      await _pumpSheet(tester, height: 4000);
+      expect(find.text('Match source'), findsNothing);
+    });
+  });
+
   testWidgets('localizes Off, Normal, and Active video setting values', (tester) async {
     LocaleSettings.setLocaleSync(AppLocale.ru);
 
@@ -440,6 +474,7 @@ Future<void> _pumpSheet(
   // row present without dragging to it pass a taller sheet, which builds all of
   // them.
   double height = 700,
+  TrackControlsState? trackControlsState,
 }) async {
   final sheet = SizedBox(
     width: 900,
@@ -447,7 +482,7 @@ Future<void> _pumpSheet(
     child: VideoSettingsSheet(
       player: player ?? _FakeSettingsPlayer(),
       supportsHdrControl: supportsHdrControl,
-      trackControlsState: TrackControlsState(canControl: canControl),
+      trackControlsState: trackControlsState ?? TrackControlsState(canControl: canControl),
     ),
   );
   await tester.pumpWidget(

@@ -150,7 +150,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
   /// video resolution, arming the MediaSession pause-suppression window
   /// first. The native call returns only after the real display-change event
   /// (+ settle + the user-configured delay). Returns whether a switch was
-  /// initiated.
+  /// initiated. [matchResolution] overrides the user's setting.
   Future<bool> _switchDisplayFrameRateForOpen({
     required Player player,
     required SettingsService settingsService,
@@ -158,6 +158,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
     required int durationMs,
     int videoWidth = 0,
     int videoHeight = 0,
+    bool? matchResolution,
   }) {
     final delaySec = settingsService.read(SettingsService.displaySwitchDelay);
     _frameRate.beginSuppressWindow(delaySec);
@@ -167,7 +168,7 @@ extension _VideoPlayerOpenMethods on VideoPlayerScreenState {
       extraDelayMs: delaySec * 1000,
       videoWidth: videoWidth,
       videoHeight: videoHeight,
-      matchResolution: _matchesResolution(settingsService),
+      matchResolution: matchResolution ?? _matchesResolution(settingsService),
     );
   }
 

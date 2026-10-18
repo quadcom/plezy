@@ -37,6 +37,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
         SettingsService.matchContentFrameRate,
         SettingsService.matchContentResolution,
         SettingsService.oldSchoolFilmRate,
+        SettingsService.oldSchoolMatchSourceOnBar,
         SettingsService.audioDownmix,
       ],
       builder: (context) {
@@ -73,6 +74,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 if (Platform.isAndroid) _matchContentFrameRateTile(),
                 if (Platform.isAndroid && PlatformDetector.isTV()) _matchContentResolutionTile(),
                 if (Platform.isAndroid && PlatformDetector.isTV()) _oldSchoolFilmRateTile(),
+                if (Platform.isAndroid && PlatformDetector.isTV()) _oldSchoolMatchSourceOnBarTile(),
                 if (Platform.isWindows) _matchRefreshRateTile(),
                 if (Platform.isWindows) _matchDynamicRangeTile(),
                 if (showDisplaySwitchDelay) _displaySwitchDelayTile(),
@@ -470,6 +472,13 @@ class PlaybackSettingsScreen extends StatelessWidget {
     icon: Symbols.live_tv_rounded,
     title: t.settings.oldSchoolFilmRate,
     subtitle: t.settings.oldSchoolFilmRateDescription,
+  );
+
+  Widget _oldSchoolMatchSourceOnBarTile() => SettingSwitchTile(
+    pref: SettingsService.oldSchoolMatchSourceOnBar,
+    icon: Symbols.settings_input_hdmi_rounded,
+    title: t.settings.oldSchoolMatchSourceOnBar,
+    subtitle: t.settings.oldSchoolMatchSourceOnBarDescription,
   );
 
   Widget _matchRefreshRateTile() => SettingSwitchTile(

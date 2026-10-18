@@ -84,6 +84,14 @@ class TrackControlsState {
   /// this is false.
   final bool subtitleSearchSupported;
 
+  /// Old School's "Match source" (local/plans/old-school-match-source.md):
+  /// on or off for the programme playing, or null when it isn't offered.
+  /// [matchSourceOnBar] puts it on the button row instead of the settings
+  /// sheet.
+  final bool? matchSourceActive;
+  final bool matchSourceOnBar;
+  final VoidCallback? onToggleMatchSource;
+
   const TrackControlsState({
     this.availableVersions = const [],
     this.selectedMediaIndex = 0,
@@ -138,6 +146,9 @@ class TrackControlsState {
     this.mediaTitle,
     this.onSubtitleDownloaded,
     this.subtitleSearchSupported = true,
+    this.matchSourceActive,
+    this.matchSourceOnBar = false,
+    this.onToggleMatchSource,
   });
 
   /// Transcoded subtitle choices must be negotiated with the server and

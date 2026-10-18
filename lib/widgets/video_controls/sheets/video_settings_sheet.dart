@@ -876,6 +876,31 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
             onTap: () => _navigateTo(_SettingsView.shader),
           ),
 
+        // Old School's Match source, when it isn't on the button row
+        // (local/plans/old-school-match-source.md).
+        if (_state.matchSourceActive case final active? when !_state.matchSourceOnBar)
+          FocusableListTile(
+            leading: AppIcon(
+              Symbols.settings_input_hdmi_rounded,
+              fill: 1,
+              color: active ? Colors.amber : tokens(context).textMuted,
+            ),
+            title: Text(t.oldSchool.matchSource),
+            subtitle: Text(t.oldSchool.matchSourceDescription),
+            trailing: Switch(
+              value: active,
+              onChanged: (_) {
+                _state.onToggleMatchSource?.call();
+                OverlaySheetController.of(context).close();
+              },
+              activeThumbColor: Colors.amber,
+            ),
+            onTap: () {
+              _state.onToggleMatchSource?.call();
+              OverlaySheetController.of(context).close();
+            },
+          ),
+
         // Ambient Lighting (MPV only)
         if (_state.onToggleAmbientLighting != null)
           FocusableListTile(

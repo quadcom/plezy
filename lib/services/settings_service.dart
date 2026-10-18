@@ -624,6 +624,11 @@ class SettingsService extends BaseSharedPreferencesService {
   /// Off keeps the TV's own mode. Old School ignores the two settings above.
   static const oldSchoolFilmRate = BoolPref('old_school_film_rate');
 
+  /// Where Old School's "Match source" control lives: its own button at the
+  /// right end of the player bar (on), or an entry in the playback settings
+  /// sheet (off). A device setting (local/plans/old-school-match-source.md).
+  static const oldSchoolMatchSourceOnBar = BoolPref('old_school_match_source_on_bar');
+
   /// The Old School channel last tuned on this device; Old School opens on it
   /// and starts it playing. Runtime state, so neither reset nor exported.
   static const oldSchoolLastChannel = NullableStringPref('old_school_last_channel');
@@ -1345,6 +1350,7 @@ class SettingsService extends BaseSharedPreferencesService {
     matchContentFrameRate,
     matchContentResolution,
     oldSchoolFilmRate,
+    oldSchoolMatchSourceOnBar,
     tunneledPlayback,
     dvConversionMode,
     musicVolume,

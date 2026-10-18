@@ -1084,6 +1084,12 @@ class Translations$settings$en {
 	/// en: 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don't blank the screen'
 	String get oldSchoolFilmRateDescription => 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don\'t blank the screen';
 
+	/// en: 'Old School Match Source on the Player Bar'
+	String get oldSchoolMatchSourceOnBar => 'Old School Match Source on the Player Bar';
+
+	/// en: 'Show Match source as its own button at the right end of the player bar instead of in the playback settings'
+	String get oldSchoolMatchSourceOnBarDescription => 'Show Match source as its own button at the right end of the player bar instead of in the playback settings';
+
 	/// en: 'Match Refresh Rate'
 	String get matchRefreshRate => 'Match Refresh Rate';
 
@@ -5927,6 +5933,12 @@ class Translations$oldSchool$en {
 	/// en: 'Old School'
 	String get title => 'Old School';
 
+	/// en: 'Match source'
+	String get matchSource => 'Match source';
+
+	/// en: 'Play this programme at its own resolution and frame rate, for this programme only'
+	String get matchSourceDescription => 'Play this programme at its own resolution and frame rate, for this programme only';
+
 	/// en: 'Exit'
 	String get exit => 'Exit';
 
@@ -8129,6 +8141,8 @@ extension on Translations {
 			'settings.matchContentResolutionDescription' => 'Switch the display to the video\'s native resolution so your TV handles upscaling. Menus and subtitles are upscaled too during playback',
 			'settings.oldSchoolFilmRate' => 'Old School at Film Rate (24 Hz)',
 			'settings.oldSchoolFilmRateDescription' => 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don\'t blank the screen',
+			'settings.oldSchoolMatchSourceOnBar' => 'Old School Match Source on the Player Bar',
+			'settings.oldSchoolMatchSourceOnBarDescription' => 'Show Match source as its own button at the right end of the player bar instead of in the playback settings',
 			'settings.matchRefreshRate' => 'Match Refresh Rate',
 			'settings.matchRefreshRateDescription' => 'Match display refresh rate in fullscreen',
 			'settings.matchDynamicRange' => 'Match Dynamic Range',
@@ -8306,10 +8320,10 @@ extension on Translations {
 			'fileInfo.codec' => 'Codec',
 			'fileInfo.codecTag' => 'Codec Tag',
 			'fileInfo.resolution' => 'Resolution',
-			'fileInfo.codedResolution' => 'Coded Resolution',
-			'fileInfo.bitrate' => 'Bitrate',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.codedResolution' => 'Coded Resolution',
+			'fileInfo.bitrate' => 'Bitrate',
 			'fileInfo.frameRate' => 'Frame Rate',
 			'fileInfo.rotation' => 'Rotation',
 			'fileInfo.comment' => 'Comment',
@@ -8820,10 +8834,10 @@ extension on Translations {
 			'discover.bannerNewEpisode' => 'New Episode',
 			'discover.bannerNewShow' => 'New Show',
 			'discover.playTrailer' => 'Play trailer',
-			'discover.noTrailer' => 'No trailer for this one yet',
-			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
 			_ => null,
 		} ?? switch (path) {
+			'discover.noTrailer' => 'No trailer for this one yet',
+			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
 			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
 			'discover.latestAlbumsIn' => ({required Object library}) => 'Latest Albums in ${library}',
 			'discover.recentlyPlayedIn' => ({required Object library}) => 'Recently Played in ${library}',
@@ -9334,10 +9348,10 @@ extension on Translations {
 			'music.previousTrack' => 'Previous track',
 			'music.nextTrack' => 'Next track',
 			'music.repeat' => 'Repeat',
-			'music.repeatAll' => 'Repeat all',
-			'music.repeatOne' => 'Repeat one',
 			_ => null,
 		} ?? switch (path) {
+			'music.repeatAll' => 'Repeat all',
+			'music.repeatOne' => 'Repeat one',
 			'music.instantMixNoServer' => 'No server is available for an instant mix',
 			'music.instantMixFailed' => 'Failed to load the instant mix',
 			'music.instantMixEmpty' => 'The instant mix came back with no tracks',
@@ -9848,10 +9862,10 @@ extension on Translations {
 			'seerr.statusPartiallyAvailable' => 'Partially available',
 			'seerr.statusRequested' => 'Requested',
 			'seerr.statusProcessing' => 'Processing',
-			'seerr.statusBlocklisted' => 'Blocklisted',
-			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.statusBlocklisted' => 'Blocklisted',
+			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
 			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',
 			'seerr.behindAuthProxy' => 'An authenticating reverse proxy (SSO or HTTP auth) answered instead of Seerr. Plezy cannot sign in through it: let Seerr\'s /api/v1 path bypass the proxy for this app, or use an address that reaches Seerr directly.',
 			'seerr.invalidUrl' => 'Enter a server address like https://seerr.example.com',
@@ -9970,6 +9984,8 @@ extension on Translations {
 			'seasonPage.spoilerHidden' => 'The description shows once you\'ve watched it.',
 			'seasonPage.loadFailed' => 'Could not load this season.',
 			'oldSchool.title' => 'Old School',
+			'oldSchool.matchSource' => 'Match source',
+			'oldSchool.matchSourceDescription' => 'Play this programme at its own resolution and frame rate, for this programme only',
 			'oldSchool.exit' => 'Exit',
 			'oldSchool.live' => 'LIVE',
 			'oldSchool.onNow' => 'On now',

@@ -347,6 +347,8 @@
     "matchContentResolutionDescription": "Switch the display to the video's native resolution so your TV handles upscaling. Menus and subtitles are upscaled too during playback",
     "oldSchoolFilmRate": "Old School at Film Rate (24 Hz)",
     "oldSchoolFilmRateDescription": "Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don't blank the screen",
+    "oldSchoolMatchSourceOnBar": "Old School Match Source on the Player Bar",
+    "oldSchoolMatchSourceOnBarDescription": "Show Match source as its own button at the right end of the player bar instead of in the playback settings",
     "matchRefreshRate": "Match Refresh Rate",
     "matchRefreshRateDescription": "Match display refresh rate in fullscreen",
     "matchDynamicRange": "Match Dynamic Range",
@@ -2392,6 +2394,8 @@
   },
   "oldSchool": {
     "title": "Old School",
+    "matchSource": "Match source",
+    "matchSourceDescription": "Play this programme at its own resolution and frame rate, for this programme only",
     "exit": "Exit",
     "live": "LIVE",
     "onNow": "On now",

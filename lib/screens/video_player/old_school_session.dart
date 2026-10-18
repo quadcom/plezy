@@ -53,6 +53,15 @@ class OldSchoolPlayerState {
   /// from 0, not at the live point.
   bool filmFromStart = false;
 
+  /// "Match source" is on for this entry on [matchSourceChannelId]
+  /// (local/plans/old-school-match-source.md): the display follows its
+  /// resolution and frame rate until another entry plays.
+  OldSchoolEntry? matchSourceEntry;
+  String? matchSourceChannelId;
+
+  /// A Match source switch, on or off, is under way.
+  bool matchSourceBusy = false;
+
   /// A tune is in flight (channel change, carry-on or Back to live).
   bool tuning = false;
   int tuneGeneration = 0;

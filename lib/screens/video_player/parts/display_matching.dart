@@ -4,23 +4,38 @@ part of '../../video_player_screen.dart';
 /// viewing hours).
 const double _oldSchoolFilmFps = 24000 / 1001;
 
+/// The size Old School's fixed mode returns to after Match source: the
+/// smallest mode holding 4K is the panel's 4K mode, and a panel without one
+/// keeps the resolution it is at, its largest.
+const int _oldSchoolFixedWidth = 3840;
+const int _oldSchoolFixedHeight = 2160;
+
+/// How long the display gets to land on its default mode when Match source
+/// ends without the film rate setting (the native restore doesn't wait).
+const Duration _oldSchoolRestoreSettle = Duration(seconds: 3);
+
 extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
   /// The user's frame-rate matching setting. Old School ignores it: trailers
   /// between programmes would blank the TV at every switch (Adrian,
   /// PLAN_SHA_21). It has its own setting instead, which holds the TV at
   /// [_oldSchoolFilmFps] whatever plays, so only the first open switches and
   /// leaving restores the TV's mode as any player exit does.
+  /// Old School's Match source, while on, matches both like normal playback.
   bool _matchesFrameRate(SettingsService settingsService) => widget.isOldSchool
-      ? settingsService.read(SettingsService.oldSchoolFilmRate)
+      ? _oldSchoolMatchingSource || settingsService.read(SettingsService.oldSchoolFilmRate)
       : settingsService.read(SettingsService.matchContentFrameRate);
 
   /// The rate a frame-rate switch aims for: the content's own, or film rate
   /// in Old School.
-  double? _matchTargetFps(double? contentFps) => widget.isOldSchool ? _oldSchoolFilmFps : contentFps;
+  double? _matchTargetFps(double? contentFps) =>
+      widget.isOldSchool && !_oldSchoolMatchingSource ? _oldSchoolFilmFps : contentFps;
 
-  /// The user's resolution matching setting, off in Old School likewise.
+  /// The user's resolution matching setting, off in Old School likewise
+  /// unless Match source is on.
   bool _matchesResolution(SettingsService settingsService) =>
-      !widget.isOldSchool && settingsService.read(SettingsService.matchContentResolution);
+      widget.isOldSchool ? _oldSchoolMatchingSource : settingsService.read(SettingsService.matchContentResolution);
+
+  bool get _oldSchoolMatchingSource => widget.isOldSchool && _os.matchSourceEntry != null;
 
   /// The Android display-mode request [output] yields under the user's
   /// matching settings, or null when neither setting produces a target. A
@@ -50,6 +65,8 @@ extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
     required ({double? fps, int width, int height}) target,
     required String reason,
     Duration? refreshPosition,
+    bool? matchResolution,
+    bool refreshDecoder = true,
   }) async {
     _frameRate.applied = true;
     final durationMs = currentPlayer.state.duration.inMilliseconds;
@@ -60,8 +77,9 @@ extension _VideoPlayerDisplayMatchingMethods on VideoPlayerScreenState {
       durationMs: durationMs,
       videoWidth: target.width,
       videoHeight: target.height,
+      matchResolution: matchResolution,
     );
-    if (didSwitch && mounted && player == currentPlayer) {
+    if (didSwitch && refreshDecoder && mounted && player == currentPlayer) {
       await _refreshAndroidMpvDecoderAfterFrameRateSwitch(reason: reason, targetPosition: refreshPosition);
     }
 

@@ -300,6 +300,25 @@ class TrackChapterControls extends StatelessWidget {
           buttonIndex++;
         }
 
+        // Old School's Match source, right of the aspect-ratio button so it
+        // sits in the far right corner on TV (local/plans/old-school-match-source.md).
+        if (state.matchSourceActive case final active? when state.matchSourceOnBar) {
+          final currentIndex = buttonIndex;
+          buttons.add(
+            _buildTrackButton(
+              buttonIndex: currentIndex,
+              icon: Symbols.settings_input_hdmi_rounded,
+              tooltip: t.oldSchool.matchSource,
+              semanticLabel: t.oldSchool.matchSource,
+              isActive: active,
+              checked: active,
+              buttons: buttons,
+              onPressed: state.onToggleMatchSource,
+            ),
+          );
+          buttonIndex++;
+        }
+
         // Rotation lock button (mobile only, not on TV since screens don't rotate)
         if (isMobile && !PlatformDetector.isTV()) {
           final currentIndex = buttonIndex;
