@@ -13,6 +13,7 @@ import 'package:plezy/services/playback_initialization_types.dart';
 import 'package:plezy/widgets/overlay_sheet.dart';
 import 'package:plezy/widgets/video_controls/models/track_controls_state.dart';
 import 'package:plezy/widgets/video_controls/sheets/track_sheet.dart';
+import 'package:plezy/widgets/video_controls/widgets/track_chapter_controls.dart';
 
 import '../test_helpers/theme.dart';
 
@@ -21,6 +22,64 @@ void main() {
 
   setUp(() {
     LocaleSettings.setLocaleSync(AppLocale.en);
+  });
+
+  group('Old School audio button', () {
+    const tracks = Tracks(
+      audio: [
+        AudioTrack(id: 'a1', title: 'Main'),
+        AudioTrack(id: 'a3', title: 'Commentary'),
+      ],
+      subtitle: [SubtitleTrack(id: 's1', language: 'eng')],
+    );
+    const selection = TrackSelection(
+      audio: AudioTrack(id: 'a1'),
+      subtitle: SubtitleTrack.off,
+    );
+
+    Future<void> pumpRow(WidgetTester tester, {required Tracks tracks, required bool separateAudioButton}) {
+      return _pumpButtonRow(
+        tester,
+        player: _FakeTrackSheetPlayer(tracks: tracks, track: selection),
+        trackControlsState: TrackControlsState(separateAudioButton: separateAudioButton),
+      );
+    }
+
+    testWidgets('shows its own audio button beside the subtitles button', (tester) async {
+      await pumpRow(tester, tracks: tracks, separateAudioButton: true);
+
+      expect(find.byIcon(Symbols.audiotrack_rounded), findsOneWidget);
+      expect(find.byIcon(Symbols.subtitles_rounded), findsOneWidget);
+    });
+
+    testWidgets('the audio button opens the track sheet', (tester) async {
+      await pumpRow(tester, tracks: tracks, separateAudioButton: true);
+
+      await tester.tap(find.byIcon(Symbols.audiotrack_rounded));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TrackSheet), findsOneWidget);
+    });
+
+    testWidgets('no audio button with a single audio track', (tester) async {
+      await pumpRow(
+        tester,
+        tracks: const Tracks(
+          audio: [AudioTrack(id: 'a1')],
+          subtitle: [SubtitleTrack(id: 's1', language: 'eng')],
+        ),
+        separateAudioButton: true,
+      );
+
+      expect(find.byIcon(Symbols.audiotrack_rounded), findsNothing);
+    });
+
+    testWidgets('the normal player keeps audio inside the tracks button', (tester) async {
+      await pumpRow(tester, tracks: tracks, separateAudioButton: false);
+
+      expect(find.byIcon(Symbols.audiotrack_rounded), findsNothing);
+      expect(find.byIcon(Symbols.subtitles_rounded), findsOneWidget);
+    });
   });
 
   group('TrackSheet subtitle controls', () {
@@ -692,6 +751,36 @@ Future<void> _pumpTrackSheet(
             width: 700,
             height: 400,
             child: TrackSheet(player: player, trackControlsState: trackControlsState),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<void> _pumpButtonRow(
+  WidgetTester tester, {
+  required Player player,
+  required TrackControlsState trackControlsState,
+}) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(extensions: const [testMonoTokens]),
+      home: OverlaySheetHost(
+        child: Scaffold(
+          body: SizedBox(
+            width: 900,
+            height: 500,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: TrackChapterControls(
+                player: player,
+                chapters: const [],
+                chaptersLoaded: true,
+                trackControlsState: trackControlsState,
+              ),
+            ),
           ),
         ),
       ),

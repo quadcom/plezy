@@ -394,9 +394,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         selectedMediaIndex: 0,
         resumePosition: position(),
         useCurrentAudioStreamSelection: false,
-        preserveCurrentTrackSelection: true,
-        preservedAudioTrack: _sessionAudioPreference,
-        preservedSubtitleTrack: _sessionSubtitlePreference,
+        // Each file opens on its own default audio track: carrying the last
+        // file's track matched a stereo trailer to a stereo commentary
+        // (local/plans/old-school-audio-track.md). Only a subtitle choice
+        // the viewer made carries over.
+        preferredSubtitleTrackOverride: _sessionSubtitlePreference,
         showErrorUi: false,
         reason: 'old school trailer $reason',
       );
@@ -437,9 +439,8 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       // Worked out after the item lookup, so the request time is allowed for.
       resumePosition: position(),
       useCurrentAudioStreamSelection: false,
-      preserveCurrentTrackSelection: true,
-      preservedAudioTrack: _sessionAudioPreference,
-      preservedSubtitleTrack: _sessionSubtitlePreference,
+      // Same rule as the trailer above: the programme's own default audio.
+      preferredSubtitleTrackOverride: _sessionSubtitlePreference,
       reason: 'old school $reason',
     );
     if (startCard && outcome == MediaReloadOutcome.opened && mounted && generation == _os.tuneGeneration) {

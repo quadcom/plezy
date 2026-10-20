@@ -92,6 +92,11 @@ class TrackControlsState {
   final bool matchSourceOnBar;
   final VoidCallback? onToggleMatchSource;
 
+  /// Old School shows audio as its own button beside the tracks button,
+  /// which wears a subtitles icon whenever the file has subtitles
+  /// (local/plans/old-school-audio-track.md).
+  final bool separateAudioButton;
+
   const TrackControlsState({
     this.availableVersions = const [],
     this.selectedMediaIndex = 0,
@@ -149,6 +154,7 @@ class TrackControlsState {
     this.matchSourceActive,
     this.matchSourceOnBar = false,
     this.onToggleMatchSource,
+    this.separateAudioButton = false,
   });
 
   /// Transcoded subtitle choices must be negotiated with the server and
@@ -192,6 +198,16 @@ class TrackControlsState {
 
   /// Whether the track sheet should expose subtitle controls at all. This is
   /// the single source of truth shared by the toolbar icon and the sheet layout.
+  /// Whether the track sheet would offer an audio choice: the same test as
+  /// its audio column.
+  bool hasAudioChoice(Tracks? tracks) {
+    final hasExternalSourceAudio = sourceAudioTracks.any((track) => track.isExternal);
+    final useSourceAudio =
+        (isTranscoding || hasExternalSourceAudio) && sourceAudioTracks.length > 1 && onSwitchAudioStreamId != null;
+    return useSourceAudio ||
+        TrackFilterHelper.extractAndFilterTracks<AudioTrack>(tracks, (t) => t?.audio ?? []).length > 1;
+  }
+
   bool hasSubtitleControls(Tracks? tracks) {
     final playerSubtitles = tracks?.subtitle ?? const <SubtitleTrack>[];
     return canUseSourceSubtitles ||

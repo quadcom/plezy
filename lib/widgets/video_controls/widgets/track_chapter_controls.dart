@@ -181,6 +181,30 @@ class TrackChapterControls extends StatelessWidget {
         );
         buttonIndex++;
 
+        // Old School: an audio button of its own, so the choice is there to
+        // see when the tracks button shows subtitles.
+        if (state.separateAudioButton && state.hasSubtitleControls(tracks) && state.hasAudioChoice(tracks)) {
+          final currentIndex = buttonIndex;
+          buttons.add(
+            _buildTrackButton(
+              buttonIndex: currentIndex,
+              icon: Symbols.audiotrack_rounded,
+              tooltip: t.videoControls.audioLabel,
+              semanticLabel: t.videoControls.audioLabel,
+              buttons: buttons,
+              onPressed: () {
+                state.onCancelAutoHide?.call();
+                OverlaySheetController.of(context)
+                    .show(
+                      builder: (_) => TrackSheet(player: player, trackControlsState: state),
+                    )
+                    .whenComplete(() => state.onStartAutoHide?.call());
+              },
+            ),
+          );
+          buttonIndex++;
+        }
+
         {
           final currentIndex = buttonIndex;
           buttons.add(

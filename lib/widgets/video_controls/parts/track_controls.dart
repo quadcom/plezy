@@ -220,6 +220,7 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
       matchSourceActive: widget.oldSchool?.matchSourceActive?.call(),
       matchSourceOnBar: SettingsService.instanceOrNull?.read(SettingsService.oldSchoolMatchSourceOnBar) ?? false,
       onToggleMatchSource: widget.oldSchool?.onToggleMatchSource,
+      separateAudioButton: widget.oldSchool != null,
     );
   }
 
