@@ -96,7 +96,8 @@ enum MediaKind {
       'playlist' => MediaKind.playlist,
       'clip' || 'trailer' || 'video' || 'musicvideo' => MediaKind.clip,
       'photo' => MediaKind.photo,
-      'folder' || 'collectionfolder' => MediaKind.folder,
+      // Jellyfin types a home-videos folder holding pictures as PhotoAlbum.
+      'folder' || 'collectionfolder' || 'photoalbum' => MediaKind.folder,
       _ => MediaKind.unknown,
     };
   }

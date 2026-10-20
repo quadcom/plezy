@@ -3377,7 +3377,7 @@ void main() {
         connection: _conn(),
         httpClient: MockClient((req) async {
           captured.add(req.url);
-          final foldersOnly = req.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder';
+          final foldersOnly = req.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder,PhotoAlbum';
           final items = allChildren.where((c) => (c['Type'] == 'Folder') == foldersOnly).toList();
           return jsonResponse({'Items': items, 'TotalRecordCount': items.length});
         }),
@@ -3405,12 +3405,12 @@ void main() {
       }
       // User data on folder dtos triggers a per-folder recursive unplayed
       // count on the server; folder rows render no watch state, so skip it.
-      expect(folderQuery.queryParameters['IncludeItemTypes'], 'Folder,CollectionFolder');
+      expect(folderQuery.queryParameters['IncludeItemTypes'], 'Folder,CollectionFolder,PhotoAlbum');
       expect(folderQuery.queryParameters['EnableUserData'], 'false');
       expect(folderQuery.queryParameters['Fields'], isNot(contains('UserData')));
       // Media rows keep user data (watched state, series unwatched badge),
       // which comes back by default; `UserData` is not an ItemFields value.
-      expect(mediaQuery.queryParameters['ExcludeItemTypes'], 'Folder,CollectionFolder');
+      expect(mediaQuery.queryParameters['ExcludeItemTypes'], 'Folder,CollectionFolder,PhotoAlbum');
       expect(mediaQuery.queryParameters.containsKey('EnableUserData'), isFalse);
       expect(mediaQuery.queryParameters['Fields'], isNot(contains('UserData')));
       expect(items.map((item) => item.id), ['folder-z', 'series-a', 'movie-m', 'track-z']);

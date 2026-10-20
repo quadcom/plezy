@@ -31,7 +31,7 @@ void main() {
       connection: testJellyfinConnection(machineId: 'music-server'),
       httpClient: MockClient((request) async {
         final parentId = request.url.queryParameters['ParentId'];
-        final foldersOnly = request.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder';
+        final foldersOnly = request.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder,PhotoAlbum';
         final items = foldersOnly
             ? const <Map<String, Object?>>[]
             : switch (parentId) {
@@ -101,7 +101,7 @@ void main() {
       connection: testJellyfinConnection(machineId: 'srv'),
       httpClient: MockClient((request) async {
         if (failNext) return http.Response('down', 500);
-        final foldersOnly = request.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder';
+        final foldersOnly = request.url.queryParameters['IncludeItemTypes'] == 'Folder,CollectionFolder,PhotoAlbum';
         final items = foldersOnly
             ? const <Map<String, Object?>>[]
             : const [

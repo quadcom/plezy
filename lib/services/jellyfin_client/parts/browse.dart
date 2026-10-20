@@ -220,6 +220,9 @@ const _pagedListPageSize = 200;
 const _embyResumeWindowLimit = 300;
 
 const _playableDescendantTypes = 'Movie,Episode,Audio';
+// PhotoAlbum: a home-videos folder that also holds pictures, which Jellyfin
+// types as an album even when it is mostly videos.
+const _folderItemTypes = 'Folder,CollectionFolder,PhotoAlbum';
 const _playableFolderDescendantTypes = 'Movie,Episode,Video,MusicVideo';
 const _episodeOrderQueryParameters = {
   'SortBy': 'ParentIndexNumber,IndexNumber,SortName',
@@ -228,7 +231,10 @@ const _episodeOrderQueryParameters = {
 
 bool _isJellyfinFolderDto(Map<String, dynamic> item) {
   final type = (item['Type'] as String?)?.toLowerCase();
-  return type == 'folder' || type == 'collectionfolder' || (type == null && item['IsFolder'] == true);
+  return type == 'folder' ||
+      type == 'collectionfolder' ||
+      type == 'photoalbum' ||
+      (type == null && item['IsFolder'] == true);
 }
 
 String _jellyfinFolderSortName(Map<String, dynamic> item) {
@@ -1184,13 +1190,13 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     // folders-first ordering the final sort below produces.
     List<Map<String, dynamic>>? folderRows;
     final foldersFuture = _pageFolderQuery(parentId, {
-      'IncludeItemTypes': 'Folder,CollectionFolder',
+      'IncludeItemTypes': _folderItemTypes,
       'EnableUserData': 'false',
     }, _folderRowFields).then((rows) => folderRows = rows);
 
     final mediaFuture = _pageFolderQuery(
       parentId,
-      {'ExcludeItemTypes': 'Folder,CollectionFolder'},
+      {'ExcludeItemTypes': _folderItemTypes},
       _folderBrowseFields,
       onRawPage: onPage == null
           ? null
