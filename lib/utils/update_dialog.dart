@@ -5,7 +5,9 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../i18n/strings.g.dart';
 import '../services/android_app_updater.dart';
+import '../services/app_exit_service.dart';
 import '../services/update_service.dart';
+import '../services/windows_app_updater.dart';
 import '../widgets/dialog_action_button.dart';
 import 'app_logger.dart';
 import 'dialogs.dart';
@@ -19,8 +21,8 @@ Future<void> showUpdateAvailableDialog(
   bool showSkipVersion = false,
 }) async {
   // On Android, a release APK for this device turns "View Release" into an
-  // in-app install.
-  final apk = await AndroidAppUpdater.apkFor(updateInfo);
+  // in-app install; so does the release's setup file on an installed Windows copy.
+  final installAsset = await AndroidAppUpdater.apkFor(updateInfo) ?? WindowsAppUpdater.setupFor(updateInfo);
   if (!context.mounted) return;
 
   return showScopedDialog<void>(
@@ -56,11 +58,11 @@ Future<void> showUpdateAvailableDialog(
               },
               label: t.update.skipVersion,
             ),
-          if (apk != null)
+          if (installAsset != null)
             DialogActionButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                unawaited(_showInstallDialog(context, apk));
+                unawaited(_showInstallDialog(context, installAsset));
               },
               label: t.update.install,
               isPrimary: true,
@@ -85,22 +87,23 @@ Future<void> showUpdateAvailableDialog(
   );
 }
 
-Future<void> _showInstallDialog(BuildContext context, Map<String, dynamic> apk) {
+Future<void> _showInstallDialog(BuildContext context, Map<String, dynamic> asset) {
   if (!context.mounted) return Future.value();
   return showScopedDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (_) => _UpdateInstallDialog(apk: apk),
+    builder: (_) => _UpdateInstallDialog(asset: asset),
   );
 }
 
 enum _InstallStage { downloading, installing, needsPermission, failed }
 
-/// Downloads the update APK with progress, then hands it to the installer.
+/// Downloads the update (an APK, or a Windows setup file) with progress, then
+/// hands it to the installer.
 class _UpdateInstallDialog extends StatefulWidget {
-  const _UpdateInstallDialog({required this.apk});
+  const _UpdateInstallDialog({required this.asset});
 
-  final Map<String, dynamic> apk;
+  final Map<String, dynamic> asset;
 
   @override
   State<_UpdateInstallDialog> createState() => _UpdateInstallDialogState();
@@ -136,23 +139,32 @@ class _UpdateInstallDialogState extends State<_UpdateInstallDialog> {
       _stage = _InstallStage.downloading;
       _progress = null;
     });
+    void onProgress(int received, int? total) {
+      if (!mounted || total == null || total == 0) return;
+      final progress = received / total;
+      // Only repaint on whole-percent steps; the stream delivers many small chunks.
+      if (_progress == null || (progress * 100).floor() != (_progress! * 100).floor()) {
+        setState(() => _progress = progress);
+      }
+    }
+
     try {
-      await AndroidAppUpdater.downloadAndInstall(
-        widget.apk,
-        abort: abort,
-        onProgress: (received, total) {
-          if (!mounted || total == null || total == 0) return;
-          final progress = received / total;
-          // Only repaint on whole-percent steps; the stream delivers many small chunks.
-          if (_progress == null || (progress * 100).floor() != (_progress! * 100).floor()) {
-            setState(() => _progress = progress);
-          }
-        },
-      );
+      final windows = WindowsAppUpdater.isSupported;
+      if (windows) {
+        await WindowsAppUpdater.downloadAndInstall(widget.asset, abort: abort, onProgress: onProgress);
+      } else {
+        await AndroidAppUpdater.downloadAndInstall(widget.asset, abort: abort, onProgress: onProgress);
+      }
       if (!mounted) return;
       setState(() => _stage = _InstallStage.installing);
       // The system installer takes over from here.
       await Future<void>.delayed(const Duration(seconds: 2));
+      if (windows) {
+        // Setup is running; close so it can replace Plezy's files. It opens
+        // Plezy again when it finishes.
+        await AppExitService.requestGracefulExit();
+        return;
+      }
       if (mounted) Navigator.pop(context);
     } on InstallPermissionRequiredException {
       if (mounted) _showStage(_InstallStage.needsPermission);

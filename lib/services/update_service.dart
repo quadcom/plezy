@@ -11,9 +11,11 @@ import 'base_shared_preferences_service.dart';
 /// Service to check for new versions on GitHub
 /// Only enabled when ENABLE_UPDATE_CHECK build flag is set
 ///
-/// On macOS (non-Homebrew) and installed Windows: delegates to Sparkle/WinSparkle
-/// via auto_updater for native update dialogs and in-app installs.
-/// On all other platforms: falls back to GitHub API check + browser link dialog.
+/// On macOS (non-Homebrew): delegates to Sparkle via auto_updater for native
+/// update dialogs and in-app installs.
+/// On all other platforms, Windows included: GitHub API check against
+/// [_githubRepo]. Android and installed Windows copies install the release from
+/// the dialog; the rest get a browser link.
 class UpdateService {
   /// GitHub repo whose releases are checked. The quadcom fork checks its own
   /// releases; PLEZY_UPDATE_REPO overrides it at build time.
@@ -40,12 +42,13 @@ class UpdateService {
   /// no dead affordance ships.
   static bool get isUpdateCheckAvailable => isUpdateCheckEnabled && !PlatformDetector.isPackagedInstall();
 
-  /// Whether the native auto_updater (Sparkle/WinSparkle) should be used.
-  /// True on macOS (non-Homebrew) and installed Windows (has uninstaller).
+  /// Whether the native auto_updater (Sparkle) should be used.
+  /// True on macOS (non-Homebrew) only. Windows never uses WinSparkle: its
+  /// feed is upstream's appcast, while the quadcom fork updates from its own
+  /// GitHub releases (WindowsAppUpdater).
   static bool get useNativeUpdater {
     if (!isUpdateCheckAvailable) return false;
     if (Platform.isMacOS) return !_isHomebrewInstall();
-    if (Platform.isWindows) return _isInstalledApp() && !_isWingetInstall();
     return false;
   }
 
@@ -81,20 +84,6 @@ class UpdateService {
   static bool _isHomebrewInstall() {
     final execPath = Platform.resolvedExecutable;
     return execPath.contains('/Caskroom/') || execPath.contains('/homebrew/');
-  }
-
-  /// Check if the Windows app was installed via winget.
-  /// The Inno Setup installer writes a .winget marker file when invoked with /WINGET=1.
-  static bool _isWingetInstall() {
-    final exeDir = File(Platform.resolvedExecutable).parent.path;
-    return File('$exeDir\\.winget').existsSync();
-  }
-
-  /// Check if the Windows app is an installed copy (not portable).
-  /// The Inno Setup installer places unins000.exe next to the executable.
-  static bool _isInstalledApp() {
-    final exeDir = File(Platform.resolvedExecutable).parent.path;
-    return File('$exeDir\\unins000.exe').existsSync();
   }
 
   static Future<void> skipVersion(String version) async {

@@ -20,9 +20,11 @@ function New-InnoSetupScript {
         [Parameter(Mandatory)][bool]$HasArm64
     )
 
+    # The quadcom fork has its own AppId so it never takes over or clashes with
+    # an upstream Plezy install.
     # Uninstall registry keys are named "{AppId}_is1", so the installer and the
     # elevation code below have to agree on this GUID.
-    $AppGuid = '4213385e-f7be-4f2b-95f9-54082a28bb8f'
+    $AppGuid = '17a37b44-bc87-4a9d-b85f-73a27f1a5f16'
 
     if ($HasX64 -and $HasArm64) {
         $ArchAllowed = 'x64compatible arm64'
@@ -41,7 +43,7 @@ Source: "staging\arm64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs
     return @"
 #define Name "Plezy"
 #define Version "$Version"
-#define Publisher "edde746"
+#define Publisher "quadcom"
 #define ExeName "plezy.exe"
 
 [Setup]
@@ -68,7 +70,7 @@ ArchitecturesInstallIn64BitMode=$ArchAllowed
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [CustomMessages]
-ElevationRequired=Plezy is installed in %1, which requires administrator privileges to update.%n%nRe-run this installer using "Run as administrator", or download the latest installer from https://github.com/edde746/plezy/releases/latest
+ElevationRequired=Plezy is installed in %1, which requires administrator privileges to update.%n%nRe-run this installer using "Run as administrator", or download the latest installer from https://github.com/quadcom/plezy/releases/latest
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
