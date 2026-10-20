@@ -34,10 +34,6 @@ class OldSchoolPlayerState {
   DateTime? backNoteShownAt;
   Timer? backNoteTimer;
 
-  /// The channel-change card shows until this time.
-  DateTime? cardUntil;
-  Timer? cardTimer;
-
   /// Waits out an off-the-air gap, then tunes again.
   Timer? standbyTimer;
 
@@ -74,7 +70,6 @@ class OldSchoolPlayerState {
   int tuneGeneration = 0;
 
   static const backAgainWindow = Duration(seconds: 3);
-  static const cardTime = Duration(seconds: 3);
 
   /// How long the "Now playing" card shows (Adrian, 2026-10-18), and how far
   /// into its slot a programme may be and still count as starting.
@@ -92,14 +87,8 @@ class OldSchoolPlayerState {
     return shown != null && DateTime.now().difference(shown) < backAgainWindow;
   }
 
-  bool get cardVisible {
-    final until = cardUntil;
-    return until != null && DateTime.now().isBefore(until);
-  }
-
   void dispose() {
     backNoteTimer?.cancel();
-    cardTimer?.cancel();
     startCardTimer?.cancel();
     standbyTimer?.cancel();
   }

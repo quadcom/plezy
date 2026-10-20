@@ -229,10 +229,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     });
     if (full) {
       // The guide that held focus is gone. Hand the remote to the player
-      // surface with the controls down, so the picture comes back clean; the
-      // first press brings the controls up (Adrian, 2026-10-11).
-      _chromeController.hide(ignoreHolds: true);
+      // surface and bring the controls up for their usual time: with the
+      // poster corner they say what's on (Adrian, 2026-10-19, replacing the
+      // clean picture of 2026-10-11).
       _screenFocusNode.requestFocus();
+      _chromeController.show(focusPlayPause: true);
     } else {
       _chromeController.hide(ignoreHolds: true);
     }
@@ -272,14 +273,6 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     return _exitPlayerRoute(navigateHome: false, stop: true);
   }
 
-  void _oldSchoolShowCard() {
-    _os.cardTimer?.cancel();
-    _setPlayerState(() => _os.cardUntil = DateTime.now().add(OldSchoolPlayerState.cardTime));
-    _os.cardTimer = Timer(OldSchoolPlayerState.cardTime, () {
-      if (mounted) _setPlayerState(() {});
-    });
-  }
-
   /// Show the "Now playing" card for [entry] for
   /// [OldSchoolPlayerState.startCardTime].
   void _oldSchoolShowStartCard(OldSchoolEntry entry) {
@@ -309,8 +302,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     return tune.offsetInto(entry, DateTime.now()) < OldSchoolPlayerState.startCardWindow;
   }
 
-  /// Tune [channelId] and play what's on at its scheduled point.
-  Future<void> _oldSchoolTune(String channelId, {required String reason, bool showCard = true}) async {
+  /// Tune [channelId] and play what's on at its scheduled point. A viewer's
+  /// pick ([showControls]) brings up the controls once it opens full screen:
+  /// with the poster corner they say what's on, so there is no channel card
+  /// (Adrian, 2026-10-19, local/plans/old-school-no-channel-card.md).
+  Future<void> _oldSchoolTune(String channelId, {required String reason, bool showControls = true}) async {
     if (_shuttingDown) return;
     final generation = ++_os.tuneGeneration;
     _oldSchoolHideStartCard();
@@ -320,8 +316,10 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     try {
       final tune = await _osController.tuneTo(channelId);
       if (!mounted || generation != _os.tuneGeneration) return;
-      if (showCard) _oldSchoolShowCard();
       await _oldSchoolPlay(tune, reason: reason, generation: generation);
+      if (showControls && mounted && generation == _os.tuneGeneration && _os.fullScreen) {
+        _chromeController.show(focusPlayPause: true);
+      }
     } catch (e, st) {
       appLogger.w('Old School: tune failed ($reason)', error: e, stackTrace: st);
       if (mounted && generation == _os.tuneGeneration) showErrorSnackBar(context, t.oldSchool.tuneFailed);
@@ -349,7 +347,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       final wait = next == null ? const Duration(minutes: 1) : next.start.difference(tune.serverNow(DateTime.now()));
       _os.standbyTimer = Timer(wait.isNegative ? Duration.zero : wait + const Duration(seconds: 1), () {
         if (mounted && generation == _os.tuneGeneration) {
-          unawaited(_oldSchoolTune(tune.channelId, reason: 'after standby', showCard: false));
+          unawaited(_oldSchoolTune(tune.channelId, reason: 'after standby', showControls: false));
         }
       });
       return;
@@ -509,7 +507,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   Future<void> _oldSchoolBackToLive() async {
     final current = _osController.tunedChannelId;
     if (current == null) return;
-    await _oldSchoolTune(current, reason: 'back to live', showCard: false);
+    await _oldSchoolTune(current, reason: 'back to live', showControls: false);
   }
 
   /// A file ended: the channel's next entry joins at its scheduled point
@@ -531,13 +529,13 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         _os.standbyTimer?.cancel();
         _os.standbyTimer = Timer(left + const Duration(milliseconds: 500), () {
           if (mounted && generation == _os.tuneGeneration) {
-            unawaited(_oldSchoolTune(current, reason: 'carry on', showCard: false));
+            unawaited(_oldSchoolTune(current, reason: 'carry on', showControls: false));
           }
         });
         return;
       }
     }
-    unawaited(_oldSchoolTune(current, reason: 'carry on', showCard: false));
+    unawaited(_oldSchoolTune(current, reason: 'carry on', showControls: false));
   }
 
   /// [video] as it is, or inside the Old School or IPTV page.
@@ -614,12 +612,6 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
             // starts (local/plans/old-school-episode-banner.md).
             if (full && channel != null)
               OldSchoolPreRollCard(controller: controller, channel: channel, film: _os.startCardShowing),
-            if (full && channel != null && _os.cardVisible && !_os.playingPreRoll)
-              OldSchoolChannelCard(
-                controller: controller,
-                channel: channel,
-                entry: controller.programmeAt(channel.id) ?? controller.tune?.now,
-              ),
             if (_os.backNoteVisible) const OldSchoolBackNote(),
           ],
         );
