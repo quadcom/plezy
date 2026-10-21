@@ -367,6 +367,27 @@ sealed class MediaItem with _$MediaItem {
   /// Shared by the per-client merge and the cross-server sort so they agree.
   int get recencySortKey => lastViewedAt ?? addedAt ?? 0;
 
+  /// A not-yet-aired placeholder episode: PlezyFin lists it from Sonarr as a
+  /// virtual episode (no file behind it) with a Sonarr provider id. Shown
+  /// greyed on the season page only, never played
+  /// (local/plans/upcoming-episodes.md).
+  bool get isUpcoming {
+    if (kind != MediaKind.episode || !isVirtual) return false;
+    final providerIds = raw?['ProviderIds'];
+    return providerIds is Map && providerIds.containsKey('Sonarr');
+  }
+
+  /// A Jellyfin virtual episode: listed by the server with no file behind it.
+  bool get isVirtual => raw?['LocationType'] == 'Virtual';
+
+  /// The air date as a local calendar day, from [originallyAvailableAt]
+  /// (`YYYY-MM-DD`, already the server's date with no time-zone shift).
+  DateTime? get airDate {
+    final ymd = originallyAvailableAt;
+    if (ymd == null || ymd.isEmpty) return null;
+    return DateTime.tryParse(ymd);
+  }
+
   /// Whether this item has started but not finished playback.
   bool get hasActiveProgress {
     if (durationMs == null || viewOffsetMs == null) return false;

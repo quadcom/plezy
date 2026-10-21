@@ -2142,7 +2142,14 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   /// One page of [season]'s episodes, sized for the detail lists.
   Future<LibraryPage<MediaItem>> _fetchSeasonPage(MediaServerClient client, MediaItem season, {required int start}) {
-    return fetchSeasonEpisodePage(client, show: _metadata, season: season, start: start, size: _episodesPageSize);
+    return fetchSeasonEpisodePage(
+      client,
+      show: _metadata,
+      season: season,
+      start: start,
+      size: _episodesPageSize,
+      includeUpcoming: true,
+    );
   }
 
   /// Mirror the pager's items for [seasonId] into the visible episode list when
@@ -3215,9 +3222,17 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (season != null) {
       final seriesId = _seriesIdForSeason(season);
       final seasonPagingClient = client is SeasonEpisodePagingClient ? client as SeasonEpisodePagingClient : null;
-      final page = seriesId != null && seasonPagingClient != null
-          ? await seasonPagingClient.fetchSeasonEpisodesPage(seriesId, season.id, start: start, size: size)
-          : await client.fetchChildrenPage(season.id, start: start, size: size);
+      final page = withUpcomingOnly(
+        seriesId != null && seasonPagingClient != null
+            ? await seasonPagingClient.fetchSeasonEpisodesPage(
+                seriesId,
+                season.id,
+                start: start,
+                size: size,
+                includeUpcoming: true,
+              )
+            : await client.fetchChildrenPage(season.id, start: start, size: size),
+      );
       return LibraryPage<MediaItem>(
         items: _enrichDirectSeasonEpisodes(page.items, season: season, serverId: serverId),
         totalCount: page.totalCount,
@@ -4221,7 +4236,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
     final episodeLabel = formatSeasonEpisodeLabel(lineMetadata.parentIndex, lineMetadata.index);
     if (lineMetadata.isEpisode && episodeLabel != null) parts.add(MetadataLineText(episodeLabel, dropPriority: 0));
-    if (lineMetadata.isEpisode && lineMetadata.originallyAvailableAt != null) {
+    final airDate = lineMetadata.isUpcoming ? lineMetadata.airDate : null;
+    if (airDate != null) {
+      parts.add(MetadataLineText(t.seasonPage.airsOn(date: formatAirDateLong(airDate)), dropPriority: 0));
+    } else if (lineMetadata.isEpisode && lineMetadata.originallyAvailableAt != null) {
       parts.add(MetadataLineText(formatAbbreviatedDate(lineMetadata.originallyAvailableAt!), dropPriority: 0));
     } else if (lineMetadata.year != null) {
       parts.add(MetadataLineText(lineMetadata.year.toString(), dropPriority: 0));
@@ -4365,6 +4383,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
     final episodeDescription = _tvDetailItemDescription(focusedEpisode, hideSpoilers: hideSpoilers);
     if (episodeDescription != null) return episodeDescription;
+    if (focusedEpisode.isUpcoming) return t.seasonPage.noDetailsYet;
 
     final season = _tvDetailSeasonForEpisode(focusedEpisode, metadata);
     final seasonDescription = season == null ? null : _tvDetailItemDescription(season, hideSpoilers: hideSpoilers);
@@ -4594,6 +4613,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       await _openSeasonPage(_seasons.indexWhere((season) => season.id == item.id));
       return true;
     }
+    // An upcoming episode has nothing to play (local/plans/upcoming-episodes.md).
+    if (_isTvDetailEpisodeHub(hub) && item.isUpcoming) return true;
     if (_isTvDetailEpisodeHub(hub) && item.isEpisode) {
       await navigateToVideoPlayerWithRefresh(
         context,

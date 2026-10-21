@@ -147,6 +147,20 @@ String formatClockTime(DateTime time, {required bool is24Hour}) {
   return formatter.format(time);
 }
 
+/// An upcoming episode's air date, short: "Fri 23 Oct".
+String formatAirDateShort(DateTime date) =>
+    DateFormat('EEE d MMM', LocaleSettings.currentLocale.intlLocaleName).format(date);
+
+/// The two lines over an upcoming episode's still: weekday ("Fri") and day
+/// with month ("23 Oct").
+String formatAirWeekday(DateTime date) => DateFormat('EEE', LocaleSettings.currentLocale.intlLocaleName).format(date);
+String formatAirDayMonth(DateTime date) =>
+    DateFormat('d MMM', LocaleSettings.currentLocale.intlLocaleName).format(date);
+
+/// An upcoming episode's air date, long: "Friday 23 October".
+String formatAirDateLong(DateTime date) =>
+    DateFormat('EEEE d MMMM', LocaleSettings.currentLocale.intlLocaleName).format(date);
+
 /// Formats a date as Today/Tomorrow or a localized abbreviated weekday.
 String formatRelativeDayLabel(DateTime date, {DateTime? now}) {
   final reference = now ?? DateTime.now();

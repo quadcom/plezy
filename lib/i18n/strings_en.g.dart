@@ -5920,6 +5920,21 @@ class Translations$seasonPage$en {
 
 	/// en: 'Could not load this season.'
 	String get loadFailed => 'Could not load this season.';
+
+	/// en: 'Upcoming'
+	String get upcoming => 'Upcoming';
+
+	/// en: 'Airs ${date}'
+	String airsOn({required Object date}) => 'Airs ${date}';
+
+	/// en: 'Airs ${day}'
+	String airsDay({required Object day}) => 'Airs ${day}';
+
+	/// en: 'TBA'
+	String get tba => 'TBA';
+
+	/// en: 'No details yet'
+	String get noDetailsYet => 'No details yet';
 }
 
 // Path: oldSchool
@@ -9986,6 +10001,11 @@ extension on Translations {
 			'seasonPage.episodeHeading' => ({required Object number, required Object title}) => 'Episode ${number}: ${title}',
 			'seasonPage.spoilerHidden' => 'The description shows once you\'ve watched it.',
 			'seasonPage.loadFailed' => 'Could not load this season.',
+			'seasonPage.upcoming' => 'Upcoming',
+			'seasonPage.airsOn' => ({required Object date}) => 'Airs ${date}',
+			'seasonPage.airsDay' => ({required Object day}) => 'Airs ${day}',
+			'seasonPage.tba' => 'TBA',
+			'seasonPage.noDetailsYet' => 'No details yet',
 			'oldSchool.title' => 'Old School',
 			'oldSchool.matchSource' => 'Match source',
 			'oldSchool.matchSourceDescription' => 'Play this programme at its own resolution and frame rate, for this programme only',

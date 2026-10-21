@@ -33,6 +33,7 @@ import 'horizontal_scroll_with_arrows.dart';
 import 'listenable_selector.dart';
 import 'media_card.dart';
 import 'media_context_menu.dart';
+import 'media_rail/rail_parts.dart';
 import 'optimized_media_image.dart';
 import 'rasterized_gradient.dart';
 import 'settings_builder.dart';
@@ -1039,13 +1040,21 @@ class TvBrowseRailState extends State<TvBrowseRail> with TickerProviderStateMixi
     return _mediaCardKeys.putIfAbsent('${_hubKey(hub)}:$itemIndex', () => GlobalKey<MediaCardState>());
   }
 
+  /// Upcoming episodes are not [MediaCard]s (no menu), so their cards keep
+  /// their own keys for [_focusedCardRect].
+  final Map<String, GlobalKey> _upcomingCardKeys = {};
+
+  GlobalKey _upcomingCardKeyFor(MediaHub hub, int itemIndex) {
+    return _upcomingCardKeys.putIfAbsent('${_hubKey(hub)}:$itemIndex', GlobalKey.new);
+  }
+
   /// Global rect of the active hub's selected card, pricing one swipe step by
   /// the card's geometry instead of the rail-wide focus node's (see
   /// [LockedFocusRowNode]).
   Rect? _focusedCardRect() {
     final hub = _activeHub;
     if (hub == null || _itemAtSlot(hub, _itemIndex) == null) return null;
-    final context = _cardKeyFor(hub, _itemIndex).currentContext;
+    final context = _cardKeyFor(hub, _itemIndex).currentContext ?? _upcomingCardKeyFor(hub, _itemIndex).currentContext;
     final box = context?.findRenderObject();
     if (box is! RenderBox || !box.attached || !box.hasSize) return null;
     return box.localToGlobal(Offset.zero) & box.size;
@@ -1708,6 +1717,9 @@ class TvBrowseRailState extends State<TvBrowseRail> with TickerProviderStateMixi
     required bool fullCardLayout,
   }) {
     final artworkDim = _artworkDimForHub(context, hubIndex);
+    if (item.isUpcoming && !metrics.isPersonHub) {
+      return _buildUpcomingCard(context, hub: hub, item: item, itemIndex: itemIndex, metrics: metrics, scale: scale);
+    }
     return metrics.isPersonHub
         ? MergeSemantics(
             child: _buildPersonCard(
@@ -1736,6 +1748,58 @@ class TvBrowseRailState extends State<TvBrowseRail> with TickerProviderStateMixi
             episodePosterModeOverride: episodePosterMode,
             showTitleImplied: widget.showTitleImpliedForHub?.call(hub) ?? false,
           );
+  }
+
+  /// A not-yet-aired episode in a season row: the greyed still with its air
+  /// date, then its title and the amber "Airs ..." line. No menu; OK does
+  /// nothing (local/plans/upcoming-episodes.md).
+  Widget _buildUpcomingCard(
+    BuildContext context, {
+    required MediaHub hub,
+    required MediaItem item,
+    required int itemIndex,
+    required TvBrowseRailLayoutMetrics metrics,
+    required double scale,
+  }) {
+    final theme = Theme.of(context);
+    final radius = tokens(context).radiusSm;
+    return MergeSemantics(
+      child: Semantics(
+        label: '${upcomingEpisodeTitle(item)}, ${t.seasonPage.upcoming}',
+        child: SizedBox(
+          key: _upcomingCardKeyFor(hub, itemIndex),
+          width: metrics.cardWidth,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CardFocusBorder(
+                borderRadius: radius,
+                child: SizedBox(
+                  width: metrics.cardWidth,
+                  height: metrics.posterHeight,
+                  child: UpcomingEpisodeStill(
+                    item: item,
+                    still: OptimizedMediaImage.thumb(
+                      client: context.tryGetMediaClientWithFallback(serverIdOrNull(item.serverId)),
+                      imagePath: item.thumbPath,
+                    ),
+                    badge: item.index?.toString(),
+                    borderRadius: radius,
+                  ),
+                ),
+              ),
+              SizedBox(height: 6 * scale),
+              UpcomingEpisodeCaption(
+                item: item,
+                titleStyle: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 14 * scale),
+                dateStyle: theme.textTheme.bodySmall?.copyWith(fontSize: 12 * scale),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPersonCard(

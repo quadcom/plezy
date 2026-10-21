@@ -94,6 +94,7 @@ class _SeasonPagingRecordingClient extends _RecordingClient implements SeasonEpi
     String seasonId, {
     int? start,
     int? size,
+    bool includeUpcoming = false,
     abort,
   }) async {
     seasonEpisodePageCalls.add((seriesId: seriesId, seasonId: seasonId, start: start, size: size));
@@ -205,6 +206,22 @@ void main() {
     // Identical to defaultPlaybackSeasonIndex (first regular season).
     expect(preferredSeasonIndex([special, season1, season2]), 1);
     expect(preferredSeasonIndex([special, season1, season2]), defaultPlaybackSeasonIndex([special, season1, season2]));
+  });
+
+  test('firstUnwatchedEpisode never picks an upcoming episode', () {
+    final watched = _episode('watched', viewCount: 1);
+    final upcoming = testMediaItem(
+      id: 'upcoming',
+      backend: MediaBackend.jellyfin,
+      kind: MediaKind.episode,
+      title: 'Next week',
+      raw: const {
+        'LocationType': 'Virtual',
+        'ProviderIds': {'Sonarr': '1'},
+      },
+    );
+    expect(upcoming.isUpcoming, isTrue);
+    expect(firstUnwatchedEpisode([watched, upcoming]), isNull);
   });
 
   test('firstUnwatchedEpisode skips watched but keeps in-progress episodes', () {

@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/database/app_database.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/media_backend.dart';
@@ -34,6 +35,7 @@ void main() {
     SettingsService.resetForTesting();
     TvDetectionService.debugSetAppleTVOverride(false);
     LocaleSettings.setLocaleSync(AppLocale.en);
+    await initializeDateFormatting('en');
     await SettingsService.getInstance();
   });
 
@@ -112,6 +114,33 @@ void main() {
     expect(find.descendant(of: metadataWrap, matching: find.text('EAC3 5.1')), findsOneWidget);
   });
 
+  testWidgets('an upcoming episode shows greyed with its air date and plays nothing', (tester) async {
+    // local/plans/upcoming-episodes.md
+    final episode = testMediaItem(
+      id: 'upcoming_episode',
+      backend: MediaBackend.jellyfin,
+      kind: MediaKind.episode,
+      title: 'How to Build the Box',
+      index: 9,
+      originallyAvailableAt: '2026-10-23',
+      raw: const {
+        'LocationType': 'Virtual',
+        'ProviderIds': {'Sonarr': '1'},
+      },
+    );
+    var taps = 0;
+
+    await _pumpEpisodeCard(tester, episode, onTap: () => taps++);
+
+    expect(find.text('9. How to Build the Box'), findsOneWidget);
+    expect(find.text('UPCOMING'), findsOneWidget);
+    expect(find.text('Airs Fri 23 Oct'), findsOneWidget);
+    expect(find.text('No details yet'), findsOneWidget);
+    await tester.tap(find.text('9. How to Build the Box'));
+    await tester.pump();
+    expect(taps, 0);
+  });
+
   testWidgets('downloaded episode shows the resume progress bar', (tester) async {
     final episode = testMediaItem(
       id: 'resumable_episode',
@@ -129,7 +158,7 @@ void main() {
   });
 }
 
-Future<void> _pumpEpisodeCard(WidgetTester tester, MediaItem episode) async {
+Future<void> _pumpEpisodeCard(WidgetTester tester, MediaItem episode, {VoidCallback? onTap}) async {
   final db = AppDatabase.forTesting(NativeDatabase.memory());
   PlexApiCache.initialize(db);
   JellyfinApiCache.initialize(db);
@@ -156,7 +185,7 @@ Future<void> _pumpEpisodeCard(WidgetTester tester, MediaItem episode) async {
           home: Scaffold(
             body: SizedBox(
               width: 360,
-              child: EpisodeCard(episode: episode, isOffline: true, onTap: () {}),
+              child: EpisodeCard(episode: episode, isOffline: true, onTap: onTap ?? () {}),
             ),
           ),
         ),

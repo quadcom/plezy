@@ -134,6 +134,7 @@ int? firstUnwatchedSeasonIndex(List<MediaItem> seasons) {
 MediaItem? firstUnwatchedEpisode(List<MediaItem> episodes) {
   for (final episode in episodes) {
     if (episode.kind != MediaKind.episode) continue;
+    if (episode.isUpcoming) continue;
     if (!episode.isUnwatchedOrInProgress) continue;
     return episode;
   }
@@ -294,17 +295,44 @@ int preferredSeasonIndex(
 
 /// Fetch a page of season episodes and normalize the episode identity fields
 /// detail rows depend on. Local/session progress stays layered in UI.
+/// [includeUpcoming] is for the season page only (see
+/// [SeasonEpisodePagingClient]).
 Future<LibraryPage<MediaItem>> fetchSeasonEpisodePage(
   MediaServerClient client, {
   required MediaItem show,
   required MediaItem season,
   required int start,
   required int size,
+  bool includeUpcoming = false,
 }) async {
-  final page = await _fetchSeasonPage(client, seriesId: show.id, seasonId: season.id, start: start, size: size);
+  var page = await _fetchSeasonPage(
+    client,
+    seriesId: show.id,
+    seasonId: season.id,
+    start: start,
+    size: size,
+    includeUpcoming: includeUpcoming,
+  );
+  if (includeUpcoming) page = withUpcomingOnly(page);
   return LibraryPage<MediaItem>(
     items: normalizeSeasonEpisodes(page.items, show: show, season: season),
     totalCount: page.totalCount,
+    offset: page.offset,
+  );
+}
+
+/// Asking for upcoming episodes can also bring other virtual episodes
+/// (missing ones, for a user who shows those); only Sonarr's upcoming ones
+/// belong in a season's list. Drops the rest and lowers the total to match.
+LibraryPage<MediaItem> withUpcomingOnly(LibraryPage<MediaItem> page) {
+  final dropped = page.items.where((e) => e.isVirtual && !e.isUpcoming).length;
+  if (dropped == 0) return page;
+  return LibraryPage<MediaItem>(
+    items: [
+      for (final e in page.items)
+        if (!e.isVirtual || e.isUpcoming) e,
+    ],
+    totalCount: page.totalCount - dropped,
     offset: page.offset,
   );
 }
@@ -315,10 +343,17 @@ Future<LibraryPage<MediaItem>> _fetchSeasonPage(
   required int start,
   required int size,
   String? seriesId,
+  bool includeUpcoming = false,
 }) {
   final pagingClient = client is SeasonEpisodePagingClient ? client as SeasonEpisodePagingClient : null;
   if (seriesId != null && pagingClient != null) {
-    return pagingClient.fetchSeasonEpisodesPage(seriesId, seasonId, start: start, size: size);
+    return pagingClient.fetchSeasonEpisodesPage(
+      seriesId,
+      seasonId,
+      start: start,
+      size: size,
+      includeUpcoming: includeUpcoming,
+    );
   }
   return client.fetchChildrenPage(seasonId, start: start, size: size);
 }

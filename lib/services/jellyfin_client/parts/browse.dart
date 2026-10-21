@@ -1078,6 +1078,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     String seasonId, {
     int? start,
     int? size,
+    bool includeUpcoming = false,
     AbortController? abort,
   }) async {
     if (isOfflineMode) {
@@ -1094,9 +1095,13 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
         'StartIndex': offset.toString(),
         'Limit': pageSize.toString(),
         'EnableTotalRecordCount': 'true',
-        'IsMissing': 'false',
-        'IsVirtualUnaired': 'false',
-        'Fields': _episodeRowFields,
+        // Upcoming placeholders are virtual episodes PlezyFin lists from
+        // Sonarr when asked with `includeUpcoming`; `IsMissing=false` would
+        // drop every virtual item, theirs included. `ProviderIds` carries the
+        // Sonarr id that tells them from other virtual episodes
+        // (local/plans/upcoming-episodes.md).
+        if (includeUpcoming) 'includeUpcoming': 'true' else ...{'IsMissing': 'false', 'IsVirtualUnaired': 'false'},
+        'Fields': includeUpcoming ? '$_episodeRowFields,ProviderIds' : _episodeRowFields,
         ...jellyfinImageQueryParameters,
       },
       abort: abort,

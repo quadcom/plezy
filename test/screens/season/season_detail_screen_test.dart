@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/library_query.dart';
@@ -51,6 +52,37 @@ PlexMediaItem _episode(int season, int n, {int? viewCount}) => PlexMediaItem(
   durationMs: 2700000,
   viewCount: viewCount,
   serverId: _serverId,
+);
+
+/// A not-yet-aired placeholder, as PlezyFin lists it from Sonarr.
+PlexMediaItem _upcoming(int season, int n, {String? title, String? summary}) => PlexMediaItem(
+  id: 'u$season-$n',
+  kind: MediaKind.episode,
+  title: title,
+  summary: summary,
+  index: n,
+  parentIndex: season,
+  parentId: 's$season',
+  grandparentId: 'show',
+  originallyAvailableAt: '2026-10-23',
+  serverId: _serverId,
+  raw: const {
+    'LocationType': 'Virtual',
+    'ProviderIds': {'Sonarr': '1'},
+  },
+);
+
+/// A virtual episode that is not one of Sonarr's upcoming ones (a missing one).
+PlexMediaItem _missing(int season, int n) => PlexMediaItem(
+  id: 'm$season-$n',
+  kind: MediaKind.episode,
+  title: 'Missing $season-$n',
+  index: n,
+  parentIndex: season,
+  parentId: 's$season',
+  grandparentId: 'show',
+  serverId: _serverId,
+  raw: const {'LocationType': 'Virtual'},
 );
 
 class _ShowClient implements MediaServerClient {
@@ -111,7 +143,10 @@ class _ShowClient implements MediaServerClient {
 }
 
 void main() {
-  setUpAll(() => LocaleSettings.setLocaleSync(AppLocale.en));
+  setUpAll(() async {
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    await initializeDateFormatting('en');
+  });
 
   final seasons = [_season(1), _season(2)];
   final episodes = {
@@ -124,12 +159,13 @@ void main() {
     Widget home, {
     MediaItem? onDeck,
     Map<String, List<MediaItem>> extras = const {},
+    Map<String, List<MediaItem>>? episodeMap,
   }) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final servers = testMultiServer(
-      clients: [_ShowClient(seasons: seasons, episodes: episodes, onDeck: onDeck, extras: extras)],
+      clients: [_ShowClient(seasons: seasons, episodes: episodeMap ?? episodes, onDeck: onDeck, extras: extras)],
     );
     await tester.pumpWidget(
       ChangeNotifierProvider<MultiServerProvider>.value(
@@ -166,6 +202,59 @@ void main() {
     await tester.pump();
     expect(find.text('What happens in 2-3.'), findsOneWidget);
     expect(find.text('What happens in 2-2.'), findsNothing);
+  });
+
+  group('upcoming episodes (local/plans/upcoming-episodes.md)', () {
+    testWidgets('show greyed with their air date, and are not counted', (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+        episodeMap: {
+          ...episodes,
+          's2': [...episodes['s2']!, _upcoming(2, 4, title: 'How to Build the Box'), _missing(2, 5)],
+        },
+      );
+
+      expect(find.text('UPCOMING'), findsOneWidget);
+      expect(find.text('AIRS FRI'), findsOneWidget);
+      expect(find.text('23 Oct'), findsOneWidget);
+      expect(find.text('Airs Fri 23 Oct'), findsOneWidget);
+      expect(find.text('How to Build the Box'), findsOneWidget);
+      // Other virtual episodes stay off the page.
+      expect(find.text('Missing 2-5'), findsNothing);
+      // The header counts the three aired episodes only.
+      expect(find.textContaining('·  3 episodes  ·'), findsOneWidget);
+      expect(find.text('1 of 3 episodes watched'), findsOneWidget);
+
+      // Picking it shows its air date and "No details yet", and a second tap
+      // plays nothing: the page stays.
+      await tester.tap(find.text('4'));
+      await tester.pump();
+      expect(find.textContaining('Episode 4: How to Build the Box'), findsOneWidget);
+      expect(find.textContaining('Airs Friday 23 October'), findsOneWidget);
+      expect(find.text('No details yet'), findsOneWidget);
+      await tester.tap(find.text('4'));
+      for (var i = 0; i < 5; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SeasonDetailScreen), findsOneWidget);
+      expect(find.text('No details yet'), findsOneWidget);
+    });
+
+    testWidgets('a season of upcoming episodes only has nothing to play', (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+        episodeMap: {
+          ...episodes,
+          's2': [_upcoming(2, 1), _upcoming(2, 2)],
+        },
+      );
+
+      expect(find.text('UPCOMING'), findsNWidgets(2));
+      expect(find.text('TBA'), findsNWidgets(2));
+      expect(find.text('Play'), findsNothing);
+    });
   });
 
   testWidgets('opens the season it was asked for, at the episode it was asked for', (tester) async {

@@ -23,11 +23,17 @@ import '../utils/platform_detector.dart';
 import '../utils/formatters.dart';
 import '../utils/media_quality_labels.dart';
 import '../widgets/media_context_menu.dart';
+import '../widgets/media_rail/rail_parts.dart';
+import '../i18n/strings.g.dart';
 import '../widgets/placeholder_container.dart';
 import '../theme/mono_tokens.dart';
 import '../media/media_server_client.dart';
 
-/// Episode card widget with D-pad long-press support
+/// Episode card widget with D-pad long-press support.
+///
+/// An upcoming episode ([MediaItem.isUpcoming]) is drawn greyed with its air
+/// date, has no menu, and selecting it does nothing
+/// (local/plans/upcoming-episodes.md).
 class EpisodeCard extends StatefulWidget {
   final MediaItem episode;
   final MediaServerClient? client;
@@ -63,6 +69,15 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
 
   Widget _buildEpisodeMetaRow(BuildContext context, MediaItem episode, List<String> qualityLabels) {
     final mutedStyle = Theme.of(context).textTheme.bodySmall?.copyWith(color: tokens(context).textMuted, fontSize: 12);
+    final airDate = episode.airDate;
+    if (episode.isUpcoming) {
+      return airDate == null
+          ? const SizedBox.shrink()
+          : Text(
+              t.seasonPage.airsOn(date: formatAirDateShort(airDate)),
+              style: mutedStyle?.copyWith(color: upcomingAmber),
+            );
+    }
     final children = <Widget>[];
 
     void addSeparator() {
@@ -126,6 +141,11 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
     final episode = _effectiveEpisode(context);
     final shouldBlur = hideSpoilers && episode.shouldHideSpoiler;
     final qualityLabels = [...buildMediaQualityLabels(episode), ?buildMediaSizeLabel(episode)];
+    final upcoming = episode.isUpcoming;
+    final onTap = upcoming ? null : widget.onTap;
+    final summary = upcoming && (episode.summary == null || episode.summary!.isEmpty)
+        ? t.seasonPage.noDetailsYet
+        : episode.summary;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
@@ -136,26 +156,24 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
         child: FocusableWrapper(
           focusNode: widget.focusNode,
           autofocus: widget.autofocus,
-          enableLongPress: true,
+          enableLongPress: !upcoming,
           onNavigateUp: widget.onNavigateUp,
-          onSelect: widget.onTap,
-          onLongPress: showContextMenuFromTap,
+          onSelect: onTap,
+          onLongPress: upcoming ? null : showContextMenuFromTap,
           disableScale: true,
-          child: MediaContextMenu(
-            key: contextMenuKey,
-            item: episode,
-            onRefresh: widget.onRefresh,
-            onListRefresh: widget.onListRefresh,
+          child: _withMenu(
+            enabled: !upcoming,
+            episode: episode,
             child: InkWell(
               key: Key(episode.id),
-              mouseCursor: SystemMouseCursors.click,
+              mouseCursor: upcoming ? SystemMouseCursors.basic : SystemMouseCursors.click,
               borderRadius: BorderRadius.circular(FocusTheme.defaultBorderRadius),
-              onTap: widget.onTap,
+              onTap: onTap,
               canRequestFocus: false,
-              onTapDown: storeTapPosition,
-              onLongPress: showContextMenuFromTap,
-              onSecondaryTapDown: storeTapPosition,
-              onSecondaryTap: showContextMenuFromTap,
+              onTapDown: upcoming ? null : storeTapPosition,
+              onLongPress: upcoming ? null : showContextMenuFromTap,
+              onSecondaryTapDown: upcoming ? null : storeTapPosition,
+              onSecondaryTap: upcoming ? null : showContextMenuFromTap,
               hoverColor: Theme.of(context).colorScheme.surface.withValues(alpha: 0.05),
               child: Container(
                 decoration: BoxDecoration(
@@ -168,56 +186,67 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
                   children: [
                     SizedBox(
                       width: 144,
-                      child: Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: const BorderRadius.all(Radius.circular(6)),
-                            child: AspectRatio(
+                      child: upcoming
+                          ? AspectRatio(
                               aspectRatio: 16 / 9,
-                              child: shouldBlur
-                                  ? ClipRect(
-                                      child: ImageFiltered(
-                                        imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                                        child: _buildEpisodeThumbnail(episode),
+                              child: UpcomingEpisodeStill(
+                                item: episode,
+                                still: _buildEpisodeThumbnail(episode),
+                                blur: shouldBlur,
+                                borderRadius: 6,
+                                compact: true,
+                              ),
+                            )
+                          : Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: const BorderRadius.all(Radius.circular(6)),
+                                  child: AspectRatio(
+                                    aspectRatio: 16 / 9,
+                                    child: shouldBlur
+                                        ? ClipRect(
+                                            child: ImageFiltered(
+                                              imageFilter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                                              child: _buildEpisodeThumbnail(episode),
+                                            ),
+                                          )
+                                        : _buildEpisodeThumbnail(episode),
+                                  ),
+                                ),
+
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      borderRadius: const BorderRadius.all(Radius.circular(6)),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.2)],
                                       ),
-                                    )
-                                  : _buildEpisodeThumbnail(episode),
-                            ),
-                          ),
-
-                          Positioned.fill(
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.all(Radius.circular(6)),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.2)],
-                                ),
-                              ),
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withValues(alpha: 0.6),
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const AppIcon(
-                                    Symbols.play_arrow_rounded,
-                                    fill: 1,
-                                    color: Colors.white,
-                                    size: 20,
+                                    ),
+                                    child: Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(alpha: 0.6),
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const AppIcon(
+                                          Symbols.play_arrow_rounded,
+                                          fill: 1,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ),
 
-                          Positioned.fill(
-                            child: WatchedIndicator(item: episode, size: WatchedIndicatorSize.compact),
-                          ),
-                        ],
-                      ),
+                                Positioned.fill(
+                                  child: WatchedIndicator(item: episode, size: WatchedIndicatorSize.compact),
+                                ),
+                              ],
+                            ),
                     ),
 
                     const SizedBox(width: 10),
@@ -255,7 +284,8 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
                               final index = episode.index;
                               // The prefix mirrors the server-provided episode
                               // number verbatim, including a genuine episode 0.
-                              final titleText = index != null ? '$index. ${episode.title!}' : episode.title!;
+                              final title = upcoming ? upcomingEpisodeTitle(episode) : episode.title!;
+                              final titleText = index != null ? '$index. $title' : title;
                               return Row(
                                 children: [
                                   if (downloadStatusIcon != null) ...[downloadStatusIcon, const SizedBox(width: 8)],
@@ -272,11 +302,11 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
                             },
                           ),
 
-                          if (!shouldBlur && episode.summary != null && episode.summary!.isNotEmpty) ...[
+                          if (!shouldBlur && summary != null && summary.isNotEmpty) ...[
                             const SizedBox(height: 4),
                             if (PlatformDetector.isTV())
                               Text(
-                                episode.summary!,
+                                summary,
                                 style: Theme.of(
                                   context,
                                 ).textTheme.bodySmall?.copyWith(color: tokens(context).textMuted, height: 1.3),
@@ -285,7 +315,7 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
                               )
                             else
                               CollapsibleText(
-                                text: episode.summary!,
+                                text: summary,
                                 maxLines: 3,
                                 small: true,
                                 suppressExpandSemantics: true,
@@ -307,6 +337,18 @@ class _EpisodeCardState extends State<EpisodeCard> with ContextMenuTapMixin<Epis
           ),
         ),
       ),
+    );
+  }
+
+  /// The long-press / right-click menu, left off for an upcoming episode.
+  Widget _withMenu({required bool enabled, required MediaItem episode, required Widget child}) {
+    if (!enabled) return child;
+    return MediaContextMenu(
+      key: contextMenuKey,
+      item: episode,
+      onRefresh: widget.onRefresh,
+      onListRefresh: widget.onListRefresh,
+      child: child,
     );
   }
 

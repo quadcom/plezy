@@ -152,7 +152,14 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
   ) async {
     final LibraryPage<MediaItem> page;
     if (season != null && show != null) {
-      page = await fetchSeasonEpisodePage(client, show: show, season: season, start: start, size: _pageSize);
+      page = await fetchSeasonEpisodePage(
+        client,
+        show: show,
+        season: season,
+        start: start,
+        size: _pageSize,
+        includeUpcoming: true,
+      );
     } else if (season != null) {
       page = await client.fetchChildrenPage(season.id, start: start, size: _pageSize);
     } else {
@@ -316,14 +323,27 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
 
   /// The episode to resume: the server's next episode when it is in this
   /// rail, else the first one not yet watched. Null when all are watched.
+  /// Upcoming episodes are never a target.
   static int? _resumeIndex(List<MediaItem> episodes, MediaItem? onDeck) {
     if (onDeck != null) {
-      final i = episodes.indexWhere((e) => e.id == onDeck.id);
+      final i = episodes.indexWhere((e) => e.id == onDeck.id && !e.isUpcoming);
       if (i >= 0) return i;
     }
-    final i = episodes.indexWhere((e) => !e.isWatched);
+    final i = episodes.indexWhere((e) => !e.isWatched && !e.isUpcoming);
     return i >= 0 ? i : null;
   }
+
+  /// The first episode that can be played, for Play and Start over.
+  static int? _firstPlayableIndex(List<MediaItem> episodes) {
+    final i = episodes.indexWhere((e) => !e.isUpcoming);
+    return i >= 0 ? i : null;
+  }
+
+  /// Upcoming episodes loaded into the rail. The server's total counts them,
+  /// the header's episode count and progress don't.
+  int get _upcomingCount => _episodes.where((e) => e.isUpcoming).length;
+
+  int get _airedTotal => (_total - _upcomingCount).clamp(0, _total);
 
   void _syncEpisodeFocus(int count) {
     while (_episodeFocus.length < count) {
@@ -380,8 +400,11 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
           final show = _show ?? widget.metadata;
           final fanArt = show.heroBackdropPaths;
           final stills = [
+            // An upcoming episode's image is never the page background.
             for (final episode in _episodes)
-              if (episode.thumbPath?.isNotEmpty == true && !(hideSpoilers && episode.shouldHideSpoiler))
+              if (!episode.isUpcoming &&
+                  episode.thumbPath?.isNotEmpty == true &&
+                  !(hideSpoilers && episode.shouldHideSpoiler))
                 episode.thumbPath!,
           ];
           final images = fanArt.length > 1 ? fanArt : [...fanArt, ...stills];
@@ -472,7 +495,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     final meta = [
       if (year != null) '$year',
       if (rating != null && rating.isNotEmpty) rating,
-      t.seasonPage.episodeCount(n: _total),
+      t.seasonPage.episodeCount(n: _airedTotal),
       if (totalMs > 0) formatDurationTextual(totalMs),
     ].join('  ·  ');
     final watched = _hasMore
@@ -505,19 +528,19 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
           meta,
           style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
         ),
-        if (_total > 0) ...[
+        if (_airedTotal > 0) ...[
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(3),
             child: LinearProgressIndicator(
-              value: (watched / _total).clamp(0.0, 1.0),
+              value: (watched / _airedTotal).clamp(0.0, 1.0),
               minHeight: 5,
               backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.15),
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            t.seasonPage.episodesWatched(watched: watched, total: _total),
+            t.seasonPage.episodesWatched(watched: watched, total: _airedTotal),
             style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
         ],
@@ -555,12 +578,13 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     final menuItem = _season ?? _show;
     final resume = _resumeIndex(_episodes, _onDeck);
     final started = _started;
-    final target = _episodes.isEmpty ? null : _episodes[resume ?? 0];
+    final targetIndex = resume ?? _firstPlayableIndex(_episodes);
+    final target = targetIndex == null ? null : _episodes[targetIndex];
     final label = started && resume != null && target != null
         ? t.seasonPage.resumeEpisode(number: _numberOf(target, resume), title: target.title ?? '')
         : t.common.play;
     void playPrimary() => unawaited(_play(target!));
-    void startOver() => unawaited(_play(_episodes.first.copyWith(viewOffsetMs: 0)));
+    void startOver() => unawaited(_play(_episodes[_firstPlayableIndex(_episodes)!].copyWith(viewOffsetMs: 0)));
     void playTrailer() => unawaited(navigateToVideoPlayer(context, metadata: trailer!, isLaunchCurrent: () => mounted));
     return Wrap(
       spacing: 12,
@@ -652,6 +676,12 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             },
             onNavigateUp: () => _primaryFocus.requestFocus(),
             onSelect: () {
+              // An upcoming episode has nothing to play: OK or a tap only
+              // picks it, so its notes show.
+              if (episode.isUpcoming) {
+                _select(i);
+                return;
+              }
               // Remote and keyboard: focus already picked the episode, so OK
               // plays it. Touch and mouse: the first tap picks it (its
               // description shows below), a second tap plays it.
@@ -678,6 +708,17 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       if (aired != null && aired.isNotEmpty) formatFullDate(aired),
     ];
     final hidden = hideSpoilers && episode.shouldHideSpoiler;
+    if (episode.isUpcoming) {
+      final airDate = episode.airDate;
+      final summary = episode.summary;
+      return RailNotesPanel(
+        heading: parts.first,
+        accent: airDate == null ? null : t.seasonPage.airsOn(date: formatAirDateLong(airDate)),
+        body: hidden
+            ? t.seasonPage.spoilerHidden
+            : (summary != null && summary.isNotEmpty ? summary : t.seasonPage.noDetailsYet),
+      );
+    }
     return RailNotesPanel(heading: parts.join('  ·  '), body: hidden ? t.seasonPage.spoilerHidden : episode.summary);
   }
 }

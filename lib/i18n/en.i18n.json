@@ -2390,7 +2390,12 @@
     "seasonTrailers": "Season trailers",
     "episodeHeading": "Episode ${number}: ${title}",
     "spoilerHidden": "The description shows once you've watched it.",
-    "loadFailed": "Could not load this season."
+    "loadFailed": "Could not load this season.",
+    "upcoming": "Upcoming",
+    "airsOn": "Airs ${date}",
+    "airsDay": "Airs ${day}",
+    "tba": "TBA",
+    "noDetailsYet": "No details yet"
   },
   "oldSchool": {
     "title": "Old School",

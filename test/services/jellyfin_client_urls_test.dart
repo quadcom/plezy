@@ -5005,9 +5005,45 @@ void main() {
       expect(query['EnableTotalRecordCount'], 'true');
       expect(query['IsMissing'], 'false');
       expect(query['IsVirtualUnaired'], 'false');
+      expect(query.containsKey('includeUpcoming'), isFalse);
       expect(query['Fields']!.split(','), contains('MediaSources'));
       expect(query.containsKey('SortBy'), isFalse);
       expect(query.containsKey('SortOrder'), isFalse);
+    });
+
+    test('fetchSeasonEpisodesPage lets upcoming episodes through only when asked', () async {
+      final routed = _routedClient({
+        '/Shows/show-1/Episodes': {
+          'Items': [
+            {
+              'Id': 'episode-9',
+              'Name': 'How to Build the Box',
+              'Type': 'Episode',
+              'LocationType': 'Virtual',
+              'PremiereDate': '2026-10-23T00:00:00.0000000Z',
+              'ProviderIds': {'Sonarr': '12345'},
+            },
+            {'Id': 'episode-3', 'Name': 'Missing', 'Type': 'Episode', 'LocationType': 'Virtual'},
+          ],
+          'TotalRecordCount': 2,
+        },
+      });
+
+      final page = await routed.client.fetchSeasonEpisodesPage('show-1', 'season-1', includeUpcoming: true);
+
+      // PlezyFin's own flag; IsMissing=false would drop every virtual item,
+      // the upcoming ones included (local/plans/upcoming-episodes.md).
+      final query = routed.requests['/Shows/show-1/Episodes']!.queryParameters;
+      expect(query['includeUpcoming'], 'true');
+      expect(query.containsKey('IsVirtualUnaired'), isFalse);
+      expect(query.containsKey('IsMissing'), isFalse);
+      expect(query['Fields']!.split(','), contains('ProviderIds'));
+      final upcoming = page.items.first;
+      expect(upcoming.isUpcoming, isTrue);
+      expect(upcoming.airDate, DateTime(2026, 10, 23));
+      // A virtual episode without a Sonarr id is not an upcoming one.
+      expect(page.items.last.isVirtual, isTrue);
+      expect(page.items.last.isUpcoming, isFalse);
     });
 
     test('fetchChildrenPage orders direct episode children by season and episode index', () async {

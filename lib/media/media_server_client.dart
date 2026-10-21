@@ -923,12 +923,18 @@ extension MediaServerClientLiveTv on MediaServerClient {
 /// Optional capability for clients that can fetch a season's episodes without
 /// listing generic children. Jellyfin uses this to avoid mixing local extras or
 /// missing/virtual placeholders into normal season episode rails.
+///
+/// [includeUpcoming] lets the server's not-yet-aired placeholders through
+/// ([MediaItem.isUpcoming]); only the season page asks for them, so play
+/// queues, play targets and downloads never see one
+/// (local/plans/upcoming-episodes.md).
 abstract interface class SeasonEpisodePagingClient {
   Future<LibraryPage<MediaItem>> fetchSeasonEpisodesPage(
     String seriesId,
     String seasonId, {
     int? start,
     int? size,
+    bool includeUpcoming = false,
     AbortController? abort,
   });
 }
