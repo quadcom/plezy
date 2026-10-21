@@ -939,6 +939,14 @@ abstract interface class SeasonEpisodePagingClient {
   });
 }
 
+/// Optional capability for clients whose server lists seasons that have only
+/// not-yet-aired episodes (PlezyFin, from Sonarr). The show page and the
+/// season page use it so such a season shows; everything else keeps
+/// [MediaServerClient.fetchChildren] (local/plans/upcoming-episodes.md).
+abstract interface class UpcomingSeasonsClient {
+  Future<List<MediaItem>> fetchSeasonsWithUpcoming(String showId);
+}
+
 /// Optional capability for clients whose server can answer "may the signed-in
 /// user delete *this* item?" per item.
 ///

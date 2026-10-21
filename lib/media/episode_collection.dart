@@ -93,10 +93,11 @@ bool isSpecialSeasonNumber(int? seasonNumber) => (seasonNumber ?? 0) == 0;
 
 /// Prefer the first regular season over specials, falling back to the first
 /// season row when a show only has specials or lacks season indexes.
+/// A season of upcoming episodes only is passed over while another exists.
 int defaultPlaybackSeasonIndex(List<MediaItem> seasons) {
   if (seasons.isEmpty) return 0;
   final regularSeasonIndex = seasons.indexWhere(
-    (season) => season.kind == MediaKind.season && !isSpecialSeasonNumber(season.index),
+    (season) => season.kind == MediaKind.season && !isSpecialSeasonNumber(season.index) && !season.isUpcoming,
   );
   if (regularSeasonIndex != -1) return regularSeasonIndex;
   final firstSeasonIndex = seasons.indexWhere((season) => season.kind == MediaKind.season);
@@ -120,6 +121,7 @@ int? firstUnwatchedSeasonIndex(List<MediaItem> seasons) {
   for (var i = 0; i < seasons.length; i++) {
     final season = seasons[i];
     if (season.kind != MediaKind.season) continue;
+    if (season.isUpcoming) continue;
     if (season.leafWatchTotal == null) continue;
     if (season.isWatched) continue;
     if (!isSpecialSeasonNumber(season.index)) return i; // first regular season with unwatched
@@ -319,6 +321,13 @@ Future<LibraryPage<MediaItem>> fetchSeasonEpisodePage(
     totalCount: page.totalCount,
     offset: page.offset,
   );
+}
+
+/// A show's seasons for the show and season pages: with the server's
+/// upcoming-only seasons when it has them ([UpcomingSeasonsClient]).
+Future<List<MediaItem>> fetchShowSeasons(MediaServerClient client, String showId) {
+  final upcomingClient = client is UpcomingSeasonsClient ? client as UpcomingSeasonsClient : null;
+  return upcomingClient?.fetchSeasonsWithUpcoming(showId) ?? client.fetchChildren(showId);
 }
 
 /// Asking for upcoming episodes can also bring other virtual episodes

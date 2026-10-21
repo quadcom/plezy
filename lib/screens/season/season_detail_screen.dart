@@ -214,7 +214,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       }
 
       if (season == null && !widget.wholeShow && show != null) {
-        final seasons = [for (final s in await client.fetchChildren(show.id)) _stamp(s)];
+        final seasons = [for (final s in await fetchShowSeasons(client, show.id)) _stamp(s)];
         if (seasons.isNotEmpty) {
           season =
               seasons[preferredSeasonIndex(
@@ -495,7 +495,8 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     final meta = [
       if (year != null) '$year',
       if (rating != null && rating.isNotEmpty) rating,
-      t.seasonPage.episodeCount(n: _airedTotal),
+      // A season of upcoming episodes only says so instead of "0 episodes".
+      if (_airedTotal == 0 && _upcomingCount > 0) t.seasonPage.upcoming else t.seasonPage.episodeCount(n: _airedTotal),
       if (totalMs > 0) formatDurationTextual(totalMs),
     ].join('  ·  ');
     final watched = _hasMore
@@ -557,7 +558,10 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             aspectRatio: 2 / 3,
             child: ClipRRect(
               borderRadius: BorderRadius.circular(10),
-              child: OptimizedMediaImage.poster(client: client, imagePath: subject.thumbPath ?? _show?.thumbPath),
+              child: OptimizedMediaImage.poster(
+                client: client,
+                imagePath: subject.thumbPath ?? subject.grandparentThumbPath ?? _show?.thumbPath,
+              ),
             ),
           ),
         ),

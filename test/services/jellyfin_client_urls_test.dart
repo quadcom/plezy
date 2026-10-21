@@ -5011,6 +5011,34 @@ void main() {
       expect(query.containsKey('SortOrder'), isFalse);
     });
 
+    test('fetchSeasonsWithUpcoming asks for upcoming-only seasons and marks them', () async {
+      final routed = _routedClient({
+        '/Shows/show-1/Seasons': {
+          'Items': [
+            {'Id': 'season-1', 'Name': 'Season 1', 'Type': 'Season', 'IndexNumber': 1, 'LocationType': 'FileSystem'},
+            {
+              'Id': 'season-2',
+              'Name': 'Season 2',
+              'Type': 'Season',
+              'IndexNumber': 2,
+              'LocationType': 'Virtual',
+              'ProviderIds': {'Sonarr': 'season'},
+            },
+          ],
+          'TotalRecordCount': 2,
+        },
+      });
+
+      final seasons = await routed.client.fetchSeasonsWithUpcoming('show-1');
+
+      final query = routed.requests['/Shows/show-1/Seasons']!.queryParameters;
+      expect(query['includeUpcoming'], 'true');
+      expect(query['Fields']!.split(','), contains('ProviderIds'));
+      expect(seasons.map((s) => s.id), ['season-1', 'season-2']);
+      expect(seasons.first.isUpcoming, isFalse);
+      expect(seasons.last.isUpcoming, isTrue);
+    });
+
     test('fetchSeasonEpisodesPage lets upcoming episodes through only when asked', () async {
       final routed = _routedClient({
         '/Shows/show-1/Episodes': {

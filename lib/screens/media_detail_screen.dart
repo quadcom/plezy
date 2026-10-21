@@ -1750,7 +1750,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       // Plex as an int but lands in [MediaItem.libraryId] as the string
       // form (or null on Jellyfin items).
       final sectionId = _metadata.libraryId;
-      final seasonsFuture = client.fetchChildren(_metadata.id);
+      final seasonsFuture = fetchShowSeasons(client, _metadata.id);
       // Prefs are a per-library nicety (Plex "flatten seasons"); a failure here
       // must never take down the seasons list, so degrade to defaults.
       final prefsFuture = (client is PlexClient && sectionId != null)

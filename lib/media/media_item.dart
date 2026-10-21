@@ -367,12 +367,13 @@ sealed class MediaItem with _$MediaItem {
   /// Shared by the per-client merge and the cross-server sort so they agree.
   int get recencySortKey => lastViewedAt ?? addedAt ?? 0;
 
-  /// A not-yet-aired placeholder episode: PlezyFin lists it from Sonarr as a
-  /// virtual episode (no file behind it) with a Sonarr provider id. Shown
-  /// greyed on the season page only, never played
-  /// (local/plans/upcoming-episodes.md).
+  /// A not-yet-aired placeholder episode, or a season that has only those:
+  /// PlezyFin lists it from Sonarr as a virtual item (no file or folder behind
+  /// it) with a Sonarr provider id. Shown greyed in its season, never played
+  /// (local/plans/upcoming-episodes.md). A season stops being virtual once a
+  /// real episode arrives, so the provider id alone is not enough.
   bool get isUpcoming {
-    if (kind != MediaKind.episode || !isVirtual) return false;
+    if ((kind != MediaKind.episode && kind != MediaKind.season) || !isVirtual) return false;
     final providerIds = raw?['ProviderIds'];
     return providerIds is Map && providerIds.containsKey('Sonarr');
   }

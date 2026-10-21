@@ -138,7 +138,12 @@ class _SeasonTileState extends State<_SeasonTile> with ContextMenuTapMixin<_Seas
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
-                        OptimizedMediaImage.poster(client: widget.client, imagePath: season.thumbPath),
+                        // A season without its own poster (an upcoming-only
+                        // one, often) shows the show's.
+                        OptimizedMediaImage.poster(
+                          client: widget.client,
+                          imagePath: season.thumbPath ?? season.grandparentThumbPath,
+                        ),
                         if (season.isWatched)
                           Positioned(
                             right: 8,

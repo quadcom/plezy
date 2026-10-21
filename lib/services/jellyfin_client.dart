@@ -275,6 +275,7 @@ class JellyfinClient
     implements
         MediaServerClient,
         SeasonEpisodePagingClient,
+        UpcomingSeasonsClient,
         MediaDeletionPermissionClient,
         ScopedMediaServerClient,
         GracefullyCloseable {

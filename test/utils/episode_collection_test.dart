@@ -167,6 +167,29 @@ void main() {
     expect(firstUnwatchedSeasonIndex([special, season1, season2, season3]), 2);
   });
 
+  test('season picking passes over a season of upcoming episodes only', () {
+    // local/plans/upcoming-episodes.md
+    final season1 = _season('season-1', index: 1, leafCount: 5, viewedLeafCount: 5);
+    final upcoming = testMediaItem(
+      id: 'season-2',
+      backend: MediaBackend.jellyfin,
+      kind: MediaKind.season,
+      title: 'Season 2',
+      index: 2,
+      leafCount: 3,
+      viewedLeafCount: 0,
+      raw: const {
+        'LocationType': 'Virtual',
+        'ProviderIds': {'Sonarr': 'season'},
+      },
+    );
+    expect(upcoming.isUpcoming, isTrue);
+    expect(firstUnwatchedSeasonIndex([season1, upcoming]), isNull);
+    expect(defaultPlaybackSeasonIndex([upcoming, season1]), 1);
+    // A show with only an upcoming season still opens on it.
+    expect(defaultPlaybackSeasonIndex([upcoming]), 0);
+  });
+
   test('firstUnwatchedSeasonIndex uses direct episode count when the leaf total is missing', () {
     final season = _season('season-1', childCount: 5, viewedLeafCount: 2);
 

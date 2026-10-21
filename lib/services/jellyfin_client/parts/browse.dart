@@ -996,6 +996,53 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     return _mapItems(allRaw);
   }
 
+  /// The show's seasons including PlezyFin's upcoming-only ones (virtual, with
+  /// a Sonarr provider id). The offline cache keeps the seasons without them,
+  /// since their episodes can't be read offline. Falls back to
+  /// [fetchChildren] when the show isn't a series or the call fails.
+  Future<List<MediaItem>> fetchSeasonsWithUpcoming(String showId) async {
+    if (isOfflineMode) return fetchChildren(showId);
+    try {
+      final response = await _http.get(
+        '/Shows/${_segment(showId)}/Seasons',
+        queryParameters: {
+          'userId': connection.userId,
+          'includeUpcoming': 'true',
+          'Fields': _seasonFields,
+          ...jellyfinImageQueryParameters,
+        },
+      );
+      final data = response.data;
+      final items = _itemsArray(data);
+      if (response.statusCode == 200 && items.isNotEmpty) {
+        final mapped = _mapItems(items);
+        bool upcomingOnly(Map<String, dynamic> raw) {
+          final providerIds = raw['ProviderIds'];
+          return raw['LocationType'] == 'Virtual' && providerIds is Map && providerIds.containsKey('Sonarr');
+        }
+
+        final aired = [
+          for (final raw in items)
+            if (!upcomingOnly(raw)) raw,
+        ];
+        if (aired.isNotEmpty) {
+          try {
+            await cache.put(ServerId(cacheServerId), '/Shows/$showId/Seasons?userId=${connection.userId}', {
+              'Items': aired,
+              'TotalRecordCount': aired.length,
+            });
+          } catch (e, st) {
+            appLogger.w('JellyfinClient.fetchSeasonsWithUpcoming cache write failed', error: e, stackTrace: st);
+          }
+        }
+        return mapped;
+      }
+    } on MediaServerHttpException {
+      // Not a series: the generic children query below answers.
+    }
+    return fetchChildren(showId);
+  }
+
   @override
   Future<LibraryPage<MediaItem>> fetchChildrenPage(
     String parentId, {

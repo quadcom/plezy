@@ -160,12 +160,15 @@ void main() {
     MediaItem? onDeck,
     Map<String, List<MediaItem>> extras = const {},
     Map<String, List<MediaItem>>? episodeMap,
+    List<MediaItem>? seasonList,
   }) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
     final servers = testMultiServer(
-      clients: [_ShowClient(seasons: seasons, episodes: episodeMap ?? episodes, onDeck: onDeck, extras: extras)],
+      clients: [
+        _ShowClient(seasons: seasonList ?? seasons, episodes: episodeMap ?? episodes, onDeck: onDeck, extras: extras),
+      ],
     );
     await tester.pumpWidget(
       ChangeNotifierProvider<MultiServerProvider>.value(
@@ -239,6 +242,37 @@ void main() {
       }
       expect(find.byType(SeasonDetailScreen), findsOneWidget);
       expect(find.text('No details yet'), findsOneWidget);
+    });
+
+    testWidgets('a season the server lists for upcoming episodes only says so', (tester) async {
+      const upcomingSeason = PlexMediaItem(
+        id: 's3',
+        kind: MediaKind.season,
+        title: 'Season 3',
+        index: 3,
+        parentId: 'show',
+        parentTitle: 'The Expanse',
+        serverId: _serverId,
+        raw: {
+          'LocationType': 'Virtual',
+          'ProviderIds': {'Sonarr': 'season'},
+        },
+      );
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: upcomingSeason),
+        seasonList: [...seasons, upcomingSeason],
+        episodeMap: {
+          ...episodes,
+          's3': [_upcoming(3, 1, title: 'Premiere')],
+        },
+      );
+
+      expect(find.text('Season 3'), findsOneWidget);
+      expect(find.textContaining('Upcoming'), findsOneWidget);
+      expect(find.textContaining('0 episodes'), findsNothing);
+      expect(find.text('Premiere'), findsOneWidget);
+      expect(find.text('Play'), findsNothing);
     });
 
     testWidgets('a season of upcoming episodes only has nothing to play', (tester) async {
