@@ -217,6 +217,38 @@ void main() {
     expect(persistedSpeeds, [8.0]);
   });
 
+  testWidgets('speed keys do nothing and save nothing when speed is locked (Old School)', (tester) async {
+    final service = await KeyboardShortcutsService.getInstance();
+    addTearDown(service.dispose);
+    await service.setHotkey('speed_decrease', const HotKey(key: PhysicalKeyboardKey.f11));
+    final player = _FakePlayer(rate: 0.9976);
+    final persistedSpeeds = <double>[];
+
+    final result = service.handleVideoPlayerKeyEvent(
+      const KeyDownEvent(
+        physicalKey: PhysicalKeyboardKey.f11,
+        logicalKey: LogicalKeyboardKey.f11,
+        timeStamp: Duration.zero,
+      ),
+      player,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      canControlPlayback: true,
+      canNavigateMediaItems: true,
+      onSpeedPersist: persistedSpeeds.add,
+      speedLocked: true,
+    );
+    await tester.pump();
+
+    expect(result, KeyEventResult.handled);
+    expect(player.rateChanges, isEmpty);
+    expect(persistedSpeeds, isEmpty);
+  });
+
   testWidgets('Ctrl+S takes a screenshot once while held', (tester) async {
     final service = await KeyboardShortcutsService.getInstance();
     addTearDown(service.dispose);

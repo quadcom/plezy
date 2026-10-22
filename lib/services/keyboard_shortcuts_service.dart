@@ -283,6 +283,10 @@ class KeyboardShortcutsService extends ChangeNotifier {
 
     /// Old School (PLAN_SHA_21): shortcuts that jump ahead do nothing.
     bool forwardSeekLocked = false,
+
+    /// Old School keeps real time: the speed shortcuts do nothing and save
+    /// nothing (local/plans/old-school-speed-leak.md).
+    bool speedLocked = false,
   }) {
     final isRepeat = event is KeyRepeatEvent;
     if (event is! KeyDownEvent && !isRepeat) return KeyEventResult.ignored;
@@ -336,6 +340,7 @@ class KeyboardShortcutsService extends ChangeNotifier {
       }
 
       void applyRate(double rate) {
+        if (speedLocked) return;
         unawaited((onRateRequested ?? player.setRate)(rate));
         onSpeedPersist?.call(rate);
       }

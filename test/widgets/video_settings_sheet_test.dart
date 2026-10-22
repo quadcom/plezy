@@ -111,6 +111,18 @@ void main() {
     }
   });
 
+  testWidgets('Old School has no playback speed item (local/plans/old-school-speed-leak.md)', (tester) async {
+    await _pumpSheet(tester, canControl: true, height: 4000);
+    expect(find.text('Playback Speed'), findsOneWidget);
+
+    await _pumpSheet(
+      tester,
+      height: 4000,
+      trackControlsState: const TrackControlsState(canControl: true, speedLocked: true),
+    );
+    expect(find.text('Playback Speed'), findsNothing);
+  });
+
   testWidgets('offers requested playback speeds through 8x and persists the selection', (tester) async {
     final appliedRates = <double>[];
     final player = _FakeSettingsPlayer(

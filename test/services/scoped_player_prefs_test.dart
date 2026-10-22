@@ -25,6 +25,23 @@ void main() {
   MediaItem movie({String id = 'movie-1', String? library = 'lib-1', String? serverId = 'server-a'}) =>
       testMediaItem(id: id, libraryId: library, serverId: serverId);
 
+  group('saved speed guard', () {
+    test('a speed off the quarter steps plays at 1x; quarter steps are kept', () async {
+      // An Old School slow-down (0.9976) stepped down by the "-" key.
+      await settings.write(SettingsService.defaultPlaybackSpeed, 0.7475869474042215);
+      expect(ScopedPlayerPrefs.resolve(ScopedPlayerPrefs.playbackSpeed, movie()), 1.0);
+
+      await settings.write(SettingsService.defaultPlaybackSpeed, 0.75);
+      expect(ScopedPlayerPrefs.resolve(ScopedPlayerPrefs.playbackSpeed, movie()), 0.75);
+    });
+
+    test('an odd per-title entry also plays at 1x', () async {
+      await settings.write(SettingsService.playbackSpeedScope, PlayerSettingScope.title);
+      await ScopedPlayerPrefs.write(ScopedPlayerPrefs.playbackSpeed, movie(), 0.9976);
+      expect(ScopedPlayerPrefs.resolve(ScopedPlayerPrefs.playbackSpeed, movie()), 1.0);
+    });
+  });
+
   group('global scope (default)', () {
     test('write updates the global pref and resolve reads it back', () async {
       await ScopedPlayerPrefs.write(ScopedPlayerPrefs.playbackSpeed, movie(), 1.5);

@@ -97,6 +97,10 @@ class TrackControlsState {
   /// (local/plans/old-school-audio-track.md).
   final bool separateAudioButton;
 
+  /// Old School keeps real time: no speed menu, so a change can't be saved
+  /// as the default for later plays (local/plans/old-school-speed-leak.md).
+  final bool speedLocked;
+
   const TrackControlsState({
     this.availableVersions = const [],
     this.selectedMediaIndex = 0,
@@ -155,6 +159,7 @@ class TrackControlsState {
     this.matchSourceOnBar = false,
     this.onToggleMatchSource,
     this.separateAudioButton = false,
+    this.speedLocked = false,
   });
 
   /// Transcoded subtitle choices must be negotiated with the server and

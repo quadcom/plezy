@@ -221,6 +221,7 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
       matchSourceOnBar: SettingsService.instanceOrNull?.read(SettingsService.oldSchoolMatchSourceOnBar) ?? false,
       onToggleMatchSource: widget.oldSchool?.onToggleMatchSource,
       separateAudioButton: widget.oldSchool != null,
+      speedLocked: widget.oldSchool != null,
     );
   }
 

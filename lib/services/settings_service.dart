@@ -807,7 +807,7 @@ class SettingsService extends BaseSharedPreferencesService {
   static final defaultPlaybackSpeed = DoublePref(
     'default_playback_speed',
     defaultValue: 1.0,
-    transform: (v) => v.clamp(minimumPlaybackRate, maximumPlaybackRate),
+    transform: savedPlaybackRate,
   );
   static final defaultBoxFitMode = IntPref('default_box_fit_mode', transform: (v) => v.clamp(0, 2));
 

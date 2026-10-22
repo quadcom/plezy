@@ -220,8 +220,7 @@ abstract final class ScopedPlayerPrefs {
 
   static int _timestampOf(Object? entry) => entry is Map && entry['t'] is int ? entry['t'] as int : 0;
 
-  static double? _decodeSpeed(Object? raw) =>
-      raw is num ? raw.toDouble().clamp(minimumPlaybackRate, maximumPlaybackRate) : null;
+  static double? _decodeSpeed(Object? raw) => raw is num ? savedPlaybackRate(raw.toDouble()) : null;
 
   static int? _decodeInt(Object? raw) => raw is int ? raw : null;
 

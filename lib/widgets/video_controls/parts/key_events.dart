@@ -153,6 +153,7 @@ extension _PlexVideoControlsKeyEventMethods on _PlexVideoControlsState {
       onRateRequested: widget.onRateRequested,
       onSeekBy: _keyboardSeekBy,
       forwardSeekLocked: widget.oldSchool != null,
+      speedLocked: widget.oldSchool != null,
     );
   }
 
