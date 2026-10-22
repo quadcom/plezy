@@ -545,6 +545,41 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
       ? _buildIptvPage(context, video)
       : video;
 
+  /// The guide while the player starts, with the spinner in its corner
+  /// window. Picks wait until the player is up.
+  Widget _buildOldSchoolLoading(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final layout = OldSchoolLayout.of(constraints.biggest);
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned.fill(
+                child: OldSchoolGuideView(
+                  controller: _osController,
+                  layout: layout,
+                  videoActive: true,
+                  onTune: (_) {},
+                  onEnlarge: () {},
+                  onExit: () => unawaited(_oldSchoolExit()),
+                ),
+              ),
+              Positioned.fromRect(
+                rect: layout.windowRect,
+                child: const ColoredBox(
+                  color: Colors.black,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   /// The page: the guide with the video in its corner window, or the video
   /// full screen with the channel watermark.
   Widget _buildOldSchoolPage(BuildContext context, Widget video) {

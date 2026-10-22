@@ -91,6 +91,9 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
   }
 
   Widget _buildLoadingSpinner() {
+    // Old School opening on the guide keeps the guide up while the player
+    // starts, so the start-up channel never flashes a full black screen.
+    if (widget.isOldSchool && !_os.fullScreen) return _buildOldSchoolLoading(context);
     return const Scaffold(
       backgroundColor: Colors.black,
       body: Center(child: PlayerLoadingIndicator()),

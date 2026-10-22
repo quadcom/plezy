@@ -26,8 +26,9 @@ import 'old_school_overlays.dart';
 bool oldSchoolAvailable(BuildContext context) => context.watch<HiddenLibrariesProvider>().oldSchoolClient != null;
 
 /// Open Old School full screen over the app (no side rail, top bar or
-/// bottom bar). It starts on the channel last tuned on this device; with none
-/// remembered, nothing plays until a programme that's on now is picked.
+/// bottom bar). It opens on the guide, with the channel last tuned on this
+/// device playing in the corner window; with none remembered, nothing plays
+/// until a programme that's on now is picked.
 Future<void> openOldSchool(BuildContext context) async {
   final client = context.read<HiddenLibrariesProvider>().oldSchoolClient;
   if (client == null) return;
@@ -80,7 +81,8 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
   }
 
   /// Once the line-up is in, tune the channel last played on this device
-  /// (Adrian, 2026-10-18). A channel that's gone, or one with nothing on,
+  /// (Adrian, 2026-10-18) into the guide's corner window, never full screen
+  /// (Adrian, 2026-10-20). A channel that's gone, or one with nothing on,
   /// leaves the guide as it is.
   void _resumeLastChannel() {
     final controller = widget.controller;
@@ -118,7 +120,8 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
   }
 
   /// [quiet] (the automatic start) shows no message when nothing is on or
-  /// the tune fails; the guide is still there to pick from.
+  /// the tune fails; the guide is still there to pick from. It also keeps
+  /// the guide up, with the video in the corner window.
   Future<void> _tune(OldSchoolChannel channel, {bool quiet = false}) async {
     if (_tuning) return;
     setState(() => _tuning = true);
@@ -162,7 +165,12 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
           initialPosition: trailer != null
               ? tune.slotOffset(entry, DateTime.now())
               : tune.offsetInto(entry, DateTime.now()),
-          oldSchool: OldSchoolSessionArgs(controller: controller, tune: tune, startsInPreRoll: trailer != null),
+          oldSchool: OldSchoolSessionArgs(
+            controller: controller,
+            tune: tune,
+            startsInPreRoll: trailer != null,
+            startInGuide: quiet,
+          ),
         ),
       );
       unawaited(route.push(Navigator.of(context), replaceCurrent: true));

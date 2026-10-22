@@ -1304,6 +1304,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     if (widget.oldSchool case final oldSchool?) {
       _os.slotTune = oldSchool.tune;
       _os.playingPreRoll = oldSchool.startsInPreRoll;
+      _os.fullScreen = !oldSchool.startInGuide;
       // The film's own trailer shows its card alone (PLAN_SHA_47).
       _chromeController.setSuppressed(oldSchool.startsInPreRoll);
     }

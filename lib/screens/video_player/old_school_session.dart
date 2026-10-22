@@ -21,7 +21,18 @@ class OldSchoolSessionArgs {
   /// (PLAN_SHA_46).
   final bool startsInPreRoll;
 
-  const OldSchoolSessionArgs({required this.controller, required this.tune, this.startsInPreRoll = false});
+  /// Open with the guide showing and the video in its corner window, not
+  /// full screen: the channel Old School resumes on start-up (Adrian,
+  /// 2026-10-20, local/plans/old-school-open-on-guide.md). A pick goes full
+  /// screen.
+  final bool startInGuide;
+
+  const OldSchoolSessionArgs({
+    required this.controller,
+    required this.tune,
+    this.startsInPreRoll = false,
+    this.startInGuide = false,
+  });
 }
 
 /// The player's Old School state.
