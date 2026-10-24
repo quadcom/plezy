@@ -25,6 +25,12 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
     // Play Next prompt, autoplay countdown or sleep-timer stop.
     if (widget.isOldSchool) {
       _logVideoCompleted('oldSchool');
+      // A standby gap's filler video loops until the gap ends, with no
+      // report to the server each time round.
+      if (_os.standbyTune != null && _os.fillerVideoOpen) {
+        unawaited(_oldSchoolLoopFiller());
+        return;
+      }
       final duration = player?.state.duration;
       unawaited(
         _sendStoppedProgressOnce(positionOverride: duration != null && duration > Duration.zero ? duration : null),

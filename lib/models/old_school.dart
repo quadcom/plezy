@@ -54,6 +54,19 @@ enum OldSchoolEntryKind {
   }
 }
 
+/// What a standby gap's filler is (PlezyFin PLAN_PFN_86): a video that loops
+/// for the gap, or a still picture.
+enum OldSchoolFillerKind {
+  video,
+  image;
+
+  static OldSchoolFillerKind? parse(String? raw) => switch (raw?.toLowerCase()) {
+    'video' => video,
+    'image' => image,
+    _ => null,
+  };
+}
+
 /// A channel in the line-up.
 class OldSchoolChannel {
   final String id;
@@ -231,6 +244,13 @@ class OldSchoolEntry {
   /// at 1.
   final double rate;
 
+  /// A standby gap's filler (PlezyFin PLAN_PFN_86): the newest item in the
+  /// server's Standby library and what it is. Both null when none is set;
+  /// the player then shows the plain "Back soon" card
+  /// (local/plans/old-school-standby-card.md).
+  final String? fillerItemId;
+  final OldSchoolFillerKind? fillerKind;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -265,6 +285,8 @@ class OldSchoolEntry {
     this.preItemId,
     this.preRunTime,
     this.rate = 1.0,
+    this.fillerItemId,
+    this.fillerKind,
   });
 
   /// One block for a break (or, with [kind] musicVideos, a run of music
@@ -327,6 +349,9 @@ class OldSchoolEntry {
   ];
 
   bool get isPlayable => itemId != null && kind != OldSchoolEntryKind.standby;
+
+  /// Whether a standby gap has a filler to show.
+  bool get hasFiller => kind == OldSchoolEntryKind.standby && fillerItemId != null && fillerKind != null;
 
   /// Whether the slot opens with the film's own trailer (PLAN_SHA_46).
   bool get hasPreRoll => preItemId != null && (preRunTime ?? Duration.zero) > Duration.zero;
@@ -426,6 +451,8 @@ class OldSchoolEntry {
       preItemId: _string(map, 'PreItemId'),
       preRunTime: preTicks == null ? null : Duration(microseconds: preTicks ~/ 10),
       rate: _rate(map),
+      fillerItemId: _string(map, 'FillerItemId'),
+      fillerKind: OldSchoolFillerKind.parse(_string(map, 'FillerKind')),
     );
   }
 

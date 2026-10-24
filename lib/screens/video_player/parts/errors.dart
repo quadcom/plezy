@@ -139,6 +139,8 @@ extension _VideoPlayerErrorMethods on VideoPlayerScreenState {
     // Old School: a film's own trailer that won't play gives way to the film,
     // with no error (PLAN_SHA_46).
     if (_oldSchoolPreRollFailed()) return;
+    // A standby filler that won't play gives way to the plain card.
+    if (_oldSchoolFillerPlaybackFailed()) return;
     _firstFrame.forceUiReadyOnFailure();
     _setPlayerState(() {
       _playbackFailureMessage = message;

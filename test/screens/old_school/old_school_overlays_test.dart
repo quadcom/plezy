@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/models/old_school.dart';
 import 'package:plezy/screens/old_school/old_school_controller.dart';
 import 'package:plezy/screens/old_school/old_school_overlays.dart';
@@ -20,6 +21,44 @@ OldSchoolEntry _trailer(Map<String, Object?> promo) => OldSchoolEntry.fromJson({
 })!;
 
 void main() {
+  // local/plans/old-school-standby-card.md: with no filler set, the plain
+  // card says what is coming.
+  group('Standby cover', () {
+    setUpAll(() => initializeDateFormatting('en'));
+
+    testWidgets('the plain card says Back soon and what is next', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      final gap = OldSchoolEntry.fromJson({
+        'kind': 'standby',
+        'start': '2026-10-24T20:47:49Z',
+        'end': '2026-10-24T20:51:22Z',
+      })!;
+      final next = OldSchoolEntry.fromJson({
+        'kind': 'show',
+        'itemType': 'Movie',
+        'itemId': 'm1',
+        'name': 'Heat',
+        'start': '2026-10-24T20:51:22Z',
+        'end': '2026-10-24T23:41:00Z',
+      })!;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: OldSchoolStandbyCover(
+            controller: controller,
+            entry: gap,
+            next: next,
+            showImage: false,
+            onImageFailed: () {},
+          ),
+        ),
+      );
+      expect(find.text('Back soon'), findsOneWidget);
+      expect(find.text('Programmes resume shortly'), findsOneWidget);
+      expect(find.textContaining('Heat'), findsOneWidget);
+    });
+  });
+
   group('Idle overlays in the player page', () {
     // The player's outer stack hands the Old School page loose constraints,
     // and a loose Stack takes the size of its un-positioned children. An

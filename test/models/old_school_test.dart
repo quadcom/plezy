@@ -117,6 +117,26 @@ void main() {
       })!;
       expect(entry.isPlayable, isFalse);
       expect(entry.isProgramme, isFalse);
+      expect(entry.hasFiller, isFalse);
+    });
+
+    // local/plans/old-school-standby-card.md, PlezyFin PLAN_PFN_86.
+    test("standby carries the server's filler, video or picture", () {
+      OldSchoolEntry standby(Map<String, dynamic> extra) => OldSchoolEntry.fromJson({
+        'kind': 'standby',
+        'start': '2026-10-24T20:47:49Z',
+        'end': '2026-10-24T20:51:22Z',
+        ...extra,
+      })!;
+      final video = standby({'fillerItemId': 'f1', 'fillerKind': 'video'});
+      expect(video.hasFiller, isTrue);
+      expect(video.fillerItemId, 'f1');
+      expect(video.fillerKind, OldSchoolFillerKind.video);
+      expect(video.isPlayable, isFalse);
+      expect(standby({'FillerItemId': 'f2', 'FillerKind': 'Image'}).fillerKind, OldSchoolFillerKind.image);
+      // An unknown kind, or a kind without an id, is no filler.
+      expect(standby({'fillerItemId': 'f3', 'fillerKind': 'gif'}).hasFiller, isFalse);
+      expect(standby({'fillerKind': 'video'}).hasFiller, isFalse);
     });
 
     test('a music video in a break plays but is not a programme', () {

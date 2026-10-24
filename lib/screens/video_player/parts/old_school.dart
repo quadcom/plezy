@@ -172,10 +172,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
 
   /// The speed the open file plays at (PLAN_SHA_26 Amendment 1): the slot's
   /// stretch for its own item; 1 for a film's own trailer, and after Start
-  /// over, which is off the schedule anyway (the web does the same).
+  /// over, which is off the schedule anyway (the web does the same), and for
+  /// a standby gap's filler.
   double get _oldSchoolRate {
     final entry = _os.slotTune?.now;
-    if (entry == null || _os.playingPreRoll || _os.filmFromStart) return 1.0;
+    if (entry == null || _os.playingPreRoll || _os.filmFromStart || _os.standbyTune != null) return 1.0;
     return entry.rate;
   }
 
@@ -340,18 +341,118 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     final currentPlayer = player;
     if (currentPlayer == null) return;
     if (!entry.isPlayable) {
-      // Off the air: hold on the last picture until the next entry starts.
-      _oldSchoolSetPreRoll(false);
-      await currentPlayer.pause();
-      final next = tune.next;
-      final wait = next == null ? const Duration(minutes: 1) : next.start.difference(tune.serverNow(DateTime.now()));
-      _os.standbyTimer = Timer(wait.isNegative ? Duration.zero : wait + const Duration(seconds: 1), () {
-        if (mounted && generation == _os.tuneGeneration) {
-          unawaited(_oldSchoolTune(tune.channelId, reason: 'after standby', showControls: false));
-        }
-      });
+      await _oldSchoolStandby(tune, generation: generation);
       return;
     }
+    // The filler loops no more; its layer goes once the entry has opened.
+    _os.fillerVideoOpen = false;
+    try {
+      await _oldSchoolPlayEntry(tune, reason: reason, generation: generation);
+    } finally {
+      if (mounted && generation == _os.tuneGeneration) _oldSchoolEndStandby();
+    }
+  }
+
+  /// Off the air (local/plans/old-school-standby-card.md): the gap's filler
+  /// from the server's Standby library, a video looped or a picture, alone
+  /// over the whole picture; the plain "Back soon" card when none is set or
+  /// it won't show. The channel is asked again at the next entry's start, or
+  /// sooner, in case the server moved it. A gap of a few seconds is waited
+  /// out on the last picture.
+  Future<void> _oldSchoolStandby(OldSchoolTune tune, {required int generation}) async {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    _oldSchoolSetPreRoll(false);
+    _os.standbyTimer?.cancel();
+    _os.standbyTimer = Timer(OldSchoolPlayerState.standbyWait(tune, DateTime.now()), () {
+      if (mounted && generation == _os.tuneGeneration) {
+        unawaited(_oldSchoolTune(tune.channelId, reason: 'after standby', showControls: false));
+      }
+    });
+    final gapLeft = tune.now.end.difference(tune.serverNow(DateTime.now()));
+    if (_os.standbyTune == null && gapLeft < OldSchoolPlayerState.standbyShortGap) {
+      await currentPlayer.pause();
+      return;
+    }
+    final entry = tune.now;
+    final video = entry.fillerKind == OldSchoolFillerKind.video ? entry.fillerItemId : null;
+    // A re-check in the same gap leaves the looping filler alone.
+    final keepVideo = video != null && _os.fillerVideoOpen && !_os.fillerFailed && _currentMetadata.id == video;
+    _setPlayerState(() {
+      _os.standbyTune = tune;
+      if (!keepVideo) _os.fillerFailed = false;
+    });
+    if (keepVideo) return;
+    if (video == null) {
+      _os.fillerVideoOpen = false;
+      await currentPlayer.pause();
+      return;
+    }
+    try {
+      final item = await _osController.client.fetchItem(video);
+      if (!mounted || generation != _os.tuneGeneration) return;
+      if (item == null) throw StateError('Old School filler $video not found');
+      _os.fillerVideoOpen = true;
+      final outcome = await _reloadMediaInPlace(
+        metadata: item,
+        selectedMediaIndex: 0,
+        resumePosition: Duration.zero,
+        useCurrentAudioStreamSelection: false,
+        preferredSubtitleTrackOverride: _sessionSubtitlePreference,
+        showErrorUi: false,
+        reason: 'old school standby filler',
+      );
+      if (outcome == MediaReloadOutcome.opened || outcome == MediaReloadOutcome.superseded) return;
+    } catch (e, st) {
+      appLogger.w('Old School: standby filler would not play', error: e, stackTrace: st);
+    }
+    if (mounted && generation == _os.tuneGeneration) _oldSchoolFillerFailed();
+  }
+
+  /// The filler video won't play: the plain card over a paused player.
+  void _oldSchoolFillerFailed() {
+    _setPlayerState(() {
+      _os.fillerVideoOpen = false;
+      _os.fillerFailed = true;
+    });
+    final currentPlayer = player;
+    if (currentPlayer != null) unawaited(currentPlayer.pause());
+  }
+
+  /// A filler video that failed while playing: the card instead, with no
+  /// error shown. True when handled.
+  bool _oldSchoolFillerPlaybackFailed() {
+    if (!widget.isOldSchool || _os.standbyTune == null || !_os.fillerVideoOpen) return false;
+    appLogger.w('Old School: standby filler failed, showing the card');
+    _oldSchoolFillerFailed();
+    return true;
+  }
+
+  /// The filler video reached its end: round again from the start.
+  Future<void> _oldSchoolLoopFiller() async {
+    final currentPlayer = player;
+    if (currentPlayer == null) return;
+    try {
+      await _performSeekPlayback(Duration.zero);
+      if (mounted && !currentPlayer.state.playing) await currentPlayer.play();
+    } catch (e, st) {
+      appLogger.w('Old School: standby filler would not loop', error: e, stackTrace: st);
+      if (mounted) _oldSchoolFillerFailed();
+    }
+  }
+
+  /// The gap is over: take its layer down.
+  void _oldSchoolEndStandby() {
+    _os.fillerVideoOpen = false;
+    if (_os.standbyTune == null && !_os.fillerFailed) return;
+    _setPlayerState(() {
+      _os.standbyTune = null;
+      _os.fillerFailed = false;
+    });
+  }
+
+  Future<void> _oldSchoolPlayEntry(OldSchoolTune tune, {required String reason, required int generation}) async {
+    final entry = tune.now;
     _os.slotTune = tune;
     // A film's own trailer first, while its share of the slot lasts
     // (PLAN_SHA_46); one that won't play leaves the film to start at once.
@@ -624,9 +725,31 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
               rect: full ? Offset.zero & size : layout.windowRect,
               child: IgnorePointer(ignoring: !full, child: video),
             ),
+            // A standby gap's filler picture or "Back soon" card, over the
+            // video wherever it is (local/plans/old-school-standby-card.md).
+            if (_os.standbyLayer != OldSchoolStandbyLayer.none)
+              Positioned.fromRect(
+                rect: full ? Offset.zero & size : layout.windowRect,
+                child: IgnorePointer(
+                  child: OldSchoolStandbyCover(
+                    controller: controller,
+                    entry: _os.standbyTune!.now,
+                    next: _os.standbyTune!.next,
+                    showImage: _os.standbyLayer == OldSchoolStandbyLayer.image,
+                    onImageFailed: () {
+                      if (mounted && !_os.fillerFailed) _setPlayerState(() => _os.fillerFailed = true);
+                    },
+                  ),
+                ),
+              ),
             // During a film's own trailer its card's logo stands in for the
-            // watermark, and nothing else shows (PLAN_SHA_46/47).
-            if (full && channel != null && !_os.playingPreRoll && _os.startCardShowing == null)
+            // watermark, and nothing else shows (PLAN_SHA_46/47); the standby
+            // filler shows alone too.
+            if (full &&
+                channel != null &&
+                !_os.playingPreRoll &&
+                _os.startCardShowing == null &&
+                _os.standbyTune == null)
               ValueListenableBuilder<bool>(
                 valueListenable: _chromeController,
                 builder: (context, controlsVisible, _) =>

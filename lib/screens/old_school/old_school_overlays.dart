@@ -104,6 +104,96 @@ class OldSchoolBackNote extends StatelessWidget {
   }
 }
 
+/// What covers the picture during a standby gap
+/// (local/plans/old-school-standby-card.md): the filler picture from the
+/// server's Standby library, full screen on black with nothing over it, or
+/// the plain "Back soon" card when there is none or it won't load. Sized to
+/// wherever the video is, full screen or the guide's corner window.
+class OldSchoolStandbyCover extends StatelessWidget {
+  final OldSchoolController controller;
+  final OldSchoolEntry entry;
+  final OldSchoolEntry? next;
+  final bool showImage;
+  final VoidCallback onImageFailed;
+
+  const OldSchoolStandbyCover({
+    super.key,
+    required this.controller,
+    required this.entry,
+    required this.next,
+    required this.showImage,
+    required this.onImageFailed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: Colors.black,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          final card = _card(context, size);
+          final id = entry.fillerItemId;
+          if (!showImage || id == null) return card;
+          final dpr = MediaQuery.devicePixelRatioOf(context);
+          return Image(
+            image: CachedNetworkImageProvider(
+              controller.client.thumbnailUrl(
+                '/Items/${Uri.encodeComponent(id)}/Images/Primary',
+                width: (size.width * dpr).round(),
+                height: (size.height * dpr).round(),
+              ),
+              cacheManager: PlexImageCacheManager.instance,
+            ),
+            width: size.width,
+            height: size.height,
+            fit: BoxFit.contain,
+            errorBuilder: (_, _, _) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => onImageFailed());
+              return card;
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  /// "Back soon", "Programmes resume shortly" and what's next, scaled to the
+  /// box so it reads in the corner window too.
+  Widget _card(BuildContext context, Size size) {
+    final scale = size.height / 1080;
+    final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
+    final upNext = next;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            t.oldSchool.backSoon,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white, fontSize: 96 * scale, fontWeight: FontWeight.w700),
+          ),
+          SizedBox(height: 16 * scale),
+          Text(
+            t.oldSchool.resumeShortly,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 40 * scale),
+          ),
+          if (upNext != null && upNext.title.isNotEmpty) ...[
+            SizedBox(height: 48 * scale),
+            Text(
+              '${t.oldSchool.upNext} · ${upNext.title} · '
+              '${t.oldSchool.startsAt(time: formatClockTime(upNext.start.toLocal(), is24Hour: is24))}',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70, fontSize: 32 * scale),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// How long before a trailer's end its corner block fades out (Adrian,
 /// 2026-10-16; the web does the same).
 const oldSchoolPromoFadeOut = Duration(milliseconds: 400);

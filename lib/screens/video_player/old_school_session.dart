@@ -35,6 +35,20 @@ class OldSchoolSessionArgs {
   });
 }
 
+/// What covers the picture during a standby gap
+/// (local/plans/old-school-standby-card.md).
+enum OldSchoolStandbyLayer {
+  /// Nothing: no gap, or the filler video is playing.
+  none,
+
+  /// The filler picture, full screen on black.
+  image,
+
+  /// The plain "Back soon" card on black: no filler set, or it would not
+  /// show.
+  card,
+}
+
 /// The player's Old School state.
 class OldSchoolPlayerState {
   /// Video full screen (true) or in the guide's corner window (false).
@@ -47,6 +61,15 @@ class OldSchoolPlayerState {
 
   /// Waits out an off-the-air gap, then tunes again.
   Timer? standbyTimer;
+
+  /// The standby gap on the tuned channel while it lasts; null otherwise.
+  OldSchoolTune? standbyTune;
+
+  /// The gap's filler video is the open file; it loops until the gap ends.
+  bool fillerVideoOpen = false;
+
+  /// The filler would not open or play: the plain card shows instead.
+  bool fillerFailed = false;
 
   /// The tune whose entry is playing (or held on, waiting for its slot to
   /// end).
@@ -81,6 +104,33 @@ class OldSchoolPlayerState {
   int tuneGeneration = 0;
 
   static const backAgainWindow = Duration(seconds: 3);
+
+  /// During a standby gap, how often the channel is asked again: PlezyFin
+  /// may move the next programme up to 2 minutes earlier when it refills a
+  /// break.
+  static const standbyRecheck = Duration(seconds: 60);
+
+  /// A gap shorter than this (the leftover after a break's trailers) is
+  /// waited out on the last picture, with no filler or card.
+  static const standbyShortGap = Duration(seconds: 5);
+
+  /// When to tune again during [tune]'s standby gap: a second after the next
+  /// entry starts, or after [standbyRecheck], whichever comes first.
+  static Duration standbyWait(OldSchoolTune tune, DateTime deviceNow) {
+    final next = tune.next;
+    if (next == null) return standbyRecheck;
+    final untilNext = next.start.difference(tune.serverNow(deviceNow)) + const Duration(seconds: 1);
+    if (untilNext.isNegative) return Duration.zero;
+    return untilNext < standbyRecheck ? untilNext : standbyRecheck;
+  }
+
+  /// What covers the picture now.
+  OldSchoolStandbyLayer get standbyLayer {
+    final entry = standbyTune?.now;
+    if (entry == null) return OldSchoolStandbyLayer.none;
+    if (!entry.hasFiller || fillerFailed) return OldSchoolStandbyLayer.card;
+    return entry.fillerKind == OldSchoolFillerKind.image ? OldSchoolStandbyLayer.image : OldSchoolStandbyLayer.none;
+  }
 
   /// How long the "Now playing" card shows (Adrian, 2026-10-18), and how far
   /// into its slot a programme may be and still count as starting.
