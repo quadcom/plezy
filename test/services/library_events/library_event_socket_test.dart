@@ -523,6 +523,54 @@ void main() {
       expect(event.removedItemIds, {'b44f297fb12dbc4dad50bb49f8475520', '6f91bbba468dfbb00984986c4e5d0a74'});
     });
 
+    test('LibraryChanged updates carry the updated item ids', () async {
+      final server = await startServer();
+      final channel = mediaBrowserSocket(server);
+      channel.start();
+      final socket = await server.nextConnection();
+
+      server.send(socket, {
+        'MessageType': 'LibraryChanged',
+        'Data': {
+          'FoldersAddedTo': <String>[],
+          'FoldersRemovedFrom': <String>[],
+          'ItemsAdded': <String>[],
+          'ItemsRemoved': <String>[],
+          'ItemsUpdated': ['7b1541285b2f8fd9a9ac1864cc513d98'],
+          'CollectionFolders': ['f137a2dd21bbc1b99aa5c0f6bf02a805'],
+          'IsEmpty': false,
+        },
+      });
+
+      final event = await channel.events.first.timeout(const Duration(seconds: 5));
+      expect(event.itemsUpdated, isTrue);
+      expect(event.updatedItemIds, {'7b1541285b2f8fd9a9ac1864cc513d98'});
+    });
+
+    test('a bulk update keeps the coarse flag but drops the ids', () async {
+      final server = await startServer();
+      final channel = mediaBrowserSocket(server);
+      channel.start();
+      final socket = await server.nextConnection();
+
+      server.send(socket, {
+        'MessageType': 'LibraryChanged',
+        'Data': {
+          'FoldersAddedTo': <String>[],
+          'FoldersRemovedFrom': <String>[],
+          'ItemsAdded': <String>[],
+          'ItemsRemoved': <String>[],
+          'ItemsUpdated': [for (var i = 0; i <= LibraryChangeEvent.maxNamedUpdatedItems; i++) 'item_$i'],
+          'CollectionFolders': ['f137a2dd21bbc1b99aa5c0f6bf02a805'],
+          'IsEmpty': false,
+        },
+      });
+
+      final event = await channel.events.first.timeout(const Duration(seconds: 5));
+      expect(event.itemsUpdated, isTrue);
+      expect(event.updatedItemIds, isEmpty);
+    });
+
     test('an empty LibraryChanged emits nothing', () async {
       final server = await startServer();
       final channel = mediaBrowserSocket(server);

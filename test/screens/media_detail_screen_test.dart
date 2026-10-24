@@ -2910,6 +2910,22 @@ void main() {
       expectUnavailable();
     });
 
+    testWidgets('a server update naming the shown movie refetches it in place once', (tester) async {
+      final client = _FakeMediaServerClient(show: movie, childrenByParent: {});
+      await pumpProfileNavigator(tester, (_) => mediaDetailRoute(metadata: movie), client: client);
+      await settleDetail(tester);
+      final readsBefore = client.onDeckReads;
+
+      // A PlezyFin file swap keeps the id and pushes it in ItemsUpdated.
+      LibraryContentNotifier().notifyChanged(
+        LibraryChangeEvent(serverId: ServerId('server_1'), itemsUpdated: true, updatedItemIds: {movie.id}),
+      );
+      await settleDetail(tester);
+
+      expect(client.onDeckReads, readsBefore + 1);
+      expect(find.byType(FocusableActionBar), findsOneWidget, reason: 'refetch is quiet, no loader');
+    });
+
     testWidgets('online detail ignores wrong-server IDs, download removals and ambiguous library flags', (
       tester,
     ) async {
@@ -2931,6 +2947,12 @@ void main() {
       expect(find.text(t.messages.mediaUnavailable), findsNothing);
       expect(find.byType(FocusableActionBar), findsOneWidget);
       expect(client.onDeckReads, readsBefore, reason: 'ambiguous invalidation is not a reason to refetch');
+      // An update naming another item leaves this page alone too.
+      LibraryContentNotifier().notifyChanged(
+        LibraryChangeEvent(serverId: ServerId('server_1'), itemsUpdated: true, updatedItemIds: {'unrelated_movie'}),
+      );
+      await settleDetail(tester);
+      expect(client.onDeckReads, readsBefore, reason: 'only a named update for this page refetches');
       // A child removal is not proof that its ancestor was deleted.
       LibraryContentNotifier().notifyChanged(
         LibraryChangeEvent(serverId: ServerId('server_1'), removedItemIds: {'unrelated_episode'}),

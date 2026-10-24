@@ -24,6 +24,17 @@ class LibraryChangeEvent {
   /// settled `type: -1` timeline entries, MediaBrowser `ItemsRemoved`).
   final Set<String> removedItemIds;
 
+  /// Backend-native ids of updated items, when the backend named them
+  /// (MediaBrowser `ItemsUpdated`). A screen showing one of them refetches it
+  /// in place, so a server-side file swap redraws its version badges. Empty
+  /// when the backend did not name them or named too many to be useful
+  /// ([maxNamedUpdatedItems]); [itemsUpdated] still carries the coarse signal.
+  final Set<String> updatedItemIds;
+
+  /// Past this many updated ids in one event (a full library scan) the ids
+  /// are dropped and only the coarse refetch runs.
+  static const int maxNamedUpdatedItems = 100;
+
   /// Advisory flags describing what the change contained. A backend that
   /// cannot distinguish (Plex settles adds and metadata updates identically)
   /// sets the closest superset.
@@ -35,6 +46,7 @@ class LibraryChangeEvent {
     required this.serverId,
     this.libraryIds = const {},
     this.removedItemIds = const {},
+    this.updatedItemIds = const {},
     this.itemsAdded = false,
     this.itemsRemoved = false,
     this.itemsUpdated = false,
@@ -51,7 +63,8 @@ class LibraryChangeEvent {
   @override
   String toString() =>
       'LibraryChangeEvent($serverId, libraries: $libraryIds, '
-      'added: $itemsAdded, removed: $itemsRemoved (${removedItemIds.length} ids), updated: $itemsUpdated)';
+      'added: $itemsAdded, removed: $itemsRemoved (${removedItemIds.length} ids), '
+      'updated: $itemsUpdated (${updatedItemIds.length} ids))';
 }
 
 /// A live push subscription to one server's library-change notifications.

@@ -574,7 +574,33 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (!_canUseDetail || widget.isOffline || event.serverId != serverBoundServerId) return;
     // Exact ids are authoritative even when the producer omits its per-item
     // fanout. Advisory flags alone do not prove this detail was removed.
-    if (_terminalDeletionIds.any(event.removedItemIds.contains)) _markDetailDeleted();
+    if (_terminalDeletionIds.any(event.removedItemIds.contains)) {
+      _markDetailDeleted();
+      return;
+    }
+    _refreshUpdatedItems(event.updatedItemIds);
+  }
+
+  /// Most listed rows refetched for one update event; past this the event is
+  /// a bulk refresh and the page keeps what it has.
+  static const int _maxUpdatedRowRefreshes = 5;
+
+  /// A server push named items this page shows (a file swap keeps the id but
+  /// changes versions and streams): refetch just those, quietly, so badges and
+  /// the play status redraw without a loader or a scroll reset.
+  void _refreshUpdatedItems(Set<String> updatedIds) {
+    if (updatedIds.isEmpty) return;
+    if (updatedIds.contains(_metadata.id)) unawaited(_refreshWatchState());
+    final rows = <String, MediaItem>{
+      for (final item in [?_onDeckEpisode, ..._episodes])
+        if (item.id != _metadata.id && updatedIds.contains(item.id)) item.globalKey: item,
+    };
+    if (rows.isEmpty || rows.length > _maxUpdatedRowRefreshes) return;
+    // The play status probes the hero's episode on its own; let it re-read.
+    _invalidatePlaybackProbes(refreshItems: true);
+    for (final row in rows.values) {
+      unawaited(_refreshItemInPlace(row));
+    }
   }
 
   @override
