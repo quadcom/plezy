@@ -8,6 +8,7 @@ import 'package:plezy/media/library_change_event.dart';
 import 'package:plezy/media/media_browser_dialect.dart';
 import 'package:plezy/services/library_events/library_event_socket.dart';
 import 'package:plezy/services/library_events/media_browser_library_event_socket.dart';
+import 'package:plezy/services/library_events/old_school_guide_events.dart';
 import 'package:plezy/services/library_events/plex_library_event_socket.dart';
 
 /// Ephemeral loopback websocket server standing in for a media server's
@@ -143,6 +144,7 @@ void main() {
     _NotificationServer server, {
     MediaBrowserDialect dialect = MediaBrowserDialect.jellyfin,
     Future<void> Function()? registerCapabilities,
+    OldSchoolGuideEvents? oldSchoolGuideEvents,
   }) => track(
     MediaBrowserLibraryEventSocket(
       serverId: ServerId('mb_1'),
@@ -151,6 +153,7 @@ void main() {
       accessToken: 'access-1',
       deviceId: 'device-1',
       registerCapabilities: registerCapabilities,
+      oldSchoolGuideEvents: oldSchoolGuideEvents ?? OldSchoolGuideEvents(),
       debounce: const Duration(milliseconds: 100),
       retryBaseDelay: const Duration(milliseconds: 50),
     ),
@@ -434,6 +437,46 @@ void main() {
   });
 
   group('MediaBrowserLibraryEventSocket', () {
+    // local/plans/old-school-live-guide.md, PlezyFin PLAN_PFN_87.
+    test('passes OldSchoolGuideChanged to the Old School bus, and each connect', () async {
+      final server = await startServer();
+      final bus = OldSchoolGuideEvents();
+      final connects = <ServerId>[];
+      final changes = <OldSchoolGuideChange>[];
+      bus.connected.listen(connects.add);
+      bus.changes.listen(changes.add);
+      final channel = mediaBrowserSocket(server, oldSchoolGuideEvents: bus);
+      final libraryEvents = <LibraryChangeEvent>[];
+      channel.events.listen(libraryEvents.add);
+      channel.start();
+      final socket = await server.nextConnection();
+      await _waitFor(() => connects.isNotEmpty);
+      expect(connects.single, 'mb_1');
+
+      server.send(socket, {
+        'MessageType': 'OldSchoolGuideChanged',
+        'Data': {
+          'ChannelIds': ['engage', 'rock-the-box'],
+          'From': '2026-10-24T20:00:00Z',
+          'To': '2026-10-24T22:00:00Z',
+        },
+      });
+      // One that names no channel is dropped.
+      server.send(socket, {
+        'MessageType': 'OldSchoolGuideChanged',
+        'Data': {'ChannelIds': <String>[], 'From': '2026-10-24T20:00:00Z', 'To': '2026-10-24T22:00:00Z'},
+      });
+      await _waitFor(() => changes.isNotEmpty);
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(changes, hasLength(1));
+      expect(changes.single.serverId, 'mb_1');
+      expect(changes.single.channelIds, {'engage', 'rock-the-box'});
+      expect(changes.single.from, DateTime.utc(2026, 10, 24, 20));
+      expect(changes.single.to, DateTime.utc(2026, 10, 24, 22));
+      // Not a library change.
+      expect(libraryEvents, isEmpty);
+    });
+
     test('connects to the dialect path and answers ForceKeepAlive', () async {
       final server = await startServer();
       final channel = mediaBrowserSocket(server);

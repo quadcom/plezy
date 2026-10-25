@@ -3,8 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
+import '../../media/ids.dart';
 import '../../models/old_school.dart';
 import '../../services/jellyfin_client.dart';
+import '../../services/library_events/old_school_guide_events.dart';
 import '../../services/settings_service.dart';
 import '../../utils/app_logger.dart';
 
@@ -13,7 +15,10 @@ import '../../utils/app_logger.dart';
 /// channel is tuned. One instance lives for the whole visit, so the guide
 /// keeps its place when the player takes over the page.
 class OldSchoolController extends ChangeNotifier {
-  OldSchoolController(this.client);
+  OldSchoolController(this.client, {OldSchoolGuideEvents? guideEvents}) {
+    final events = guideEvents ?? OldSchoolGuideEvents.instance;
+    _guideSubscriptions = [events.changes.listen(_onGuideChanged), events.connected.listen(_onSocketConnected)];
+  }
 
   final JellyfinClient client;
 
@@ -29,6 +34,11 @@ class OldSchoolController extends ChangeNotifier {
   /// fetched straight after, in the background.
   static const firstBlockHours = 3;
 
+  /// Live guide (PlezyFin PLAN_PFN_87, local/plans/old-school-live-guide.md):
+  /// the server's change notices are gathered for this long, then the
+  /// changed channels are fetched again in one go. Nothing is polled.
+  static const changeBatch = Duration(seconds: 2);
+
   List<OldSchoolChannel> _channels = const [];
   final Map<String, List<OldSchoolEntry>> _entries = {};
   DateTime? _guideStart;
@@ -41,6 +51,14 @@ class OldSchoolController extends ChangeNotifier {
 
   String? _tunedChannelId;
   OldSchoolTune? _tune;
+
+  late final List<StreamSubscription<Object?>> _guideSubscriptions;
+  Timer? _changeTimer;
+  final Set<String> _changedChannels = {};
+  bool _allChanged = false;
+  DateTime? _changedFrom;
+  DateTime? _changedTo;
+  bool _refreshing = false;
 
   List<OldSchoolChannel> get channels => _channels;
   bool get isLoading => _loading;
@@ -157,20 +175,108 @@ class OldSchoolController extends ChangeNotifier {
       final guide = await client.fetchOldSchoolGuide(start: end, hours: hours);
       // Gone, or reloaded from scratch while this block was on its way.
       if (_disposed || _guideStart != start || _guideEnd != end) return;
-      for (final row in guide.entriesByChannel.entries) {
-        final list = _entries.putIfAbsent(row.key, () => []);
-        for (final entry in row.value) {
-          // Entries crossing the block edge come back in both answers.
-          if (!list.any((e) => e.start == entry.start && e.itemId == entry.itemId)) list.add(entry);
-        }
-        list.sort((a, b) => a.start.compareTo(b.start));
-      }
+      // Entries crossing the block edge come back in both answers; the new
+      // copy replaces the old, so one the server moved shows once.
+      _replaceWindow(guide, end, end.add(Duration(hours: hours)));
       _guideEnd = end.add(Duration(hours: hours));
       _notify();
     } catch (e, st) {
       appLogger.w('Old School: could not load more of the guide', error: e, stackTrace: st);
     } finally {
       _extending = false;
+    }
+  }
+
+  /// Put [guide]'s entries in place of what is loaded between [from] and
+  /// [to], for every channel in the answer, or only [only].
+  void _replaceWindow(OldSchoolGuide guide, DateTime from, DateTime to, {Set<String>? only}) {
+    for (final row in guide.entriesByChannel.entries) {
+      if (only != null && !only.contains(row.key)) continue;
+      final list = _entries.putIfAbsent(row.key, () => [])
+        ..removeWhere((e) => e.start.isBefore(to) && e.end.isAfter(from));
+      for (final entry in row.value) {
+        if (!list.any((e) => e.start == entry.start && e.itemId == entry.itemId)) list.add(entry);
+      }
+      list.sort((a, b) => a.start.compareTo(b.start));
+    }
+  }
+
+  /// The server changed [change]'s channels: note the part that falls in
+  /// the loaded window (the week's new day, at the 3 AM update, usually
+  /// doesn't) and fetch it once the batch closes.
+  void _onGuideChanged(OldSchoolGuideChange change) {
+    if (_disposed || change.serverId != client.serverId) return;
+    final start = _guideStart;
+    final end = _guideEnd;
+    if (start == null || end == null) return;
+    final from = change.from.isBefore(start) ? start : change.from;
+    final to = change.to.isAfter(end) ? end : change.to;
+    if (!to.isAfter(from)) return;
+    _changedChannels.addAll(change.channelIds);
+    _markChanged(from, to);
+  }
+
+  /// The server's socket (re)connected: notices may have been missed, so
+  /// everything loaded is fetched again, once.
+  void _onSocketConnected(ServerId serverId) {
+    if (_disposed || serverId != client.serverId) return;
+    final start = _guideStart;
+    final end = _guideEnd;
+    if (start == null || end == null) return;
+    _allChanged = true;
+    _markChanged(start, end);
+  }
+
+  void _markChanged(DateTime from, DateTime to) {
+    final changedFrom = _changedFrom;
+    final changedTo = _changedTo;
+    _changedFrom = changedFrom == null || from.isBefore(changedFrom) ? from : changedFrom;
+    _changedTo = changedTo == null || to.isAfter(changedTo) ? to : changedTo;
+    _changeTimer ??= Timer(changeBatch, () {
+      _changeTimer = null;
+      unawaited(_refreshChanged());
+    });
+  }
+
+  /// Fetch the gathered changes: whole half hours, at most 24 hours a call
+  /// (the server's limit), only the changed channels unless a reconnect
+  /// asked for all of them.
+  Future<void> _refreshChanged() async {
+    if (_disposed) return;
+    final from = _changedFrom;
+    final to = _changedTo;
+    if (from == null || to == null) return;
+    if (_loading || _refreshing) {
+      // Waits for the load or the last refresh, then tries again.
+      _changeTimer ??= Timer(changeBatch, () {
+        _changeTimer = null;
+        unawaited(_refreshChanged());
+      });
+      return;
+    }
+    final channelIds = _allChanged ? null : Set<String>.of(_changedChannels);
+    _changedChannels.clear();
+    _allChanged = false;
+    _changedFrom = null;
+    _changedTo = null;
+    final guideStart = _guideStart;
+    _refreshing = true;
+    try {
+      var start = DateTime.utc(from.year, from.month, from.day, from.hour, from.minute >= 30 ? 30 : 0);
+      while (start.isBefore(to)) {
+        final hours = math.max(1, math.min(24, (to.difference(start).inMinutes / 60).ceil()));
+        final guide = await client.fetchOldSchoolGuide(start: start, hours: hours, channelIds: channelIds);
+        // Gone, or reloaded from scratch meanwhile.
+        if (_disposed || _guideStart != guideStart) return;
+        final end = start.add(Duration(hours: hours));
+        _replaceWindow(guide, start, end, only: channelIds);
+        start = end;
+      }
+      _notify();
+    } catch (e, st) {
+      appLogger.w('Old School: could not fetch the changed guide', error: e, stackTrace: st);
+    } finally {
+      _refreshing = false;
     }
   }
 
@@ -202,6 +308,10 @@ class OldSchoolController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _changeTimer?.cancel();
+    for (final subscription in _guideSubscriptions) {
+      unawaited(subscription.cancel());
+    }
     super.dispose();
   }
 }

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import '../../media/media_browser_dialect.dart';
 import 'library_event_socket.dart';
+import 'old_school_guide_events.dart';
 
 /// MediaBrowser (Jellyfin/Emby) session socket:
 /// `ws(s)://<server><dialect.webSocketPath>?<dialect token key>=<token>&deviceId=<id>`.
@@ -26,6 +27,9 @@ import 'library_event_socket.dart';
 /// capabilities before it routes `LibraryChanged` frames — see
 /// [MediaBrowserDialect.requiresSessionCapabilitiesForLibraryEvents]; the
 /// client supplies that call through [registerCapabilities].
+/// - PlezyFin adds `OldSchoolGuideChanged` (`{"ChannelIds", "From", "To"}`)
+///   when stored Old School guide entries change (PLAN_PFN_87); it goes to
+///   [OldSchoolGuideEvents], not the library-change path.
 class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
   MediaBrowserLibraryEventSocket({
     required super.serverId,
@@ -34,11 +38,12 @@ class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
     required this.accessToken,
     required this.deviceId,
     this.registerCapabilities,
+    OldSchoolGuideEvents? oldSchoolGuideEvents,
     super.channelFactory,
     super.debounce = const Duration(seconds: 2),
     super.retryBaseDelay,
     super.maxConnectAttempts,
-  });
+  }) : _oldSchoolGuideEvents = oldSchoolGuideEvents ?? OldSchoolGuideEvents.instance;
 
   final MediaBrowserDialect dialect;
 
@@ -50,6 +55,8 @@ class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
   /// Runs before each connect on dialects that need it (Emby's
   /// `POST /Sessions/Capabilities/Full`).
   final Future<void> Function()? registerCapabilities;
+
+  final OldSchoolGuideEvents _oldSchoolGuideEvents;
 
   Timer? _keepAliveTimer;
 
@@ -79,6 +86,9 @@ class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
         _startKeepAlive(message['Data']);
       case 'LibraryChanged':
         _handleLibraryChanged(message['Data']);
+      case 'OldSchoolGuideChanged':
+        final change = OldSchoolGuideChange.fromJson(serverId, message['Data']);
+        if (change != null) _oldSchoolGuideEvents.notifyChanged(change);
       default:
         // KeepAlive acks, RefreshProgress, UserDataChanged (future watch-state
         // sync seam), session traffic — not library content.
@@ -126,6 +136,11 @@ class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
   }
 
   void _sendKeepAlive() => sendFrame(jsonEncode(const {'MessageType': 'KeepAlive'}));
+
+  /// Notices may have been missed while the socket was down: an open Old
+  /// School guide re-fetches once.
+  @override
+  void onConnected() => _oldSchoolGuideEvents.notifyConnected(serverId);
 
   @override
   void onDisconnected() {

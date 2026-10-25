@@ -19,11 +19,20 @@ mixin _JellyfinOldSchoolMethods on _JellyfinClientInternals {
     return channels;
   }
 
-  /// Every channel's entries overlapping [hours] hours from [start].
-  Future<OldSchoolGuide> fetchOldSchoolGuide({required DateTime start, required int hours}) async {
+  /// Every channel's entries overlapping [hours] hours from [start], or only
+  /// [channelIds]' (PLAN_PFN_87; the server ignores ids it doesn't know).
+  Future<OldSchoolGuide> fetchOldSchoolGuide({
+    required DateTime start,
+    required int hours,
+    Iterable<String>? channelIds,
+  }) async {
     final response = await _http.get(
       '$_base/Guide',
-      queryParameters: {'start': start.toUtc().toIso8601String(), 'hours': '${hours.clamp(1, 24)}'},
+      queryParameters: {
+        'start': start.toUtc().toIso8601String(),
+        'hours': '${hours.clamp(1, 24)}',
+        if (channelIds != null) 'channelIds': channelIds.join(','),
+      },
     );
     throwIfHttpError(response);
     final guide = OldSchoolGuide.fromJson(response.data);
