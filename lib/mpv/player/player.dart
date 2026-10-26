@@ -221,6 +221,12 @@ abstract class Player {
   /// PCM output while enabled so the effects can process the stream.
   Future<void> setAudioNormalization(bool enabled);
 
+  /// Old School's smooth speed audio: while on and the speed is not 1x, mpv
+  /// backends fold the sound to stereo and stretch it with Rubberband instead
+  /// of mpv's scaletempo2, which wobbles on surround tracks. No-op on Android
+  /// ExoPlayer (local/plans/old-school-audio-warble.md).
+  Future<void> setSmoothSpeedAudio(bool enabled);
+
   /// Force a stereo downmix with a Kodi-style center channel boost.
   ///
   /// [centerBoostDb] (0-12) raises the center channel above its standard

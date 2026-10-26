@@ -169,7 +169,8 @@ void _bootstrapApp() {
   // Off the critical path: the version label only decorates a diagnostic.
   unawaited(_primeDiagnosticsVersion());
 
-  // Test builds only: the log also goes to a file a developer can read.
+  // Test builds: the log also goes to a file a developer can read. Release
+  // builds open it once settings load, if "Save Log to File" is on.
   unawaited(DevLogFile.start());
 
   AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.runApp);
@@ -257,6 +258,7 @@ Future<void> _optionalGatePhase(
 Future<_StartupDependencies> _initializeApplication() async {
   final settings = await _gatePhase(StartupPhase.preferences, SettingsService.getInstance);
   setLoggerLevel(settings.read(SettingsService.enableDebugLogging));
+  unawaited(DevLogFile.setSwitch(settings.read(SettingsService.devLogToFile)));
 
   if (_enableSentry) {
     // Crash reporting is observability: it must never veto the launch it

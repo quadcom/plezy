@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../media/ids.dart';
 import '../media/playback_rate.dart';
@@ -34,6 +35,7 @@ export 'base_shared_preferences_service.dart'
 import '../models/audio_quality_preset.dart';
 import '../models/transcode_quality_preset.dart';
 import '../navigation/navigation_tabs.dart';
+import '../utils/dev_log_file.dart';
 import '../utils/platform_detector.dart';
 import 'trackers/tracker_constants.dart';
 import '../profiles/profile.dart';
@@ -512,6 +514,12 @@ class SettingsService extends BaseSharedPreferencesService {
   static const String defaultCreditsPattern = r'(?:^|\b)(?:outro|closing|credits?|ending)(?:\b|$)|^ed(?:\s?\d+)?$';
 
   static const enableDebugLogging = BoolPref('enable_debug_logging', onWrite: setLoggerLevel);
+
+  /// Writes every log line to a file on this device as well
+  /// (local/plans/dev-mode-toggle.md), so a developer can read what a release
+  /// install is doing. Implies debug-level logging while on.
+  static const devLogToFile = BoolPref('dev_log_to_file', onWrite: _applyDevLogToFile);
+  static void _applyDevLogToFile(bool on) => unawaited(DevLogFile.setSwitch(on));
   static const crashReporting = BoolPref('crash_reporting', defaultValue: true);
 
   /// Whether this build can send crash reports at all (`ENABLE_SENTRY`, only
@@ -628,6 +636,14 @@ class SettingsService extends BaseSharedPreferencesService {
   /// right end of the player bar (on), or an entry in the playback settings
   /// sheet (off). A device setting (local/plans/old-school-match-source.md).
   static const oldSchoolMatchSourceOnBar = BoolPref('old_school_match_source_on_bar');
+
+  /// Old School's slowed or sped-up programmes fold the sound to stereo and
+  /// stretch it with Rubberband instead of mpv's own scaletempo2, which
+  /// warbles on surround tracks. A device setting, on by default except on
+  /// the SHIELD, which keeps its surround chain
+  /// (local/plans/old-school-audio-warble.md).
+  static bool _offOnShield() => !PlatformDetector.isNvidiaShield();
+  static const oldSchoolSmoothAudio = BoolPref('old_school_smooth_audio', defaultValueProvider: _offOnShield);
 
   /// The Old School channel last tuned on this device; Old School opens on it
   /// and starts it playing. Runtime state, so neither reset nor exported.
@@ -1317,6 +1333,7 @@ class SettingsService extends BaseSharedPreferencesService {
   /// Group one: reset *and* exported — the ordinary case.
   static final List<Pref<Object?>> _resetAndPortablePrefs = [
     enableDebugLogging,
+    devLogToFile,
     enableHardwareDecoding,
     enableHDR,
     hdrToneMapping,
@@ -1351,6 +1368,7 @@ class SettingsService extends BaseSharedPreferencesService {
     matchContentResolution,
     oldSchoolFilmRate,
     oldSchoolMatchSourceOnBar,
+    oldSchoolSmoothAudio,
     tunneledPlayback,
     dvConversionMode,
     musicVolume,

@@ -793,6 +793,12 @@ class Translations$settings$en {
 	/// en: 'Enable detailed logging for troubleshooting'
 	String get debugLoggingDescription => 'Enable detailed logging for troubleshooting';
 
+	/// en: 'Save Log to File'
+	String get devLogToFile => 'Save Log to File';
+
+	/// en: 'Also write the detailed log to a file on this device, so a developer can read what the app is doing'
+	String get devLogToFileDescription => 'Also write the detailed log to a file on this device, so a developer can read what the app is doing';
+
 	/// en: 'View Logs'
 	String get viewLogs => 'View Logs';
 
@@ -1089,6 +1095,12 @@ class Translations$settings$en {
 
 	/// en: 'Show Match source as its own button at the right end of the player bar instead of in the playback settings'
 	String get oldSchoolMatchSourceOnBarDescription => 'Show Match source as its own button at the right end of the player bar instead of in the playback settings';
+
+	/// en: 'Old School Smooth Audio'
+	String get oldSchoolSmoothAudio => 'Old School Smooth Audio';
+
+	/// en: 'When Old School slows a programme down or speeds it up to fit the schedule, play the sound in stereo with a cleaner stretch so it doesn't wobble. Off keeps surround sound'
+	String get oldSchoolSmoothAudioDescription => 'When Old School slows a programme down or speeds it up to fit the schedule, play the sound in stereo with a cleaner stretch so it doesn\'t wobble. Off keeps surround sound';
 
 	/// en: 'Match Refresh Rate'
 	String get matchRefreshRate => 'Match Refresh Rate';
@@ -8062,6 +8074,8 @@ extension on Translations {
 			'settings.crashReportingDescription' => 'Send crash reports to help improve the app',
 			'settings.debugLogging' => 'Debug Logging',
 			'settings.debugLoggingDescription' => 'Enable detailed logging for troubleshooting',
+			'settings.devLogToFile' => 'Save Log to File',
+			'settings.devLogToFileDescription' => 'Also write the detailed log to a file on this device, so a developer can read what the app is doing',
 			'settings.viewLogs' => 'View Logs',
 			'settings.viewLogsDescription' => 'View application logs',
 			'settings.clearImageCache' => 'Clear Image Cache',
@@ -8161,6 +8175,8 @@ extension on Translations {
 			'settings.oldSchoolFilmRateDescription' => 'Switch the TV to 24 Hz once when Old School opens, so most films play smoothly and channel changes don\'t blank the screen',
 			'settings.oldSchoolMatchSourceOnBar' => 'Old School Match Source on the Player Bar',
 			'settings.oldSchoolMatchSourceOnBarDescription' => 'Show Match source as its own button at the right end of the player bar instead of in the playback settings',
+			'settings.oldSchoolSmoothAudio' => 'Old School Smooth Audio',
+			'settings.oldSchoolSmoothAudioDescription' => 'When Old School slows a programme down or speeds it up to fit the schedule, play the sound in stereo with a cleaner stretch so it doesn\'t wobble. Off keeps surround sound',
 			'settings.matchRefreshRate' => 'Match Refresh Rate',
 			'settings.matchRefreshRateDescription' => 'Match display refresh rate in fullscreen',
 			'settings.matchDynamicRange' => 'Match Dynamic Range',
@@ -8334,12 +8350,12 @@ extension on Translations {
 			'fileInfo.fileCounter' => ({required Object index, required Object count}) => 'File ${index} of ${count}',
 			'fileInfo.noStreams' => 'The server reported no streams for this file.',
 			'fileInfo.copyPath' => 'Copy path',
+			_ => null,
+		} ?? switch (path) {
 			'fileInfo.pathCopied' => 'File path copied',
 			'fileInfo.codec' => 'Codec',
 			'fileInfo.codecTag' => 'Codec Tag',
 			'fileInfo.resolution' => 'Resolution',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.codedResolution' => 'Coded Resolution',
 			'fileInfo.bitrate' => 'Bitrate',
 			'fileInfo.frameRate' => 'Frame Rate',
@@ -8848,12 +8864,12 @@ extension on Translations {
 			'discover.recentlyAdded' => 'Recently Added',
 			'discover.recentlyAddedIn' => ({required Object library}) => 'Recently Added in ${library}',
 			'discover.bannerComingSoon' => 'COMING SOON',
+			_ => null,
+		} ?? switch (path) {
 			'discover.bannerNewMovie' => 'New Movie',
 			'discover.bannerNewEpisode' => 'New Episode',
 			'discover.bannerNewShow' => 'New Show',
 			'discover.playTrailer' => 'Play trailer',
-			_ => null,
-		} ?? switch (path) {
 			'discover.noTrailer' => 'No trailer for this one yet',
 			'discover.newReleasesIn' => ({required Object library}) => 'New Releases in ${library}',
 			'discover.comingUpIn' => ({required Object library}) => 'Coming Up in ${library}',
@@ -9362,12 +9378,12 @@ extension on Translations {
 			'music.sleepTimer' => 'Sleep timer',
 			'music.sleepTimerEndOfTrack' => 'End of track',
 			'music.sleepTimerMinutes' => ({required Object n}) => '${n} minutes',
+			_ => null,
+		} ?? switch (path) {
 			'music.stopPlayback' => 'Stop playback',
 			'music.previousTrack' => 'Previous track',
 			'music.nextTrack' => 'Next track',
 			'music.repeat' => 'Repeat',
-			_ => null,
-		} ?? switch (path) {
 			'music.repeatAll' => 'Repeat all',
 			'music.repeatOne' => 'Repeat one',
 			'music.instantMixNoServer' => 'No server is available for an instant mix',
@@ -9876,12 +9892,12 @@ extension on Translations {
 			'seerr.requestFailed' => ({required Object error}) => 'Request failed: ${error}',
 			'seerr.requestsLoadFailed' => 'Couldn\'t load request options',
 			'seerr.nothingToRequest' => 'Everything is already available or requested.',
+			_ => null,
+		} ?? switch (path) {
 			'seerr.statusAvailable' => 'Available',
 			'seerr.statusPartiallyAvailable' => 'Partially available',
 			'seerr.statusRequested' => 'Requested',
 			'seerr.statusProcessing' => 'Processing',
-			_ => null,
-		} ?? switch (path) {
 			'seerr.statusBlocklisted' => 'Blocklisted',
 			'seerr.couldNotReach' => ({required Object url, required Object error}) => 'Could not reach ${url}: ${error}',
 			'seerr.noInstanceAtUrl' => ({required Object url, required Object status}) => 'No Seerr instance at ${url} (HTTP ${status})',

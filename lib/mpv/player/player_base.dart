@@ -1339,13 +1339,50 @@ abstract class PlayerBase with PlayerStreamControllersMixin implements Player {
   /// 7.1 and keep the multichannel chain. `format=channels=` remixes through
   /// swresample, so the downmix options (`audio-swresample-o`,
   /// `audio-normalize-downmix`) apply to it as well.
-  static final String _loudnormFilter =
-      '${Platform.isAndroid ? 'format=channels=stereo,' : ''}'
-      'loudnorm=I=-14:TP=-3:LRA=4,format=srate=48000:format=floatp';
+  static const String _loudnormChain = 'loudnorm=I=-14:TP=-3:LRA=4,format=srate=48000:format=floatp';
+  static final String _loudnormFilter = '${Platform.isAndroid ? '$_stereoFold,' : ''}$_loudnormChain';
+
+  static const String _stereoFold = 'format=channels=stereo';
+
+  /// Old School's smooth speed audio (local/plans/old-school-audio-warble.md):
+  /// fold to stereo, then let Rubberband keep the pitch. mpv's own
+  /// scaletempo2 picks one overlap point across every channel, and on a
+  /// surround track the channels disagree, so the sound wobbles. A stretch
+  /// filter in `af` also stops mpv adding scaletempo2 itself. The Android
+  /// libmpv is built without Rubberband (checked 2026-10-25), so Android gets
+  /// the fold alone and scaletempo2 stretches the stereo.
+  static const String _rubberband = 'rubberband=engine=finer';
+  static final bool _hasRubberband = !Platform.isAndroid;
 
   @override
-  Future<void> setAudioNormalization(bool enabled) async {
-    await setProperty('af', enabled ? _loudnormFilter : '');
+  Future<void> setAudioNormalization(bool enabled) => applyAudioFilters(normalization: enabled, smoothStretch: false);
+
+  @override
+  // ignore: no-empty-block - base no-op, PlayerNative owns the mpv audio chain
+  Future<void> setSmoothSpeedAudio(bool enabled) async {}
+
+  /// Write the whole `af` chain, so the smooth stretch and loudnorm never wipe
+  /// each other: fold, loudnorm, then the stretch last, because mpv warns
+  /// that a speed-changing filter ahead of a libavfilter one (loudnorm) can
+  /// desync. A libmpv built without Rubberband refuses the filter; the fold
+  /// alone still leaves scaletempo2 nothing to disagree about.
+  @protected
+  Future<void> applyAudioFilters({required bool normalization, required bool smoothStretch}) async {
+    if (!smoothStretch) {
+      await setProperty('af', normalization ? _loudnormFilter : '');
+      return;
+    }
+    final folded = normalization ? '$_stereoFold,$_loudnormChain' : _stereoFold;
+    if (!_hasRubberband) {
+      await setProperty('af', folded);
+      return;
+    }
+    try {
+      await setProperty('af', '$folded,$_rubberband');
+    } on PlatformException catch (e) {
+      appLogger.w('MPV: Rubberband refused; folding to stereo ahead of scaletempo2 instead', error: e);
+      await setProperty('af', folded);
+    }
   }
 
   @override

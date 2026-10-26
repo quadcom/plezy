@@ -18,9 +18,10 @@ typedef _AudioStateRequest = ({
   int downmixCenterBoostDb,
   bool downmixNormalize,
   double rate,
+  bool smoothStretch,
 });
 
-typedef _AudioStateGenerations = ({int passthrough, int normalization, int downmix, int rate});
+typedef _AudioStateGenerations = ({int passthrough, int normalization, int downmix, int rate, int smoothStretch});
 
 /// MPV-backed player for platforms where AetherEngine is not the native route.
 class PlayerNative extends PlayerBase {
@@ -875,6 +876,7 @@ class PlayerNative extends PlayerBase {
           downmixCenterBoostDb: accepted.downmixCenterBoostDb,
           downmixNormalize: accepted.downmixNormalize,
           rate: rate,
+          smoothStretch: accepted.smoothStretch,
         );
       } else {
         // The native bridge may accept custom mpv speed syntax. Its numeric
@@ -989,6 +991,7 @@ class PlayerNative extends PlayerBase {
   static const int _normalizationAudioField = 1 << 1;
   static const int _downmixAudioField = 1 << 2;
   static const int _rateAudioField = 1 << 3;
+  static const int _smoothStretchAudioField = 1 << 4;
 
   bool _passthroughRequested = false;
   bool _passthroughActive = false;
@@ -1001,10 +1004,13 @@ class PlayerNative extends PlayerBase {
   bool _downmixNormalize = false;
   bool _activeDownmixNormalize = false;
   double _currentRate = 1.0;
+  bool _smoothStretchRequested = false;
+  bool _smoothStretchActive = false;
   int _passthroughGeneration = 0;
   int _normalizationGeneration = 0;
   int _downmixGeneration = 0;
   int _rateGeneration = 0;
+  int _smoothStretchGeneration = 0;
   _AudioStateRequest _acceptedAudioState = const (
     passthrough: false,
     normalization: false,
@@ -1012,6 +1018,7 @@ class PlayerNative extends PlayerBase {
     downmixCenterBoostDb: 0,
     downmixNormalize: false,
     rate: 1.0,
+    smoothStretch: false,
   );
 
   @override
@@ -1045,6 +1052,7 @@ class PlayerNative extends PlayerBase {
     downmixCenterBoostDb: _downmixCenterBoostDb,
     downmixNormalize: _downmixNormalize,
     rate: _requestedRate,
+    smoothStretch: _smoothStretchRequested,
   );
 
   _AudioStateRequest _rebaseAudioState(_AudioStateRequest accepted, _AudioStateRequest requested, int fields) => (
@@ -1056,6 +1064,7 @@ class PlayerNative extends PlayerBase {
         : accepted.downmixCenterBoostDb,
     downmixNormalize: fields & _downmixAudioField != 0 ? requested.downmixNormalize : accepted.downmixNormalize,
     rate: fields & _rateAudioField != 0 ? requested.rate : accepted.rate,
+    smoothStretch: fields & _smoothStretchAudioField != 0 ? requested.smoothStretch : accepted.smoothStretch,
   );
 
   void _restoreFailedRequestedFields(_AudioStateRequest previous, int fields, _AudioStateGenerations generations) {
@@ -1073,6 +1082,9 @@ class PlayerNative extends PlayerBase {
     if (fields & _rateAudioField != 0 && generations.rate == _rateGeneration) {
       _requestedRate = previous.rate;
     }
+    if (fields & _smoothStretchAudioField != 0 && generations.smoothStretch == _smoothStretchGeneration) {
+      _smoothStretchRequested = previous.smoothStretch;
+    }
   }
 
   Future<void> _enqueueAudioStateReconciliation(int fields) {
@@ -1081,11 +1093,13 @@ class PlayerNative extends PlayerBase {
     if (fields & _normalizationAudioField != 0) ++_normalizationGeneration;
     if (fields & _downmixAudioField != 0) ++_downmixGeneration;
     if (fields & _rateAudioField != 0) ++_rateGeneration;
+    if (fields & _smoothStretchAudioField != 0) ++_smoothStretchGeneration;
     final generations = (
       passthrough: _passthroughGeneration,
       normalization: _normalizationGeneration,
       downmix: _downmixGeneration,
       rate: _rateGeneration,
+      smoothStretch: _smoothStretchGeneration,
     );
     final operation = _audioStateTail.then((_) => _reconcileAudioState(requested, fields, generations));
     _audioStateTail = operation.catchError((Object _, StackTrace _) {});
@@ -1137,6 +1151,9 @@ class PlayerNative extends PlayerBase {
     final passthroughShouldBeActive =
         target.passthrough && target.rate == 1.0 && !target.downmix && !target.normalization;
     final normalizationShouldBeActive = target.normalization;
+    // The smooth stretch only has work while the speed is off 1x, which also
+    // keeps it clear of passthrough (that needs 1x).
+    final smoothStretchShouldBeActive = target.smoothStretch && target.rate != 1.0;
 
     // Ordering keeps loudnorm off a bitstream in both directions: leave
     // passthrough before `af` is written below, and when normalization turns
@@ -1163,9 +1180,12 @@ class PlayerNative extends PlayerBase {
       _activeDownmixCenterBoostDb = target.downmixCenterBoostDb;
       _activeDownmixNormalize = target.downmixNormalize;
     }
-    if (forceNormalization || _normalizationActive != normalizationShouldBeActive) {
-      await super.setAudioNormalization(normalizationShouldBeActive);
+    if (forceNormalization ||
+        _normalizationActive != normalizationShouldBeActive ||
+        _smoothStretchActive != smoothStretchShouldBeActive) {
+      await applyAudioFilters(normalization: normalizationShouldBeActive, smoothStretch: smoothStretchShouldBeActive);
       _normalizationActive = normalizationShouldBeActive;
+      _smoothStretchActive = smoothStretchShouldBeActive;
     }
     if (passthroughShouldBeActive && !_passthroughActive) {
       await _applyPassthrough(true);
@@ -1203,6 +1223,13 @@ class PlayerNative extends PlayerBase {
     if (_nativeCoreUnavailable) return Future<void>.value();
     _normalizationRequested = enabled;
     return _enqueueAudioStateReconciliation(_normalizationAudioField);
+  }
+
+  @override
+  Future<void> setSmoothSpeedAudio(bool enabled) {
+    if (_nativeCoreUnavailable) return Future<void>.value();
+    _smoothStretchRequested = enabled;
+    return _enqueueAudioStateReconciliation(_smoothStretchAudioField);
   }
 
   @override

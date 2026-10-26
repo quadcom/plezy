@@ -8,18 +8,28 @@ import 'package:path_provider/path_provider.dart';
 
 import 'app_logger.dart';
 
-/// Test builds only (`--dart-define=PLEZY_DEV_LOG=true`): every log line also
-/// goes to `logs/plezy-dev.log` in the app's support folder, written as it
-/// happens, so a developer can read what a running test copy is doing. The
-/// last run's file is kept as `plezy-dev.prev.log`. Uncaught errors, including
-/// a widget that fails to build, are logged too. Release builds leave this off
-/// and never touch the file.
+/// Every log line also goes to `logs/plezy-dev.log` in the app's support
+/// folder, written as it happens, so a developer can read what a running copy
+/// is doing. On in test builds (`--dart-define=PLEZY_DEV_LOG=true`) and, in any
+/// build, while the "Save Log to File" setting is on
+/// (local/plans/dev-mode-toggle.md). The last run's file is kept as
+/// `plezy-dev.prev.log`. Uncaught errors, including a widget that fails to
+/// build, are logged too. Off, the file is never touched.
 class DevLogFile {
   DevLogFile._();
 
-  static const enabled = bool.fromEnvironment('PLEZY_DEV_LOG');
+  static const _buildFlag = bool.fromEnvironment('PLEZY_DEV_LOG');
+  static bool _switchedOn = false;
+
+  static bool get enabled => _buildFlag || _switchedOn;
+
+  /// A file past this starts over, the old one kept as the `.prev` file.
+  static const _maxBytes = 50 * 1024 * 1024;
 
   static RandomAccessFile? _file;
+  static int _bytes = 0;
+  static bool _hooked = false;
+  static bool _watching = false;
   static final List<String> _pending = [];
 
   /// Where the file is, once open.
@@ -31,8 +41,30 @@ class DevLogFile {
   static Set<String> _flags = const {};
   static bool flag(String name) => _flags.contains(name);
 
-  /// Opens the file and hooks uncaught errors into the log. Call once at
-  /// start-up; does nothing unless [enabled].
+  /// The "Save Log to File" setting: on opens the file at once, off closes
+  /// it. A test build's flag keeps it on regardless.
+  static Future<void> setSwitch(bool on) async {
+    _switchedOn = on;
+    refreshLoggerLevel();
+    if (enabled) {
+      await start();
+    } else {
+      await _close();
+    }
+  }
+
+  static Future<void> _close() async {
+    final file = _file;
+    _file = null;
+    path = null;
+    _pending.clear();
+    try {
+      await file?.close();
+    } catch (_) {}
+  }
+
+  /// Opens the file and hooks uncaught errors into the log. Does nothing
+  /// unless [enabled]; safe to call again.
   static Future<void> start() async {
     if (!enabled || _file != null) return;
     _hookErrors();
@@ -49,7 +81,10 @@ class DevLogFile {
       }
       final file = File(p.join(dir.path, 'plezy-dev.log'));
       if (await file.exists()) await file.rename(p.join(dir.path, 'plezy-dev.prev.log'));
+      // Switched off, or opened by another call, while the folder was prepared.
+      if (!enabled || _file != null) return;
       _file = await File(file.path).open(mode: FileMode.writeOnlyAppend);
+      _bytes = 0;
       path = file.path;
       final waiting = List.of(_pending);
       _pending.clear();
@@ -88,19 +123,38 @@ class DevLogFile {
       _file!
         ..writeStringSync(line)
         ..flushSync();
+      _bytes += line.length;
+      if (_bytes > _maxBytes) _rollOver();
     } catch (_) {}
+  }
+
+  /// Keeps one full file as `.prev` and starts a fresh one.
+  static void _rollOver() {
+    final current = path;
+    if (current == null) return;
+    _file!.closeSync();
+    final file = File(current);
+    file.renameSync(p.join(file.parent.path, 'plezy-dev.prev.log'));
+    _file = File(current).openSync(mode: FileMode.writeOnlyAppend);
+    _bytes = 0;
   }
 
   /// Every 5 s while frames are being made: how many the framework built and
   /// how many the engine finished drawing. Built but not drawn means the
   /// picture on screen has stopped updating.
   static void _watchFrames() {
+    if (_watching) return;
+    _watching = true;
     var built = 0;
     var drawn = 0;
     SchedulerBinding.instance.addPersistentFrameCallback((_) => built++);
     SchedulerBinding.instance.addTimingsCallback((timings) => drawn += timings.length);
     Timer.periodic(const Duration(seconds: 5), (_) {
-      if (built == 0 && drawn == 0) return;
+      if (!enabled || (built == 0 && drawn == 0)) {
+        built = 0;
+        drawn = 0;
+        return;
+      }
       appLogger.d('Frames (5 s): built $built, drawn $drawn');
       built = 0;
       drawn = 0;
@@ -108,6 +162,8 @@ class DevLogFile {
   }
 
   static void _hookErrors() {
+    if (_hooked) return;
+    _hooked = true;
     final previousFlutter = FlutterError.onError;
     FlutterError.onError = (details) {
       appLogger.e(

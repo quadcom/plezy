@@ -85,6 +85,7 @@ class TvDetectionService {
   bool _forceTv = false;
   bool _isAppleTV = false;
   bool _isAutomotive = false;
+  bool _isNvidiaShield = false;
   bool _initialized = false;
   List<String> _detectionReasons = const [];
 
@@ -108,6 +109,9 @@ class TvDetectionService {
       _detected = detection.isTv;
       _isAutomotive = detection.isAutomotive;
       _detectionReasons = detection.reasons;
+      try {
+        _isNvidiaShield = (await deviceInfo.androidInfo).model.toUpperCase().contains('SHIELD');
+      } catch (_) {}
     } else if (Platform.isIOS) {
       if (_tvosBuild) {
         _isAppleTV = true;
@@ -193,6 +197,9 @@ class TvDetectionService {
   /// Synchronous Android Automotive OS check (false before initialization).
   static bool isAutomotiveSync() => _debugAutomotiveOverride ?? _singleton.instance?._isAutomotive ?? false;
 
+  /// Synchronous NVIDIA SHIELD check (false before initialization).
+  static bool isNvidiaShieldSync() => _singleton.instance?._isNvidiaShield ?? false;
+
   /// True on a car screen the owner has marked as a passenger screen. Never
   /// true off a car, so the setting cannot change any other form factor.
   static bool isPassengerScreenSync() => _passengerScreen && isAutomotiveSync();
@@ -236,6 +243,12 @@ class PlatformDetector {
   /// True on Android Automotive OS head units.
   static bool isAutomotive() {
     return TvDetectionService.isAutomotiveSync();
+  }
+
+  /// True on an NVIDIA SHIELD, the Theater's player, which keeps its surround
+  /// chain untouched by default (local/plans/old-school-audio-warble.md).
+  static bool isNvidiaShield() {
+    return TvDetectionService.isNvidiaShieldSync();
   }
 
   /// True on a car screen marked as a passenger screen in settings: floating

@@ -1112,6 +1112,71 @@ void main() {
     );
   });
 
+  test('smooth speed audio folds and stretches only off 1x, ahead of loudnorm', () async {
+    final afWrites = <String>[];
+    await withMockPlayerChannels(
+      methodChannelName: 'com.plezy/mpv_player',
+      eventChannelName: 'com.plezy/mpv_player/events',
+      methodHandler: (call) async {
+        if (call.method == 'initialize') return true;
+        if (call.method == 'setProperty') {
+          final arguments = call.arguments as Map;
+          if (arguments['name'] == 'af') afWrites.add(arguments['value'] as String);
+        }
+        return null;
+      },
+      testBody: () async {
+        final player = PlayerNative();
+        try {
+          await player.setSmoothSpeedAudio(true);
+          expect(afWrites, isEmpty, reason: 'nothing to stretch at 1x');
+
+          await player.setRate(0.97);
+          await player.setAudioNormalization(true);
+          await player.setRate(1.0);
+
+          expect(afWrites, [
+            'format=channels=stereo,rubberband=engine=finer',
+            'format=channels=stereo,loudnorm=I=-14:TP=-3:LRA=4,format=srate=48000:format=floatp,rubberband=engine=finer',
+            'loudnorm=I=-14:TP=-3:LRA=4,format=srate=48000:format=floatp',
+          ]);
+        } finally {
+          await player.dispose();
+        }
+      },
+    );
+  });
+
+  test('smooth speed audio falls back to the stereo fold when Rubberband is refused', () async {
+    final afWrites = <String>[];
+    await withMockPlayerChannels(
+      methodChannelName: 'com.plezy/mpv_player',
+      eventChannelName: 'com.plezy/mpv_player/events',
+      methodHandler: (call) async {
+        if (call.method == 'initialize') return true;
+        if (call.method == 'setProperty') {
+          final arguments = call.arguments as Map;
+          if (arguments['name'] != 'af') return null;
+          final value = arguments['value'] as String;
+          afWrites.add(value);
+          if (value.contains('rubberband')) throw PlatformException(code: 'SET_PROPERTY_FAILED');
+        }
+        return null;
+      },
+      testBody: () async {
+        final player = PlayerNative();
+        try {
+          await player.setRate(0.97);
+          await player.setSmoothSpeedAudio(true);
+
+          expect(afWrites, ['format=channels=stereo,rubberband=engine=finer', 'format=channels=stereo']);
+        } finally {
+          await player.dispose();
+        }
+      },
+    );
+  });
+
   test('failed passthrough re-entry restores normalization', () async {
     var rejectPassthrough = false;
     final propertyWrites = <(String, String)>[];

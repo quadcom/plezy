@@ -94,6 +94,8 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 _audioDownmixTile(),
                 if (downmixOn) _downmixCenterBoostTile(),
                 if (downmixOn) _downmixNormalizeTile(),
+                // mpv-only: ExoPlayer has no filter chain to stretch with.
+                if (!exoActive) _oldSchoolSmoothAudioTile(),
                 _maxVolumeTile(),
               ],
             ),
@@ -528,6 +530,13 @@ class PlaybackSettingsScreen extends StatelessWidget {
     icon: Symbols.headphones_rounded,
     title: t.settings.audioDownmix,
     subtitle: t.settings.audioDownmixDescription,
+  );
+
+  Widget _oldSchoolSmoothAudioTile() => SettingSwitchTile(
+    pref: SettingsService.oldSchoolSmoothAudio,
+    icon: Symbols.graphic_eq_rounded,
+    title: t.settings.oldSchoolSmoothAudio,
+    subtitle: t.settings.oldSchoolSmoothAudioDescription,
   );
 
   Widget _downmixCenterBoostTile() => SettingNumberTile(

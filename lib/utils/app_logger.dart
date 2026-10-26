@@ -131,6 +131,12 @@ Logger appLogger = Logger(printer: MemoryAwareLogPrinter(SimplePrinter()), filte
 /// [ProductionFilter] is the only gate: [Logger] asks its filter on every
 /// event, so changing the filter level is sufficient even in release mode.
 void setLoggerLevel(bool debugEnabled) {
-  // A test build writing its log to a file keeps every detail.
+  _debugSetting = debugEnabled;
+  // A log written to a file keeps every detail.
   _productionFilter.setLevel(debugEnabled || DevLogFile.enabled ? Level.debug : Level.info);
 }
+
+bool _debugSetting = false;
+
+/// Re-applies the level after the file log is switched on or off.
+void refreshLoggerLevel() => setLoggerLevel(_debugSetting);

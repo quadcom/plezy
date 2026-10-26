@@ -185,6 +185,10 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   /// is left, so normal viewing never inherits a slowed speed.
   Future<void> _oldSchoolApplyRate(Player currentPlayer) async {
     final rate = _oldSchoolRate;
+    // Smooth speed audio (local/plans/old-school-audio-warble.md): the player
+    // only uses it off 1x, so it can stay set for the whole Old School visit.
+    final settingsService = await SettingsService.getInstance();
+    await currentPlayer.setSmoothSpeedAudio(settingsService.read(SettingsService.oldSchoolSmoothAudio));
     if (currentPlayer.state.rate == rate) return;
     appLogger.d('Old School: playback speed $rate');
     await currentPlayer.setRate(rate);
@@ -266,6 +270,20 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     _os.backNoteTimer = Timer(OldSchoolPlayerState.backAgainWindow, () {
       if (mounted) _setPlayerState(() {});
     });
+  }
+
+  /// The top-left back arrow (local/plans/old-school-exit-button.md): from
+  /// full screen, one press goes straight back to the guide. The arrow only
+  /// shows with the controls up, so [_oldSchoolBack]'s "hide the controls"
+  /// step took every click, and on a PC the mouse brought them straight
+  /// back. Back on the remote keeps that ladder.
+  void _oldSchoolHeaderBack() {
+    if (!_os.fullScreen || _playbackFailureMessage != null || _playerInitializationError != null) {
+      unawaited(_handleBackButton());
+      return;
+    }
+    _chromeController.setContentStripVisible(false);
+    _oldSchoolSetFullScreen(false);
   }
 
   /// Leave Old School at once; playback stops.
