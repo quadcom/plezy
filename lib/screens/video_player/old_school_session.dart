@@ -83,6 +83,13 @@ class OldSchoolPlayerState {
   /// from 0, not at the live point.
   bool filmFromStart = false;
 
+  /// When the film's own trailer started playing. One that played longer
+  /// than [preRollPlayed] is followed by its film from 0, even when a pause
+  /// left it behind; one that stopped sooner (it would not really play)
+  /// hands over to the film's live point (PlezyFin plan 88).
+  DateTime? preRollStartedAt;
+  static const preRollPlayed = Duration(seconds: 10);
+
   /// "Match source" is on for this entry on [matchSourceChannelId]
   /// (local/plans/old-school-match-source.md): the display follows its
   /// resolution and frame rate until another entry plays.

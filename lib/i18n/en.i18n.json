@@ -2431,6 +2431,8 @@
     "noChannels": "No channels yet. An admin can set them up on the web.",
     "tuneFailed": "Couldn't tune to that channel.",
     "backToLive": "Back to live",
+    "behindMinutes": "${minutes} min behind",
+    "behindUnderMinute": "Under a minute behind",
     "restart": "Restart",
     "guide": "Guide",
     "channelUp": "Channel up",

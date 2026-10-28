@@ -449,6 +449,60 @@ void main() {
     });
   });
 
+  // PlezyFin plan 88: a TV that paused runs behind the one schedule.
+  group('OldSchoolTune.behind', () {
+    OldSchoolTune tuneAt(String serverTime) => OldSchoolTune.fromJson('c2', {
+      'serverTime': serverTime,
+      'now': {
+        'kind': 'show',
+        'itemType': 'Movie',
+        'itemId': 'heat',
+        'start': '2026-10-14T01:00:00Z',
+        'end': '2026-10-14T04:00:00Z',
+        'runTimeTicks': 170 * 60 * 10000000,
+        'rate': 0.96,
+        'preItemId': 'heattrailer',
+        'preRunTimeTicks': 120 * 10000000,
+      },
+    }, receivedAt: DateTime.parse(serverTime))!;
+
+    test('at the live point it is not behind', () {
+      final tune = tuneAt('2026-10-14T01:52:00Z');
+      final at = tune.receivedAt;
+      final live = tune.offsetInto(tune.now, at);
+      expect(tune.behind(tune.now, position: live, inPreRoll: false, deviceNow: at), Duration.zero);
+    });
+
+    test('a paused film counts its file time by the clock at its rate', () {
+      final tune = tuneAt('2026-10-14T01:52:00Z');
+      // 48 min of film would be live; 9 min 36 s of file less is 10 min by the clock.
+      final behind = tune.behind(
+        tune.now,
+        position: const Duration(minutes: 38, seconds: 24),
+        inPreRoll: false,
+        deviceNow: tune.receivedAt,
+      );
+      expect(behind, const Duration(minutes: 10));
+    });
+
+    test('its own trailer counts from the slot start, and goes on into the film', () {
+      final tune = tuneAt('2026-10-14T01:05:00Z');
+      final behind = tune.behind(
+        tune.now,
+        position: const Duration(seconds: 30),
+        inPreRoll: true,
+        deviceNow: tune.receivedAt,
+      );
+      expect(behind, const Duration(minutes: 4, seconds: 30));
+    });
+
+    test('a long pause has no limit', () {
+      final tune = tuneAt('2026-10-14T05:00:00Z');
+      final behind = tune.behind(tune.now, position: Duration.zero, inPreRoll: false, deviceNow: tune.receivedAt);
+      expect(behind, const Duration(hours: 3, minutes: 58));
+    });
+  });
+
   group('OldSchoolEntry.joinBreaks', () {
     OldSchoolEntry at(OldSchoolEntryKind kind, int startMin, int endMin, String name, {String? series}) =>
         OldSchoolEntry(

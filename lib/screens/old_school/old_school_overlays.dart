@@ -198,30 +198,15 @@ class OldSchoolStandbyCover extends StatelessWidget {
 /// 2026-10-16; the web does the same).
 const oldSchoolPromoFadeOut = Duration(milliseconds: 400);
 
-/// The break trailer on the tuned channel now when it points at a film,
-/// show or course (it has a promo); null otherwise.
-OldSchoolEntry? oldSchoolPromoTrailer(OldSchoolController controller) {
-  final channelId = controller.tunedChannelId;
-  if (channelId == null) return null;
-  final now = controller.serverNow;
-  for (final entry in controller.entriesFor(channelId)) {
-    if (!entry.isOnAt(now)) continue;
-    return entry.kind == OldSchoolEntryKind.trailer && entry.promo != null ? entry : null;
-  }
-  return null;
-}
+/// Whether [entry] is a break trailer that points at a film, show or course
+/// (it has a promo).
+bool oldSchoolIsPromo(OldSchoolEntry entry) => entry.kind == OldSchoolEntryKind.trailer && entry.promo != null;
 
-/// [oldSchoolPromoTrailer] while its corner block shows: the whole trailer
-/// up to its last [oldSchoolPromoFadeOut]. Null otherwise.
-OldSchoolEntry? oldSchoolActivePromo(OldSchoolController controller) {
-  final entry = oldSchoolPromoTrailer(controller);
-  if (entry == null || !oldSchoolPromoShows(entry, controller.serverNow)) return null;
-  return entry;
-}
-
-/// Whether [entry]'s corner block shows at [now]: from the trailer's first
-/// second until it fades out at the end (Adrian, 2026-10-16: "on full time").
-bool oldSchoolPromoShows(OldSchoolEntry entry, DateTime now) => entry.end.difference(now) > oldSchoolPromoFadeOut;
+/// Whether a break trailer's corner block shows with [left] of the open
+/// trailer still to play, by the clock: from its first second until it
+/// fades out at the end (Adrian, 2026-10-16: "on full time"). Unknown while
+/// the file opens, which shows.
+bool oldSchoolPromoShows(Duration? left) => left == null || left > oldSchoolPromoFadeOut;
 
 /// Whether OK (or a click) on [entry]'s corner block opens its item: a film,
 /// show or course you have. Coming soon is never pressable (PLAN_SHA_47
@@ -277,11 +262,27 @@ Widget _poster(OldSchoolController controller, String itemId, String tag, double
 /// step once as the trailer starts (or on tuning into it) and fades out over
 /// its last [oldSchoolPromoFadeOut]. OK (or a click) opens a film, show or
 /// course you have; coming soon is not pressable.
+///
+/// It follows the open file, not the schedule's clock: a TV that paused
+/// runs behind, and the next break's block showed over its film (PlezyFin
+/// plan 88, 2026-10-27).
 class OldSchoolPromoCorner extends StatefulWidget {
   final OldSchoolController controller;
   final ValueChanged<OldSchoolEntry>? onOpen;
 
-  const OldSchoolPromoCorner({super.key, required this.controller, this.onOpen});
+  /// The break trailer that is the open file, or null.
+  final OldSchoolEntry? Function() trailer;
+
+  /// How much of the open trailer is left by the clock; null when unknown.
+  final Duration? Function() trailerLeft;
+
+  const OldSchoolPromoCorner({
+    super.key,
+    required this.controller,
+    required this.trailer,
+    required this.trailerLeft,
+    this.onOpen,
+  });
 
   @override
   State<OldSchoolPromoCorner> createState() => _OldSchoolPromoCornerState();
@@ -304,8 +305,7 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
   void initState() {
     super.initState();
     _update(initial: true);
-    // The guide's clock decides when it shows, so a late tune-in or a
-    // channel change lands right; checked twice a second.
+    // The open file decides when it shows; checked twice a second.
     _tick = Timer.periodic(const Duration(milliseconds: 500), (_) => _update());
   }
 
@@ -319,11 +319,11 @@ class _OldSchoolPromoCornerState extends State<OldSchoolPromoCorner> with Single
 
   void _update({bool initial = false}) {
     if (!mounted) return;
-    final entry = oldSchoolPromoTrailer(widget.controller);
-    final now = widget.controller.serverNow;
-    final visible = entry != null && oldSchoolPromoShows(entry, now);
+    final entry = widget.trailer();
+    final left = entry == null ? null : widget.trailerLeft();
+    final visible = entry != null && oldSchoolPromoShows(left);
     _fade?.cancel();
-    if (visible) _fade = Timer(entry.end.difference(now) - oldSchoolPromoFadeOut, _update);
+    if (visible && left != null) _fade = Timer(left - oldSchoolPromoFadeOut, _update);
     // "Ends at" counts from now, so it moves on with the clock.
     final minute = DateTime.now().minute;
     // A guide refresh brings new objects for the same trailer. A hidden

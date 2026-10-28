@@ -1,4 +1,8 @@
-import 'package:flutter/foundation.dart';
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+
+import '../../i18n/strings.g.dart';
 
 /// The channel logo's place in the bottom-right corner of the full-screen
 /// picture, as fractions of the screen: [oldSchoolLogoRight] in from the right
@@ -60,6 +64,11 @@ class OldSchoolControls {
   final bool? Function()? matchSourceActive;
   final VoidCallback? onToggleMatchSource;
 
+  /// "12 min behind" beside Back to live while the open file runs behind
+  /// the schedule (PlezyFin plan 88); null when it doesn't. Read once a
+  /// second.
+  final String? Function()? behindText;
+
   const OldSchoolControls({
     required this.onRestart,
     required this.onBackToLive,
@@ -70,5 +79,71 @@ class OldSchoolControls {
     this.promoTrailer,
     this.matchSourceActive,
     this.onToggleMatchSource,
+    this.behindText,
   });
+}
+
+/// More than this behind the schedule and the controls say so (PlezyFin
+/// plan 88; the web uses the same).
+const oldSchoolBehindShown = Duration(seconds: 8);
+
+/// "12 min behind", "Under a minute behind", or null at
+/// [oldSchoolBehindShown] or less (PlezyFin plan 88; the web says the same).
+String? oldSchoolBehindText(Duration? behind) {
+  if (behind == null || behind <= oldSchoolBehindShown) return null;
+  if (behind.inMinutes < 1) return t.oldSchool.behindUnderMinute;
+  return t.oldSchool.behindMinutes(minutes: '${behind.inMinutes}');
+}
+
+/// [OldSchoolControls.behindText] as a line of text, read once a second;
+/// [fallback] (or nothing) while not behind.
+class OldSchoolBehindLabel extends StatefulWidget {
+  final String? Function() text;
+  final String? fallback;
+  final TextStyle style;
+
+  /// Round the text only, so nothing takes room while not behind.
+  final EdgeInsetsGeometry padding;
+
+  const OldSchoolBehindLabel({
+    super.key,
+    required this.text,
+    required this.style,
+    this.fallback,
+    this.padding = EdgeInsets.zero,
+  });
+
+  @override
+  State<OldSchoolBehindLabel> createState() => _OldSchoolBehindLabelState();
+}
+
+class _OldSchoolBehindLabelState extends State<OldSchoolBehindLabel> {
+  Timer? _tick;
+  String? _text;
+
+  @override
+  void initState() {
+    super.initState();
+    _text = widget.text();
+    _tick = Timer.periodic(const Duration(seconds: 1), (_) {
+      final text = widget.text();
+      if (mounted && text != _text) setState(() => _text = text);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tick?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = _text ?? widget.fallback;
+    if (text == null) return const SizedBox.shrink();
+    return Padding(
+      padding: widget.padding,
+      child: Text(text, style: widget.style, maxLines: 1),
+    );
+  }
 }

@@ -562,6 +562,20 @@ class OldSchoolTune {
     final offset = slotOffset(entry, deviceNow) - entry.preRollTime;
     return offset.isNegative ? Duration.zero : offset * entry.rate;
   }
+
+  /// How far behind the schedule [entry] plays at [deviceNow], by the clock
+  /// (PlezyFin plan 88): its own trailer at [position], or ([inPreRoll]
+  /// false) its file at [position]. Negative when ahead. A pause or Start
+  /// over leaves a TV behind until Back to live or the file ends.
+  Duration behind(
+    OldSchoolEntry entry, {
+    required Duration position,
+    required bool inPreRoll,
+    required DateTime deviceNow,
+  }) {
+    final at = inPreRoll ? position : entry.preRollTime + position * (1 / entry.rate);
+    return slotOffset(entry, deviceNow) - at;
+  }
 }
 
 String? _string(Map<String, dynamic> map, String pascal) {

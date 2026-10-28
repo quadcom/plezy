@@ -6044,6 +6044,12 @@ class Translations$oldSchool$en {
 	/// en: 'Back to live'
 	String get backToLive => 'Back to live';
 
+	/// en: '${minutes} min behind'
+	String behindMinutes({required Object minutes}) => '${minutes} min behind';
+
+	/// en: 'Under a minute behind'
+	String get behindUnderMinute => 'Under a minute behind';
+
 	/// en: 'Restart'
 	String get restart => 'Restart';
 
@@ -10051,6 +10057,8 @@ extension on Translations {
 			'oldSchool.noChannels' => 'No channels yet. An admin can set them up on the web.',
 			'oldSchool.tuneFailed' => 'Couldn\'t tune to that channel.',
 			'oldSchool.backToLive' => 'Back to live',
+			'oldSchool.behindMinutes' => ({required Object minutes}) => '${minutes} min behind',
+			'oldSchool.behindUnderMinute' => 'Under a minute behind',
 			'oldSchool.restart' => 'Restart',
 			'oldSchool.guide' => 'Guide',
 			'oldSchool.channelUp' => 'Channel up',

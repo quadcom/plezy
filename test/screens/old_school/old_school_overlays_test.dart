@@ -73,7 +73,7 @@ void main() {
           home: Center(
             child: Stack(
               children: [
-                OldSchoolPromoCorner(controller: controller),
+                OldSchoolPromoCorner(controller: controller, trailer: () => null, trailerLeft: () => null),
                 OldSchoolPreRollCard(controller: controller, channel: channel, film: null, trailerLeft: () => null),
               ],
             ),
@@ -177,17 +177,71 @@ void main() {
   });
 
   group('Old School promo corner timing (Adrian, 2026-10-16)', () {
-    final trailer = _trailer({'promo': 'have', 'promoItemId': 'm1'});
-
     test('shows from the first second, not only in the last 15 s', () {
-      expect(oldSchoolPromoShows(trailer, trailer.start), isTrue);
-      expect(oldSchoolPromoShows(trailer, trailer.start.add(const Duration(minutes: 1))), isTrue);
+      expect(oldSchoolPromoShows(const Duration(minutes: 2, seconds: 21)), isTrue);
+      expect(oldSchoolPromoShows(const Duration(minutes: 1, seconds: 21)), isTrue);
     });
 
     test('fades out over the last 0.4 s', () {
-      expect(oldSchoolPromoShows(trailer, trailer.end.subtract(const Duration(milliseconds: 500))), isTrue);
-      expect(oldSchoolPromoShows(trailer, trailer.end.subtract(oldSchoolPromoFadeOut)), isFalse);
-      expect(oldSchoolPromoShows(trailer, trailer.end), isFalse);
+      expect(oldSchoolPromoShows(const Duration(milliseconds: 500)), isTrue);
+      expect(oldSchoolPromoShows(oldSchoolPromoFadeOut), isFalse);
+      expect(oldSchoolPromoShows(Duration.zero), isFalse);
+    });
+
+    test('shows while the opening file has no length yet', () {
+      expect(oldSchoolPromoShows(null), isTrue);
+    });
+  });
+
+  // PlezyFin plan 88: the corner follows the open file, not the schedule.
+  group('Old School promo corner follows the open file', () {
+    final trailer = _trailer({'promo': 'have', 'promoItemId': 'm1', 'promoName': 'Real Steel'});
+
+    Future<void> pump(WidgetTester tester, OldSchoolController controller, OldSchoolEntry? open) => tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            OldSchoolPromoCorner(
+              controller: controller,
+              trailer: () => open,
+              trailerLeft: () => const Duration(minutes: 1),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    testWidgets('nothing over a film, even when the schedule is in a break', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      await pump(tester, controller, null);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Real Steel'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('the block while the break trailer is the open file', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      await pump(tester, controller, trailer);
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.textContaining('Real Steel'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
+  group('Behind label (PlezyFin plan 88)', () {
+    test('hidden at 8 s or less', () {
+      expect(oldSchoolBehindText(null), isNull);
+      expect(oldSchoolBehindText(const Duration(seconds: -30)), isNull);
+      expect(oldSchoolBehindText(const Duration(seconds: 8)), isNull);
+    });
+
+    test('under a minute, then whole minutes', () {
+      expect(oldSchoolBehindText(const Duration(seconds: 9)), 'Under a minute behind');
+      expect(oldSchoolBehindText(const Duration(seconds: 59)), 'Under a minute behind');
+      expect(oldSchoolBehindText(const Duration(minutes: 1)), '1 min behind');
+      expect(oldSchoolBehindText(const Duration(minutes: 8, seconds: 40)), '8 min behind');
     });
   });
 

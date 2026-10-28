@@ -902,6 +902,14 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
                       semanticLabel: t.oldSchool.backToLive,
                       tooltip: t.oldSchool.backToLive,
                     ),
+                    // How far behind the schedule, while it is (PlezyFin
+                    // plan 88).
+                    if (oldSchool.behindText case final behind?)
+                      OldSchoolBehindLabel(
+                        text: behind,
+                        style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                      ),
                     _buildFocusableButton(
                       focusNode: _channelDownFocusNode,
                       index: 8,

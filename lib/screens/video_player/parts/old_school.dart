@@ -16,19 +16,59 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     // The corner shows for the whole trailer, so OK opens it controls up or
     // down.
     promoAction: () {
-      if (!_os.fullScreen || _os.playingPreRoll) return null;
-      final promo = oldSchoolActivePromo(_osController);
-      if (promo == null || !oldSchoolPromoOpens(promo)) return null;
+      if (!_os.fullScreen) return null;
+      final promo = _oldSchoolPromoPlaying;
+      if (promo == null || !oldSchoolPromoShows(_oldSchoolOpenFileLeft()) || !oldSchoolPromoOpens(promo)) return null;
       return () => unawaited(_oldSchoolOpenPromo(promo));
     },
     promoTrailer: () {
-      if (!_os.fullScreen || _os.playingPreRoll) return null;
-      final promo = oldSchoolPromoTrailer(_osController);
+      if (!_os.fullScreen) return null;
+      final promo = _oldSchoolPromoPlaying;
       return promo == null ? null : oldSchoolTrailerTitle(promo);
     },
     matchSourceActive: () => _oldSchoolMatchSourceOffered ? _os.matchSourceEntry != null : null,
     onToggleMatchSource: () => unawaited(_oldSchoolToggleMatchSource()),
+    behindText: () => oldSchoolBehindText(_oldSchoolBehind()),
   );
+
+  /// The break trailer with an item behind it when it is the open file, or
+  /// null. Its corner block, header title and OK follow the open file, not
+  /// the schedule's clock: a TV that paused runs behind, and the next
+  /// break's block showed over its film (PlezyFin plan 88, 2026-10-27).
+  OldSchoolEntry? get _oldSchoolPromoPlaying {
+    final tune = _os.slotTune;
+    if (tune == null || _os.playingPreRoll || _os.standbyTune != null) return null;
+    if (tune.channelId != _osController.tunedChannelId) return null;
+    final entry = tune.now;
+    return oldSchoolIsPromo(entry) && _currentMetadata.id == entry.itemId ? entry : null;
+  }
+
+  /// How much of the open file is left by the clock, at its playing speed;
+  /// null until the player knows its length.
+  Duration? _oldSchoolOpenFileLeft() {
+    final state = player?.state;
+    if (state == null || state.duration <= Duration.zero) return null;
+    final left = state.duration - state.position;
+    return state.rate > 0 ? left * (1 / state.rate) : left;
+  }
+
+  /// How far behind the schedule the open file is (PlezyFin plan 88); null
+  /// when it isn't the tuned slot's programme or trailer.
+  Duration? _oldSchoolBehind() {
+    final tune = _os.slotTune;
+    final currentPlayer = player;
+    if (tune == null || currentPlayer == null || _os.standbyTune != null) return null;
+    if (tune.channelId != _osController.tunedChannelId) return null;
+    final entry = tune.now;
+    final open = _os.playingPreRoll ? entry.preItemId : entry.itemId;
+    if (open == null || _currentMetadata.id != open) return null;
+    return tune.behind(
+      entry,
+      position: currentPlayer.state.position,
+      inPreRoll: _os.playingPreRoll,
+      deviceNow: DateTime.now(),
+    );
+  }
 
   /// Match source (local/plans/old-school-match-source.md) is offered on
   /// Android TV, where display modes can be switched, while a programme
@@ -167,6 +207,7 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   /// plays, its "Up next" card is all that shows and the controls stay down.
   void _oldSchoolSetPreRoll(bool on) {
     _chromeController.setSuppressed(on);
+    if (on && !_os.playingPreRoll) _os.preRollStartedAt = DateTime.now();
     if (_os.playingPreRoll != on) _setPlayerState(() => _os.playingPreRoll = on);
   }
 
@@ -528,12 +569,17 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   }
 
   /// Play [tune]'s programme: at its scheduled point (after its trailer, if
-  /// it has one), or from 0 after a Start over.
-  Future<void> _oldSchoolPlayFilm(OldSchoolTune tune, {required String reason, required int generation}) async {
+  /// it has one), or from 0 after a Start over or [fromStart].
+  Future<void> _oldSchoolPlayFilm(
+    OldSchoolTune tune, {
+    required String reason,
+    required int generation,
+    bool fromStart = false,
+  }) async {
     final entry = tune.now;
     final currentPlayer = player;
     if (currentPlayer == null) return;
-    Duration position() => _os.filmFromStart ? Duration.zero : tune.offsetInto(entry, DateTime.now());
+    Duration position() => _os.filmFromStart || fromStart ? Duration.zero : tune.offsetInto(entry, DateTime.now());
     _oldSchoolSetPreRoll(false);
     if (_currentMetadata.id == entry.itemId) {
       // Same file (Back to live, or the channel's next slot is the same
@@ -566,12 +612,15 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
   }
 
   /// The pre-roll trailer ended or would not play: the film follows in the
-  /// same slot, with no re-tune and no channel card (PLAN_SHA_46).
-  Future<void> _oldSchoolFilmAfterPreRoll(OldSchoolTune tune, {required String reason}) async {
+  /// same slot, with no re-tune and no channel card (PLAN_SHA_46). After a
+  /// trailer that played ([fromStart]) the film starts at 0, even if a pause
+  /// left it behind, at the slot's speed (PlezyFin plan 88; the web does the
+  /// same).
+  Future<void> _oldSchoolFilmAfterPreRoll(OldSchoolTune tune, {required String reason, bool fromStart = false}) async {
     if (_shuttingDown) return;
     final generation = ++_os.tuneGeneration;
     try {
-      await _oldSchoolPlayFilm(tune, reason: reason, generation: generation);
+      await _oldSchoolPlayFilm(tune, reason: reason, generation: generation, fromStart: fromStart);
     } catch (e, st) {
       appLogger.w('Old School: film after its trailer failed ($reason)', error: e, stackTrace: st);
       if (mounted && generation == _os.tuneGeneration) showErrorSnackBar(context, t.oldSchool.tuneFailed);
@@ -639,7 +688,11 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     final slot = _os.slotTune;
     if (slot != null && slot.channelId == current) {
       if (_os.playingPreRoll) {
-        unawaited(_oldSchoolFilmAfterPreRoll(slot, reason: 'after trailer'));
+        // Only a trailer that stopped soon after it started hands over to the
+        // film's live point (PlezyFin plan 88).
+        final started = _os.preRollStartedAt;
+        final played = started != null && DateTime.now().difference(started) > OldSchoolPlayerState.preRollPlayed;
+        unawaited(_oldSchoolFilmAfterPreRoll(slot, reason: 'after trailer', fromStart: played));
         return;
       }
       final left = slot.now.end.difference(slot.serverNow(DateTime.now()));
@@ -774,7 +827,12 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
                     OldSchoolWatermark(controller: controller, channel: channel, controlsVisible: controlsVisible),
               ),
             if (full && channel != null)
-              OldSchoolPromoCorner(controller: controller, onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry))),
+              OldSchoolPromoCorner(
+                controller: controller,
+                trailer: () => _oldSchoolPromoPlaying,
+                trailerLeft: _oldSchoolOpenFileLeft,
+                onOpen: (entry) => unawaited(_oldSchoolOpenPromo(entry)),
+              ),
             // The main feature's poster corner (local/plans/playback-corner.md).
             if (full && channel != null && _posterCornerShows(context)) _posterCorner(),
             if (full && channel != null)

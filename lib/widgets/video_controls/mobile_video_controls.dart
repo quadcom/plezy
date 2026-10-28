@@ -367,8 +367,17 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
 
   /// Old School's side buttons have no tooltip on touch screens, so a short
   /// word sits under each. It hangs below the button, outside the layout, so
-  /// the row stays centred on the play/pause button.
-  Widget _captioned(String caption, Widget button) {
+  /// the row stays centred on the play/pause button. With [behind], it says
+  /// how far behind the schedule playback is instead, while it is
+  /// (PlezyFin plan 88).
+  Widget _captioned(String caption, Widget button, {String? Function()? behind}) {
+    const style = TextStyle(
+      color: Colors.white,
+      fontSize: 12,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.8,
+      shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
+    );
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
@@ -377,16 +386,9 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
         Positioned(
           bottom: -22,
           child: ExcludeSemantics(
-            child: Text(
-              caption,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.8,
-                shadows: [Shadow(color: Colors.black87, blurRadius: 4)],
-              ),
-            ),
+            child: behind == null
+                ? Text(caption, style: style)
+                : OldSchoolBehindLabel(text: behind, fallback: caption, style: style),
           ),
         ),
       ],
@@ -444,6 +446,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
                   iconSize: 44,
                   onPressed: oldSchool.onBackToLive,
                 ),
+                behind: oldSchool.behindText,
               ),
             ] else if (!widget.isLive) ...[
               const SizedBox(width: 24),
