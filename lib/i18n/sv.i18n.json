@@ -713,6 +713,7 @@
     "qualityOriginal": "Original",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Transkodning otillgänglig — spelar upp i originalkvalitet",
+    "playingOriginalAboveSource": "Den här filen har redan den kvaliteten eller lägre — spelar upp originalet",
     "subtitleUnavailableFallback": "De valda undertexterna kunde inte läsas in — uppspelningen fortsätter utan undertexter",
     "pipButton": "Bild-i-bild-läge",
     "aspectRatioButton": "Bildförhållande",

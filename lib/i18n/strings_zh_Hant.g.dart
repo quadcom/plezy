@@ -857,6 +857,7 @@ class _Translations$videoControls$zh_Hant extends Translations$videoControls$zh 
 	@override String get qualityOriginal => '原始畫質';
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => '無法使用轉碼 — 將以原始畫質播放';
+	@override String get playingOriginalAboveSource => '此檔案已等於或低於該畫質 — 將播放原始檔案';
 	@override String get subtitleUnavailableFallback => '無法載入所選字幕 — 將繼續無字幕播放';
 	@override String get pipButton => '子母畫面模式';
 	@override String get aspectRatioButton => '寬高比';
@@ -3679,6 +3680,7 @@ extension on TranslationsZhHant {
 			'videoControls.qualityOriginal' => '原始畫質',
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => '無法使用轉碼 — 將以原始畫質播放',
+			'videoControls.playingOriginalAboveSource' => '此檔案已等於或低於該畫質 — 將播放原始檔案',
 			'videoControls.subtitleUnavailableFallback' => '無法載入所選字幕 — 將繼續無字幕播放',
 			'videoControls.pipButton' => '子母畫面模式',
 			'videoControls.aspectRatioButton' => '寬高比',
@@ -4032,9 +4034,9 @@ extension on TranslationsZhHant {
 			'libraries.all' => '全部',
 			'libraries.clearAll' => '全部清除',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '確定要掃描「${title}」嗎？',
-			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '確定要分析「${title}」嗎？',
 			_ => null,
 		} ?? switch (path) {
+			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '確定要分析「${title}」嗎？',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '確定要重新整理「${title}」的中繼資料嗎？',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '確定要清空「${title}」的垃圾桶嗎？',
 			'libraries.manageLibraries' => '管理媒體庫',
@@ -4546,9 +4548,9 @@ extension on TranslationsZhHant {
 			'downloads.music' => '音樂',
 			'downloads.tracksQueued' => ({required Object count}) => '已將 ${count} 首曲目加入下載佇列',
 			'downloads.noDownloads' => '目前沒有下載內容',
-			'downloads.noDownloadsDescription' => '下載的內容將顯示在此處，供您離線觀看',
 			_ => null,
 		} ?? switch (path) {
+			'downloads.noDownloadsDescription' => '下載的內容將顯示在此處，供您離線觀看',
 			'downloads.downloadNow' => '下載',
 			'downloads.deleteDownload' => '刪除下載內容',
 			'downloads.retryDownload' => '重試下載',

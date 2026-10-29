@@ -713,6 +713,7 @@
     "qualityOriginal": "Asl nusxa",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Qayta kodlash mavjud emas — asl sifatda ijro etiladi",
+    "playingOriginalAboveSource": "Bu fayl allaqachon shu sifatda yoki pastroq — asl nusxa ijro etiladi",
     "subtitleUnavailableFallback": "Tanlangan subtitr yuklanmadi",
     "pipButton": "Rasm ichida rasm rejimi",
     "aspectRatioButton": "Tomonlar nisbati",

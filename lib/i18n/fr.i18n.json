@@ -713,6 +713,7 @@
     "qualityOriginal": "Originale",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Transcodage indisponible — lecture en qualité originale",
+    "playingOriginalAboveSource": "Ce fichier est déjà à cette qualité ou en dessous — lecture de l'original",
     "subtitleUnavailableFallback": "Impossible de charger les sous-titres sélectionnés — poursuite de la lecture sans sous-titres",
     "pipButton": "Mode image dans l’image",
     "aspectRatioButton": "Format d'image",

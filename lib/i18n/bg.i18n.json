@@ -713,6 +713,7 @@
     "qualityOriginal": "Оригинал",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Транскодирането не е налично — пуска се оригиналното качество",
+    "playingOriginalAboveSource": "Този файл вече е с това или по-ниско качество — пуска се оригиналът",
     "subtitleUnavailableFallback": "Избраните субтитри не можаха да се заредят — възпроизвеждането продължава без субтитри",
     "pipButton": "Режим картина в картината",
     "aspectRatioButton": "Съотношение на страните",

@@ -605,8 +605,9 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
           requestedMediaSourceId: selectedMediaSourceId,
           subtitleSelection: subtitleSelection,
         );
-        if (result.fallbackReason != null && !targetQualityPreset.isOriginal && mounted) {
-          showErrorSnackBar(context, t.videoControls.transcodeUnavailableFallback);
+        final fallbackReason = result.fallbackReason;
+        if (fallbackReason != null && !targetQualityPreset.isOriginal && mounted) {
+          _showTranscodeFallbackNotice(context, fallbackReason);
         }
 
         final settingsService = await SettingsService.getInstance();

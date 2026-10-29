@@ -2288,6 +2288,141 @@ void main() {
       expect(result.fallbackReason, TranscodeFallbackReason.directPlayOnly);
     });
 
+    /// A disc image has no clean original to open: played raw it shows its menus and every title in
+    /// disc order. The server refuses direct play for it, and Original must then take the conversion.
+    test('Original takes the conversion when the server refuses direct play', () async {
+      final scoped = _clientWithPlaybackInfo(
+        (_) async => jsonResponse({
+          'MediaSources': [
+            {
+              'Id': 'src-1',
+              'SupportsDirectPlay': false,
+              'SupportsDirectStream': false,
+              'TranscodingUrl': '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=disc-1',
+            },
+          ],
+        }),
+      );
+      addTearDown(scoped.close);
+
+      final result = await scoped.getPlaybackInitialization(
+        PlaybackInitializationOptions(
+          metadata: testMediaItem(
+            id: 'item-1',
+            backend: MediaBackend.jellyfin,
+            kind: MediaKind.movie,
+            serverId: 'srv-1',
+          ),
+          selectedMediaIndex: 0,
+          qualityPreset: TranscodeQualityPreset.original,
+        ),
+      );
+
+      expect(result.isTranscoding, isTrue);
+      expect(result.fallbackReason, isNull);
+      expect(Uri.parse(result.videoUrl!).path, '/Videos/item-1/master.m3u8');
+      expect(result.playSessionId, 'disc-1');
+    });
+
+    test('Original still direct-plays a source the server allows, TranscodingUrl or not', () async {
+      final scoped = _clientWithPlaybackInfo(
+        (_) async => jsonResponse({
+          'MediaSources': [
+            {
+              'Id': 'src-1',
+              'SupportsDirectPlay': true,
+              'TranscodingUrl': '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=s1',
+            },
+          ],
+        }),
+      );
+      addTearDown(scoped.close);
+
+      final result = await scoped.getPlaybackInitialization(
+        PlaybackInitializationOptions(
+          metadata: testMediaItem(
+            id: 'item-1',
+            backend: MediaBackend.jellyfin,
+            kind: MediaKind.movie,
+            serverId: 'srv-1',
+          ),
+          selectedMediaIndex: 0,
+          qualityPreset: TranscodeQualityPreset.original,
+        ),
+      );
+
+      expect(result.isTranscoding, isFalse);
+      expect(Uri.parse(result.videoUrl!).path, '/Videos/item-1/stream');
+    });
+
+    /// The server burns a disc image's embedded track at any quality, so the request withholds
+    /// External up front and the client does not fetch a second copy of what is in the picture.
+    test('a disc image at Original asks for burn-in and fetches no copy of the burned track', () async {
+      final bodies = <String>[];
+      const embedded = {
+        'Index': 2,
+        'Type': 'Subtitle',
+        'Codec': 'srt',
+        'Language': 'eng',
+        'DisplayTitle': 'English - SRT',
+        'IsExternal': false,
+      };
+      final scoped = _clientWithPlaybackInfo(
+        (request) async {
+          bodies.add(request.body);
+          return jsonResponse({
+            'MediaSources': [
+              {
+                'Id': 'src-1',
+                'VideoType': 'Iso',
+                'SupportsDirectPlay': false,
+                'DefaultSubtitleStreamIndex': 2,
+                'TranscodingUrl':
+                    '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=s1&SubtitleMethod=Encode&SubtitleStreamIndex=2',
+                'MediaStreams': [
+                  {'Index': 0, 'Type': 'Video'},
+                  {...embedded, 'DeliveryMethod': 'Encode'},
+                ],
+              },
+            ],
+          });
+        },
+        itemSources: [
+          {
+            'Id': 'src-1',
+            'Container': 'iso',
+            'VideoType': 'Iso',
+            'DefaultSubtitleStreamIndex': 2,
+            'MediaStreams': [
+              {'Index': 0, 'Type': 'Video'},
+              embedded,
+            ],
+          },
+        ],
+      );
+      addTearDown(scoped.close);
+
+      final result = await scoped.getPlaybackInitialization(
+        PlaybackInitializationOptions(
+          metadata: testMediaItem(
+            id: 'item-1',
+            backend: MediaBackend.jellyfin,
+            kind: MediaKind.movie,
+            serverId: 'srv-1',
+          ),
+          selectedMediaIndex: 0,
+          qualityPreset: TranscodeQualityPreset.original,
+        ),
+      );
+
+      final profile =
+          ((jsonDecode(bodies.single) as Map<String, dynamic>)['DeviceProfile']
+                  as Map<String, dynamic>)['SubtitleProfiles']
+              as List;
+      expect(profile.cast<Map<String, Object?>>().where((entry) => entry['Method'] == 'External'), isEmpty);
+      expect(result.isTranscoding, isTrue);
+      expect(result.subtitleSidecars.where((sidecar) => sidecar.sourceStreamId == 2), isEmpty);
+    });
     test('video download rejects authentication and cancellation', () async {
       final cases = <(String, Future<http.Response> Function(http.Request))>[
         ('401', (_) async => http.Response('{}', 401, headers: {'content-type': 'application/json'})),

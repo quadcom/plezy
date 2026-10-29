@@ -196,10 +196,9 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
         playbackContext = await playbackDataFuture;
         if (!mounted || player != currentPlayer) return;
 
-        if (playbackContext.result.fallbackReason != null && !_selectedQualityPreset.isOriginal) {
-          if (mounted) {
-            showErrorSnackBar(context, t.videoControls.transcodeUnavailableFallback);
-          }
+        final fallbackReason = playbackContext.result.fallbackReason;
+        if (fallbackReason != null && !_selectedQualityPreset.isOriginal) {
+          if (mounted) _showTranscodeFallbackNotice(context, fallbackReason);
         }
       }
       final result = playbackContext.result;
@@ -408,5 +407,16 @@ extension _VideoPlayerPlaybackStartMethods on VideoPlayerScreenState {
     }
     _hasFatalPlaybackError = true;
     if (_playbackFailureMessage == null) _presentPlaybackFailure(message);
+  }
+}
+
+/// Tells the viewer a capped quality is playing the original: a plain notice when the file is
+/// already at or below that quality, the error style only when the conversion really failed.
+void _showTranscodeFallbackNotice(BuildContext context, TranscodeFallbackReason reason) {
+  final notice = transcodeFallbackNotice(reason);
+  if (notice.isError) {
+    showErrorSnackBar(context, notice.message);
+  } else {
+    showAppSnackBar(context, notice.message);
   }
 }

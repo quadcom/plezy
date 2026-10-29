@@ -710,6 +710,7 @@
     "qualityOriginal": "オリジナル",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "トランスコードは利用できません — オリジナル画質で再生中",
+    "playingOriginalAboveSource": "このファイルはすでにその画質以下です — オリジナルで再生中",
     "subtitleUnavailableFallback": "選択した字幕を読み込めませんでした — 字幕なしで再生を続けます",
     "pipButton": "ピクチャーインピクチャーモード",
     "aspectRatioButton": "アスペクト比",

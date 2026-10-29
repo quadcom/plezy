@@ -74,3 +74,14 @@ String localizedErrorReason(Object error) {
   if (error is MediaServerAuthException) return t.errors.reasonRefused;
   return t.errors.reasonUnexpected;
 }
+
+/// The localized notice for a capped quality that ended up playing the original, and whether it
+/// is a real failure.
+///
+/// [TranscodeFallbackReason.directPlayOnly] is not one: the chosen quality is at or above the
+/// file's own, so the server plays it as is. Only [TranscodeFallbackReason.decisionFailed] means
+/// the conversion was asked for and could not be had.
+({String message, bool isError}) transcodeFallbackNotice(TranscodeFallbackReason reason) => switch (reason) {
+  TranscodeFallbackReason.directPlayOnly => (message: t.videoControls.playingOriginalAboveSource, isError: false),
+  TranscodeFallbackReason.decisionFailed => (message: t.videoControls.transcodeUnavailableFallback, isError: true),
+};

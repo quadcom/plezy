@@ -713,6 +713,7 @@
     "qualityOriginal": "Original",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Transkodierung nicht verfügbar – Wiedergabe in Originalqualität",
+    "playingOriginalAboveSource": "Diese Datei hat bereits diese oder eine niedrigere Qualität – Wiedergabe im Original",
     "subtitleUnavailableFallback": "Die ausgewählten Untertitel konnten nicht geladen werden – die Wiedergabe wird ohne Untertitel fortgesetzt",
     "pipButton": "Bild-in-Bild-Modus",
     "aspectRatioButton": "Seitenverhältnis",

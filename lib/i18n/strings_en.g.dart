@@ -2286,6 +2286,9 @@ class Translations$videoControls$en {
 	/// en: 'Transcoding unavailable — playing original quality'
 	String get transcodeUnavailableFallback => 'Transcoding unavailable — playing original quality';
 
+	/// en: 'This file is already at or below that quality — playing the original'
+	String get playingOriginalAboveSource => 'This file is already at or below that quality — playing the original';
+
 	/// en: 'Selected subtitles could not be loaded — continuing without subtitles'
 	String get subtitleUnavailableFallback => 'Selected subtitles could not be loaded — continuing without subtitles';
 
@@ -8574,6 +8577,7 @@ extension on Translations {
 			'videoControls.qualityOriginal' => 'Original',
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transcoding unavailable — playing original quality',
+			'videoControls.playingOriginalAboveSource' => 'This file is already at or below that quality — playing the original',
 			'videoControls.subtitleUnavailableFallback' => 'Selected subtitles could not be loaded — continuing without subtitles',
 			'videoControls.pipButton' => 'Picture-in-Picture mode',
 			'videoControls.aspectRatioButton' => 'Aspect ratio',
@@ -8869,9 +8873,9 @@ extension on Translations {
 			'discover.nextUpIn' => ({required Object library}) => 'Next Up in ${library}',
 			'discover.recentlyAdded' => 'Recently Added',
 			'discover.recentlyAddedIn' => ({required Object library}) => 'Recently Added in ${library}',
-			'discover.bannerComingSoon' => 'COMING SOON',
 			_ => null,
 		} ?? switch (path) {
+			'discover.bannerComingSoon' => 'COMING SOON',
 			'discover.bannerNewMovie' => 'New Movie',
 			'discover.bannerNewEpisode' => 'New Episode',
 			'discover.bannerNewShow' => 'New Show',
@@ -9383,9 +9387,9 @@ extension on Translations {
 			'music.noLyrics' => 'No lyrics available',
 			'music.sleepTimer' => 'Sleep timer',
 			'music.sleepTimerEndOfTrack' => 'End of track',
-			'music.sleepTimerMinutes' => ({required Object n}) => '${n} minutes',
 			_ => null,
 		} ?? switch (path) {
+			'music.sleepTimerMinutes' => ({required Object n}) => '${n} minutes',
 			'music.stopPlayback' => 'Stop playback',
 			'music.previousTrack' => 'Previous track',
 			'music.nextTrack' => 'Next track',
@@ -9897,9 +9901,9 @@ extension on Translations {
 			'seerr.requestSubmitted' => 'Request submitted',
 			'seerr.requestFailed' => ({required Object error}) => 'Request failed: ${error}',
 			'seerr.requestsLoadFailed' => 'Couldn\'t load request options',
-			'seerr.nothingToRequest' => 'Everything is already available or requested.',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.nothingToRequest' => 'Everything is already available or requested.',
 			'seerr.statusAvailable' => 'Available',
 			'seerr.statusPartiallyAvailable' => 'Partially available',
 			'seerr.statusRequested' => 'Requested',

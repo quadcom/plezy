@@ -713,6 +713,7 @@
     "qualityOriginal": "Orijinal",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Kod dönüştürme kullanılamıyor — orijinal kalitede oynatılıyor",
+    "playingOriginalAboveSource": "Bu dosya zaten bu kalitede veya daha düşük — orijinal oynatılıyor",
     "subtitleUnavailableFallback": "Seçilen altyazı yüklenemedi — altyazısız devam ediliyor",
     "pipButton": "Pencere İçinde Pencere modu",
     "aspectRatioButton": "En boy oranı",

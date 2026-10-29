@@ -713,6 +713,7 @@
     "qualityOriginal": "Түпнұсқа",
     "qualityPresetLabel": "${resolution}p ${bitrate} Мбит/с",
     "transcodeUnavailableFallback": "Түрлендіру қолжетімсіз — түпнұсқа сапада ойнатылады",
+    "playingOriginalAboveSource": "Бұл файлдың сапасы онсыз да осы деңгейде не одан төмен — түпнұсқа ойнатылады",
     "subtitleUnavailableFallback": "Таңдалған субтитрлерді жүктеу мүмкін болмады — субтитрсіз жалғасады",
     "pipButton": "Суреттегі сурет режимі",
     "aspectRatioButton": "Тараптар қатынасы",

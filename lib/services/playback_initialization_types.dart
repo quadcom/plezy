@@ -94,7 +94,8 @@ class PlaybackSubtitleSidecar {
 
 /// Reason the transcode branch fell back to direct play.
 enum TranscodeFallbackReason {
-  /// Plex decision said only direct-play is available.
+  /// The server will play the file as is: the chosen quality is at or above the file's own, so
+  /// there is nothing to convert. Not a failure.
   directPlayOnly,
 
   /// The decision endpoint errored (HTTP error, code >= 2000, parse failure).

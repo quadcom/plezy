@@ -719,6 +719,7 @@
     "qualityOriginal": "Oryginalna",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Transkodowanie niedostępne — odtwarzanie w oryginalnej jakości",
+    "playingOriginalAboveSource": "Ten plik ma już taką lub niższą jakość — odtwarzanie oryginału",
     "subtitleUnavailableFallback": "Nie udało się wczytać wybranych napisów — odtwarzanie jest kontynuowane bez napisów",
     "pipButton": "Tryb obraz w obrazie",
     "aspectRatioButton": "Proporcje",

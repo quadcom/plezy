@@ -713,6 +713,7 @@
     "qualityOriginal": "Eredeti",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "A transzkódolás nem érhető el — eredeti minőség lejátszása",
+    "playingOriginalAboveSource": "Ez a fájl már ilyen vagy alacsonyabb minőségű — az eredeti lejátszása",
     "subtitleUnavailableFallback": "A kiválasztott feliratot nem sikerült betölteni — folytatás felirat nélkül",
     "pipButton": "Kép a képben mód",
     "aspectRatioButton": "Méretarány",

@@ -710,6 +710,7 @@
     "qualityOriginal": "原始畫質",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "無法使用轉碼 — 將以原始畫質播放",
+    "playingOriginalAboveSource": "此檔案已等於或低於該畫質 — 將播放原始檔案",
     "subtitleUnavailableFallback": "無法載入所選字幕 — 將繼續無字幕播放",
     "pipButton": "子母畫面模式",
     "aspectRatioButton": "寬高比",

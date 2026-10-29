@@ -713,6 +713,7 @@
     "qualityOriginal": "Origineel",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Transcoderen niet beschikbaar — originele kwaliteit wordt afgespeeld",
+    "playingOriginalAboveSource": "Dit bestand heeft al die kwaliteit of lager — origineel wordt afgespeeld",
     "subtitleUnavailableFallback": "De geselecteerde ondertitels konden niet worden geladen — afspelen gaat door zonder ondertitels",
     "pipButton": "Beeld-in-beeldmodus",
     "aspectRatioButton": "Beeldverhouding",

@@ -126,6 +126,23 @@ void main() {
       expect(reason, isNot(contains('MediaServerHttpException')));
     });
   });
+
+  group('transcodeFallbackNotice', () {
+    test('a quality at or above the file plays the original as a plain notice', () {
+      final notice = transcodeFallbackNotice(TranscodeFallbackReason.directPlayOnly);
+
+      expect(notice.message, t.videoControls.playingOriginalAboveSource);
+      expect(notice.message, isNot(t.videoControls.transcodeUnavailableFallback));
+      expect(notice.isError, isFalse);
+    });
+
+    test('a failed decision keeps the unavailable wording and the error style', () {
+      final notice = transcodeFallbackNotice(TranscodeFallbackReason.decisionFailed);
+
+      expect(notice.message, t.videoControls.transcodeUnavailableFallback);
+      expect(notice.isError, isTrue);
+    });
+  });
 }
 
 class _RecordingLogOutput extends LogOutput {

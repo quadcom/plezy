@@ -223,7 +223,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
   ///
   /// Always POSTs `/Items/{id}/PlaybackInfo` so the server can resolve external
   /// audio/subtitle streams server-side. Uses the returned `TranscodingUrl`
-  /// when the caller asked for a capped quality; otherwise — and on any
+  /// when the caller asked for a capped quality, or when the server refuses
+  /// direct play for the source (a disc image) at any quality; otherwise — and on any
   /// DirectPlay decision — builds the shared static direct stream URL
   /// (`/Videos/{id}/stream?Static=true` plus the dialect's token query) itself.
   ///
@@ -300,6 +301,12 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
               track.isExternalFile &&
               CodecUtils.isTextSubtitleCodec(track.codec),
         );
+    // A disc image (`.iso`, Blu-ray or DVD folder) is never played raw: the server refuses
+    // direct play for it at any quality and converts it instead, so a selected embedded track
+    // ends up in the picture even at Original. Asking for that up front keeps the request,
+    // the server's answer and the burned-row bookkeeping below in step.
+    final videoType = bundle.selectedSource['VideoType'];
+    final isDiscImage = !isTrack && videoType is String && videoType.isNotEmpty && videoType != 'VideoFile';
     final int? maxStreamingBitrate = wantsOriginal
         ? null
         : isTrack
@@ -325,7 +332,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         // burns the selected embedded stream in rather than serving it as a file the client
         // would fetch as well. A selected external *file* keeps `External`, so it is still
         // delivered as a file - the one case where the client genuinely holds it.
-        burnSubtitles: !wantsOriginal && !requestedSubtitleIsExternalFile,
+        burnSubtitles: (!wantsOriginal || isDiscImage) && !requestedSubtitleIsExternalFile,
       );
       chosenSource = _selectNegotiatedMediaSource(negotiation['MediaSources'], bundle.selectedSourceId);
     } catch (error, stackTrace) {
@@ -357,7 +364,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       }
 
       final transcodingUrl = chosenSource['TranscodingUrl'];
-      if (!wantsOriginal && transcodingUrl is String && transcodingUrl.isNotEmpty) {
+      // Original normally ignores a TranscodingUrl, but a source the server will not
+      // direct-play (a disc image) has no clean original to open: the raw file plays its
+      // menus and every title in disc order. The server's conversion is the only good path.
+      final refusesDirectPlay = flexibleBoolNullable(chosenSource['SupportsDirectPlay']) == false;
+      if ((!wantsOriginal || refusesDirectPlay) && transcodingUrl is String && transcodingUrl.isNotEmpty) {
         // TranscodingUrl is server-relative and already encodes container,
         // codecs, MediaSourceId, and PlaySessionId; we just append the
         // dialect's token query parameter for auth.

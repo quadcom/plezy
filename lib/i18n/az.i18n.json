@@ -713,6 +713,7 @@
     "qualityOriginal": "Orijinal",
     "qualityPresetLabel": "${resolution}p ${bitrate} Mbps",
     "transcodeUnavailableFallback": "Kod dəyişmə əlçatan deyil — orijinal keyfiyyətdə oynadılır",
+    "playingOriginalAboveSource": "Bu fayl artıq həmin keyfiyyətdə və ya ondan aşağıdır — orijinal oynadılır",
     "subtitleUnavailableFallback": "Seçilmiş altyazı yüklənə bilmədi — altyazısız davam edilir",
     "pipButton": "Pəncərə daxilində pəncərə rejimi",
     "aspectRatioButton": "Tərəf nisbəti",
