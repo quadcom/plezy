@@ -729,6 +729,9 @@ abstract class MediaServerClient {
   /// timeline param so the server can use it. Jellyfin ignores [duration] but
   /// uses [mediaSourceId], [liveStreamId], and stream indexes for active-session
   /// state. Jellyfin needs [liveStreamId] to close an auto-opened live source.
+  ///
+  /// [isOldSchool] labels a play started from the Old School guide on all three
+  /// calls; PlezyFin then saves nothing for it (PLAN_PFN_93). Plex ignores it.
   Future<void> reportPlaybackStarted({
     required String itemId,
     required Duration position,
@@ -739,6 +742,7 @@ abstract class MediaServerClient {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   });
 
   /// Progress heartbeat after [reportPlaybackStarted]. State is derived from
@@ -755,6 +759,7 @@ abstract class MediaServerClient {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   });
 
   /// End-of-session signal. Plex sends `state=stopped`; Jellyfin closes
@@ -775,6 +780,7 @@ abstract class MediaServerClient {
     int? audioStreamIndex,
     int? subtitleStreamIndex,
     PlaybackReportMetadata report = const PlaybackReportMetadata.live(),
+    bool isOldSchool = false,
   });
 
   /// Resolve the video URL, media info, and external subtitle list for

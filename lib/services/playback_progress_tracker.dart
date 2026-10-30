@@ -223,6 +223,9 @@ class PlaybackProgressTracker {
             itemId: metadata.id,
             playSessionId: playSessionId,
             playMethod: playMethod,
+            // Old School is the only play that leaves no trace, and it now says
+            // so on every report rather than leaving the server to guess.
+            isOldSchool: !recordWatchState,
             onDelivered: _onReportDelivered,
           );
   }

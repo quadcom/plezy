@@ -4755,6 +4755,7 @@ class PlexClient
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) => updateProgress(
     itemId,
     time: position.inMilliseconds,
@@ -4775,6 +4776,7 @@ class PlexClient
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) => updateProgress(
     itemId,
     time: position.inMilliseconds,
@@ -4796,6 +4798,7 @@ class PlexClient
     int? audioStreamIndex,
     int? subtitleStreamIndex,
     PlaybackReportMetadata report = const PlaybackReportMetadata.live(),
+    bool isOldSchool = false,
   }) => updateProgress(
     itemId,
     time: position.inMilliseconds,

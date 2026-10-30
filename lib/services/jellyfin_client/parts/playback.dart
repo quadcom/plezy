@@ -1005,6 +1005,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) async {
     final response = await _http.post(
       path,
@@ -1022,6 +1023,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         'PlaybackOrder': 'Default',
         'PlaySessionId': ?_resolvePlaySessionId(playSessionId, itemId),
         'LiveStreamId': ?liveStreamId,
+        // Only a labelled play carries the field, so every other body is unchanged.
+        if (isOldSchool) 'IsOldSchool': true,
       },
     );
     throwIfHttpError(response);
@@ -1058,6 +1061,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) => _postPlayingState(
     '/Sessions/Playing',
     itemId: itemId,
@@ -1069,6 +1073,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     mediaSourceId: mediaSourceId,
     audioStreamIndex: audioStreamIndex,
     subtitleStreamIndex: subtitleStreamIndex,
+    isOldSchool: isOldSchool,
   );
 
   /// Periodic progress ping (5–10s cadence is typical). Server uses this to
@@ -1086,6 +1091,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) => _postPlayingState(
     '/Sessions/Playing/Progress',
     itemId: itemId,
@@ -1097,6 +1103,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     mediaSourceId: mediaSourceId,
     audioStreamIndex: audioStreamIndex,
     subtitleStreamIndex: subtitleStreamIndex,
+    isOldSchool: isOldSchool,
   );
 
   /// End-of-playback signal. Final position becomes the resume bookmark.
@@ -1116,6 +1123,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     int? audioStreamIndex,
     int? subtitleStreamIndex,
     PlaybackReportMetadata report = const PlaybackReportMetadata.live(),
+    bool isOldSchool = false,
   }) async {
     final response = await _http.post(
       '/Sessions/Playing/Stopped',
@@ -1128,6 +1136,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         'Failed': false,
         'PlaySessionId': ?_resolvePlaySessionId(playSessionId, itemId),
         'LiveStreamId': ?liveStreamId,
+        if (isOldSchool) 'IsOldSchool': true,
       },
     );
     throwIfHttpError(response);

@@ -592,6 +592,55 @@ void main() {
       expect(bodies.last.containsKey('SubtitleStreamIndex'), isFalse);
     });
 
+    test('an Old School play is labelled on all three reports, and nothing else is', () async {
+      final requests = <({String path, Map<String, dynamic> body})>[];
+      final scoped = JellyfinClient.forTesting(
+        connection: _conn(),
+        httpClient: MockClient((request) async {
+          requests.add((path: request.url.path, body: jsonDecode(request.body) as Map<String, dynamic>));
+          return http.Response('', 204);
+        }),
+      );
+      addTearDown(scoped.close);
+
+      for (final isOldSchool in [true, false]) {
+        await scoped.reportPlaybackStarted(
+          itemId: 'item-1',
+          position: Duration.zero,
+          playSessionId: 'play-1',
+          isOldSchool: isOldSchool,
+        );
+        await scoped.reportPlaybackProgress(
+          itemId: 'item-1',
+          position: const Duration(seconds: 10),
+          duration: const Duration(seconds: 100),
+          playSessionId: 'play-1',
+          isOldSchool: isOldSchool,
+        );
+        await scoped.reportPlaybackStopped(
+          itemId: 'item-1',
+          position: const Duration(seconds: 20),
+          playSessionId: 'play-1',
+          isOldSchool: isOldSchool,
+        );
+      }
+
+      expect(requests.map((r) => r.path), [
+        '/Sessions/Playing',
+        '/Sessions/Playing/Progress',
+        '/Sessions/Playing/Stopped',
+        '/Sessions/Playing',
+        '/Sessions/Playing/Progress',
+        '/Sessions/Playing/Stopped',
+      ]);
+      for (final labelled in requests.take(3)) {
+        expect(labelled.body['IsOldSchool'], isTrue, reason: labelled.path);
+      }
+      for (final normal in requests.skip(3)) {
+        expect(normal.body.containsKey('IsOldSchool'), isFalse, reason: normal.path);
+      }
+    });
+
     test('live playback reports preserve the same server session identity', () async {
       final requests = <({String path, Map<String, dynamic> body})>[];
       final scoped = JellyfinClient.forTesting(

@@ -17,6 +17,7 @@ class PlaybackReportCall {
     this.audioStreamIndex,
     this.subtitleStreamIndex,
     this.report = const PlaybackReportMetadata.live(),
+    this.isOldSchool = false,
   });
 
   final PlaybackReportKind kind;
@@ -31,6 +32,7 @@ class PlaybackReportCall {
   final int? audioStreamIndex;
   final int? subtitleStreamIndex;
   final PlaybackReportMetadata report;
+  final bool isOldSchool;
 }
 
 /// Carries the three playback-reporting signatures so fakes implement the
@@ -49,6 +51,7 @@ mixin PlaybackReportRecorder {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) {
     return onPlaybackReport(
       PlaybackReportCall(
@@ -62,6 +65,7 @@ mixin PlaybackReportRecorder {
         mediaSourceId: mediaSourceId,
         audioStreamIndex: audioStreamIndex,
         subtitleStreamIndex: subtitleStreamIndex,
+        isOldSchool: isOldSchool,
       ),
     );
   }
@@ -77,6 +81,7 @@ mixin PlaybackReportRecorder {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) {
     return onPlaybackReport(
       PlaybackReportCall(
@@ -91,6 +96,7 @@ mixin PlaybackReportRecorder {
         mediaSourceId: mediaSourceId,
         audioStreamIndex: audioStreamIndex,
         subtitleStreamIndex: subtitleStreamIndex,
+        isOldSchool: isOldSchool,
       ),
     );
   }
@@ -105,6 +111,7 @@ mixin PlaybackReportRecorder {
     int? audioStreamIndex,
     int? subtitleStreamIndex,
     PlaybackReportMetadata report = const PlaybackReportMetadata.live(),
+    bool isOldSchool = false,
   }) {
     return onPlaybackReport(
       PlaybackReportCall(
@@ -118,6 +125,7 @@ mixin PlaybackReportRecorder {
         audioStreamIndex: audioStreamIndex,
         subtitleStreamIndex: subtitleStreamIndex,
         report: report,
+        isOldSchool: isOldSchool,
       ),
     );
   }

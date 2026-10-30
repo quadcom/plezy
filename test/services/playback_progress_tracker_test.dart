@@ -125,6 +125,9 @@ class _FakePlexClient with PlaybackReportRecorder implements PlexClient {
   /// PlaySessionIds forwarded through the reportPlayback* methods.
   final List<String?> playbackSessionIds = [];
 
+  /// The Old School label of every reportPlayback* call, in order.
+  final List<bool> oldSchoolLabels = [];
+
   final List<({String? mediaSourceId, int? audioStreamIndex, int? subtitleStreamIndex})> playbackStreamSelections = [];
 
   /// If non-null, the next reportPlayback*/markWatched call throws this.
@@ -152,6 +155,7 @@ class _FakePlexClient with PlaybackReportRecorder implements PlexClient {
   @override
   Future<void> onPlaybackReport(PlaybackReportCall call) {
     playbackSessionIds.add(call.playSessionId);
+    oldSchoolLabels.add(call.isOldSchool);
     playbackStreamSelections.add((
       mediaSourceId: call.mediaSourceId,
       audioStreamIndex: call.audioStreamIndex,
@@ -209,6 +213,7 @@ class _DelayedStartClient extends _FakePlexClient {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) async {
     await startCompleter.future;
     await super.reportPlaybackStarted(
@@ -221,6 +226,7 @@ class _DelayedStartClient extends _FakePlexClient {
       mediaSourceId: mediaSourceId,
       audioStreamIndex: audioStreamIndex,
       subtitleStreamIndex: subtitleStreamIndex,
+      isOldSchool: isOldSchool,
     );
   }
 }
@@ -241,6 +247,7 @@ class _DelayedProgressClient extends _FakePlexClient {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) async {
     progressAttempts.add(position.inMilliseconds);
     final gate = Completer<void>();
@@ -257,6 +264,7 @@ class _DelayedProgressClient extends _FakePlexClient {
       mediaSourceId: mediaSourceId,
       audioStreamIndex: audioStreamIndex,
       subtitleStreamIndex: subtitleStreamIndex,
+      isOldSchool: isOldSchool,
     );
   }
 }
@@ -279,6 +287,7 @@ class _FailingProgressClient extends _FakePlexClient {
     String? mediaSourceId,
     int? audioStreamIndex,
     int? subtitleStreamIndex,
+    bool isOldSchool = false,
   }) async {
     progressAttempts++;
     if (failuresRemaining > 0) {
@@ -296,6 +305,7 @@ class _FailingProgressClient extends _FakePlexClient {
       mediaSourceId: mediaSourceId,
       audioStreamIndex: audioStreamIndex,
       subtitleStreamIndex: subtitleStreamIndex,
+      isOldSchool: isOldSchool,
     );
   }
 }
@@ -526,6 +536,52 @@ void main() {
 
       expect(client.updateProgressCalls.map((call) => call.state), ['playing', 'playing', 'stopped']);
       expect(client.playbackSessionIds, ['play-session-1', 'play-session-1', 'play-session-1']);
+    });
+
+    test('an Old School tracker labels start, progress and stop, also after a reload re-arms it', () async {
+      final client = _FakePlexClient();
+      final player = _FakePlayer(position: const Duration(seconds: 5), duration: const Duration(seconds: 100));
+      final tracker = PlaybackProgressTracker(
+        client: client,
+        metadata: _meta(ratingKey: '42'),
+        player: player,
+        isOffline: false,
+        recordWatchState: false,
+      );
+      addTearDown(tracker.dispose);
+
+      await tracker.sendProgress('playing');
+      await Future<void>.delayed(Duration.zero);
+      await tracker.sendProgress('playing');
+      await Future<void>.delayed(Duration.zero);
+      await tracker.sendProgress('stopped');
+      // A quality change or file swap reloads in place: stop, re-arm, start again.
+      tracker.resumeAfterStoppedReport();
+      await tracker.sendProgress('playing');
+      await Future<void>.delayed(Duration.zero);
+      await tracker.sendProgress('stopped');
+
+      expect(client.updateProgressCalls.map((call) => call.state), [
+        'playing',
+        'playing',
+        'stopped',
+        'playing',
+        'stopped',
+      ]);
+      expect(client.oldSchoolLabels, everyElement(isTrue));
+    });
+
+    test('a normal tracker never labels its reports as Old School', () async {
+      final client = _FakePlexClient();
+      final player = _FakePlayer(position: const Duration(seconds: 5), duration: const Duration(seconds: 100));
+      final tracker = PlaybackProgressTracker(client: client, metadata: _meta(), player: player, isOffline: false);
+      addTearDown(tracker.dispose);
+
+      await tracker.sendProgress('playing');
+      await Future<void>.delayed(Duration.zero);
+      await tracker.sendProgress('stopped');
+
+      expect(client.oldSchoolLabels, [false, false]);
     });
 
     test('coalesces concurrent start reports while the first start is in flight', () async {

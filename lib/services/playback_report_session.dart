@@ -64,6 +64,7 @@ class PlaybackReportSession {
     this.playSessionId,
     this.playMethod,
     this.liveStreamId,
+    this.isOldSchool = false,
     this.onDelivered,
   });
 
@@ -72,6 +73,10 @@ class PlaybackReportSession {
   final String? playSessionId;
   final String? playMethod;
   final String? liveStreamId;
+
+  /// Labels every start, progress and stop report of an Old School play, so the
+  /// server saves nothing for it however the player restarts (PLAN_PFN_93).
+  final bool isOldSchool;
 
   /// Invoked with each snapshot the backend actually received, right after its
   /// report call returns.
@@ -266,6 +271,7 @@ class PlaybackReportSession {
       mediaSourceId: selection.mediaSourceId,
       audioStreamIndex: selection.audioStreamIndex,
       subtitleStreamIndex: selection.subtitleStreamIndex,
+      isOldSchool: isOldSchool,
     );
     onDelivered?.call(snapshot);
   }
@@ -284,6 +290,7 @@ class PlaybackReportSession {
       mediaSourceId: selection.mediaSourceId,
       audioStreamIndex: selection.audioStreamIndex,
       subtitleStreamIndex: selection.subtitleStreamIndex,
+      isOldSchool: isOldSchool,
     );
     onDelivered?.call(snapshot);
     return true;
@@ -301,6 +308,7 @@ class PlaybackReportSession {
       audioStreamIndex: selection.audioStreamIndex,
       subtitleStreamIndex: selection.subtitleStreamIndex,
       report: snapshot.report,
+      isOldSchool: isOldSchool,
     );
     onDelivered?.call(snapshot);
   }
