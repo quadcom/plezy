@@ -37,6 +37,7 @@ import '../../focus/transport_keys.dart';
 import '../../database/app_database.dart';
 import '../../media/media_backend.dart';
 import '../../media/media_item.dart';
+import '../../media/server_conversion.dart';
 import '../../media/stepped_seek.dart';
 import '../../models/livetv_capture_buffer.dart';
 import '../../providers/multi_server_provider.dart';
@@ -555,6 +556,7 @@ class PlexVideoControls extends StatefulWidget {
   final TranscodeQualityPreset selectedQualityPreset;
   final bool serverSupportsTranscoding;
   final bool isTranscoding;
+  final ServerConversion? serverConversion;
   final bool isOfflinePlayback;
   final List<MediaAudioTrack> sourceAudioTracks;
   final int? selectedAudioStreamId;
@@ -705,6 +707,7 @@ class PlexVideoControls extends StatefulWidget {
     this.selectedQualityPreset = TranscodeQualityPreset.original,
     this.serverSupportsTranscoding = false,
     this.isTranscoding = false,
+    this.serverConversion,
     this.isOfflinePlayback = false,
     this.sourceAudioTracks = const [],
     this.selectedAudioStreamId,

@@ -866,6 +866,12 @@ class _Translations$videoControls$ru extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Мбит/с';
 	@override String get transcodeUnavailableFallback => 'Транскодирование недоступно — воспроизведение в оригинальном качестве';
 	@override String get playingOriginalAboveSource => 'Этот файл уже в этом качестве или ниже — воспроизводится оригинал';
+	@override String get serverConverted => 'Преобразовано сервером';
+	@override String get conversionReasonBitrateLimit => 'лимит вне дома';
+	@override String get conversionReasonSound => 'звук преобразован';
+	@override String get conversionReasonPicture => 'формат изображения не поддерживается';
+	@override String get conversionReasonSubtitles => 'субтитры вшиты в изображение';
+	@override String get conversionReasonDiscImage => 'образ диска';
 	@override String get subtitleUnavailableFallback => 'Не удалось загрузить выбранные субтитры — воспроизведение продолжится без субтитров';
 	@override String get pipButton => 'Режим «картинка в картинке»';
 	@override String get aspectRatioButton => 'Соотношение сторон';
@@ -3713,6 +3719,12 @@ extension on TranslationsRu {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Мбит/с',
 			'videoControls.transcodeUnavailableFallback' => 'Транскодирование недоступно — воспроизведение в оригинальном качестве',
 			'videoControls.playingOriginalAboveSource' => 'Этот файл уже в этом качестве или ниже — воспроизводится оригинал',
+			'videoControls.serverConverted' => 'Преобразовано сервером',
+			'videoControls.conversionReasonBitrateLimit' => 'лимит вне дома',
+			'videoControls.conversionReasonSound' => 'звук преобразован',
+			'videoControls.conversionReasonPicture' => 'формат изображения не поддерживается',
+			'videoControls.conversionReasonSubtitles' => 'субтитры вшиты в изображение',
+			'videoControls.conversionReasonDiscImage' => 'образ диска',
 			'videoControls.subtitleUnavailableFallback' => 'Не удалось загрузить выбранные субтитры — воспроизведение продолжится без субтитров',
 			'videoControls.pipButton' => 'Режим «картинка в картинке»',
 			'videoControls.aspectRatioButton' => 'Соотношение сторон',
@@ -4060,14 +4072,14 @@ extension on TranslationsRu {
 			'libraries.noLibrariesFound' => 'Библиотеки не найдены',
 			'libraries.allLibrariesHidden' => 'Все библиотеки скрыты',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Скрытые библиотеки (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Эта библиотека пуста',
 			'libraries.noItemsMatchFilters' => 'Нет элементов, соответствующих активным фильтрам',
 			'libraries.resetFilters' => 'Сбросить фильтры',
 			'libraries.all' => 'Все',
 			'libraries.clearAll' => 'Очистить все',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Вы уверены, что хотите сканировать "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Вы уверены, что хотите проанализировать "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Вы уверены, что хотите обновить метаданные для "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Вы уверены, что хотите очистить корзину для "${title}"?',
@@ -4574,14 +4586,14 @@ extension on TranslationsRu {
 			'watchTogether.errors.sessionEnded' => 'Организатор завершил сессию',
 			'watchTogether.errors.sessionUnavailable' => 'Не удалось возобновить эту сессию. Присоединитесь к комнате или создайте её, чтобы продолжить.',
 			'downloads.title' => 'Загрузки',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Управление',
 			'downloads.tvShows' => 'Сериалы',
 			'downloads.movies' => 'Фильмы',
 			'downloads.music' => 'Музыка',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} треков в очереди на загрузку',
 			'downloads.noDownloads' => 'Загрузок пока нет',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Загруженный контент появится здесь для просмотра офлайн',
 			'downloads.downloadNow' => 'Загрузить',
 			'downloads.deleteDownload' => 'Удалить загрузку',
@@ -5088,6 +5100,8 @@ extension on TranslationsRu {
 			'addServer.noReachableServer' => ({required Object product}) => 'Не найдено ни одного доступного сервера ${product}',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Эти URL указывают на разные серверы ${product}',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Этот URL не соответствует серверу ${product}',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Сервер перенаправил на неподдерживаемый URL',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Сервер перенаправил на другой хост. Введите конечный URL ${product} напрямую.',
 			'addServer.redirectInsecure' => 'Сервер перенаправил с HTTPS на небезопасный URL',

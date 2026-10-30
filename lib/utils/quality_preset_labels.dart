@@ -1,9 +1,12 @@
 import 'package:flutter/widgets.dart';
 
 import '../i18n/strings.g.dart';
+import '../media/server_conversion.dart';
 import '../models/transcode_quality_preset.dart';
+import 'codec_utils.dart';
 import 'dialogs.dart';
 import 'formatters.dart';
+import 'resolution_label.dart';
 
 const int _audioBitrateEstimateKbps = 192;
 
@@ -23,6 +26,59 @@ String qualityPresetLabel(TranscodeQualityPreset preset, {int? sourceBitrateKbps
   final height = preset.resolutionHeight?.toString() ?? '';
   final bitrate = _formatBitrate(preset.videoBitrateKbps!);
   return t.videoControls.qualityPresetLabel(resolution: height, bitrate: bitrate);
+}
+
+/// What the server is sending, e.g. `Converted by server: 1080p HEVC, 7.1 Mbps`.
+///
+/// [width], [height] and [codec] are the player's own view of the stream and
+/// win over the caps in the server's URL; any of them may still be unknown.
+/// With [withReasons] the plain-word reasons follow, e.g. `— outside the house limit`.
+String serverConversionLabel(
+  ServerConversion conversion, {
+  int? width,
+  int? height,
+  String? codec,
+  bool withReasons = true,
+}) {
+  final resolution = resolutionLabelFromDimensions(
+    width != null && width > 0 ? width : conversion.maxWidth,
+    height != null && height > 0 ? height : conversion.maxHeight,
+  );
+  final picture = [
+    if (resolution != null) resolutionDisplayLabel(resolution),
+    if (codec != null && codec.isNotEmpty) codec,
+  ].join(' ');
+  final bitrate = conversion.bitrateKbps;
+  final details = [
+    if (picture.isNotEmpty) picture,
+    if (bitrate != null) ByteFormatter.formatBitrate(bitrate),
+  ].join(', ');
+  final label = details.isEmpty ? t.videoControls.serverConverted : '${t.videoControls.serverConverted}: $details';
+  final reasons = withReasons ? conversion.reasons.map(serverConversionReasonLabel).join(', ') : '';
+  return reasons.isEmpty ? label : '$label — $reasons';
+}
+
+String serverConversionReasonLabel(ServerConversionReason reason) => switch (reason) {
+  ServerConversionReason.bitrateLimit => t.videoControls.conversionReasonBitrateLimit,
+  ServerConversionReason.sound => t.videoControls.conversionReasonSound,
+  ServerConversionReason.picture => t.videoControls.conversionReasonPicture,
+  ServerConversionReason.subtitles => t.videoControls.conversionReasonSubtitles,
+  ServerConversionReason.discImage => t.videoControls.conversionReasonDiscImage,
+};
+
+/// A player's codec name (mpv's `hevc`, ExoPlayer's `video/hevc` or `hvc1.2.4…`)
+/// as the short name the picker shows, or null when it says nothing usable.
+String? streamVideoCodecLabel(String? codec) {
+  if (codec == null || codec.trim().isEmpty) return null;
+  final lower = codec.trim().toLowerCase();
+  final name = lower.startsWith('video/') ? lower.substring('video/'.length) : lower;
+  if (name.contains('hevc') || name.contains('h265') || name.startsWith('hvc1') || name.startsWith('hev1')) {
+    return 'HEVC';
+  }
+  if (name.contains('h264') || name.startsWith('avc')) return 'H.264';
+  if (name.startsWith('av01') || name == 'av1') return 'AV1';
+  if (name.contains('vp9') || name.startsWith('vp09')) return 'VP9';
+  return CodecUtils.formatVideoCodec(name.split(RegExp(r'[\s.(]')).first);
 }
 
 String _formatBitrate(int kbps) {

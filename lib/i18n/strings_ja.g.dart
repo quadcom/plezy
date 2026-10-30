@@ -857,6 +857,12 @@ class _Translations$videoControls$ja extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'トランスコードは利用できません — オリジナル画質で再生中';
 	@override String get playingOriginalAboveSource => 'このファイルはすでにその画質以下です — オリジナルで再生中';
+	@override String get serverConverted => 'サーバーで変換';
+	@override String get conversionReasonBitrateLimit => '自宅外の上限';
+	@override String get conversionReasonSound => '音声を変換';
+	@override String get conversionReasonPicture => '映像形式に非対応';
+	@override String get conversionReasonSubtitles => '字幕を焼き込み';
+	@override String get conversionReasonDiscImage => 'ディスクイメージ';
 	@override String get subtitleUnavailableFallback => '選択した字幕を読み込めませんでした — 字幕なしで再生を続けます';
 	@override String get pipButton => 'ピクチャーインピクチャーモード';
 	@override String get aspectRatioButton => 'アスペクト比';
@@ -3680,6 +3686,12 @@ extension on TranslationsJa {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'トランスコードは利用できません — オリジナル画質で再生中',
 			'videoControls.playingOriginalAboveSource' => 'このファイルはすでにその画質以下です — オリジナルで再生中',
+			'videoControls.serverConverted' => 'サーバーで変換',
+			'videoControls.conversionReasonBitrateLimit' => '自宅外の上限',
+			'videoControls.conversionReasonSound' => '音声を変換',
+			'videoControls.conversionReasonPicture' => '映像形式に非対応',
+			'videoControls.conversionReasonSubtitles' => '字幕を焼き込み',
+			'videoControls.conversionReasonDiscImage' => 'ディスクイメージ',
 			'videoControls.subtitleUnavailableFallback' => '選択した字幕を読み込めませんでした — 字幕なしで再生を続けます',
 			'videoControls.pipButton' => 'ピクチャーインピクチャーモード',
 			'videoControls.aspectRatioButton' => 'アスペクト比',
@@ -4027,14 +4039,14 @@ extension on TranslationsJa {
 			'libraries.noLibrariesFound' => 'ライブラリが見つかりません',
 			'libraries.allLibrariesHidden' => 'すべてのライブラリが非表示です',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => '非表示のライブラリ (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'このライブラリは空です',
 			'libraries.noItemsMatchFilters' => '有効なフィルターに一致する項目はありません',
 			'libraries.resetFilters' => 'フィルターをリセット',
 			'libraries.all' => 'すべて',
 			'libraries.clearAll' => 'すべてクリア',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '"${title}"をスキャンしてもよろしいですか？',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '"${title}"を解析してもよろしいですか？',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '"${title}"のメタデータを更新してもよろしいですか？',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '"${title}"のゴミ箱を空にしてもよろしいですか？',
@@ -4541,14 +4553,14 @@ extension on TranslationsJa {
 			'watchTogether.errors.sessionEnded' => 'ホストがセッションを終了しました',
 			'watchTogether.errors.sessionUnavailable' => 'このセッションを再開できません。ルームに参加するか作成して続行してください。',
 			'downloads.title' => 'ダウンロード',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => '管理',
 			'downloads.tvShows' => 'テレビ番組',
 			'downloads.movies' => '映画',
 			'downloads.music' => '音楽',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} 曲をダウンロード待機中',
 			'downloads.noDownloads' => 'ダウンロードはまだありません',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'ダウンロードしたコンテンツはここに表示され、オフラインで視聴できます',
 			'downloads.downloadNow' => 'ダウンロード',
 			'downloads.deleteDownload' => 'ダウンロードを削除',
@@ -5055,6 +5067,8 @@ extension on TranslationsJa {
 			'addServer.noReachableServer' => ({required Object product}) => '接続可能な${product}サーバーが見つかりませんでした',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'これらのURLは異なる${product}サーバーを指しています',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'このURLは${product}サーバーと一致しません',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'サーバーからサポートされていないURLにリダイレクトされました',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'サーバーから別のホストにリダイレクトされました。最終的な${product}のURLを直接入力してください。',
 			'addServer.redirectInsecure' => 'サーバーからHTTPSではない安全でないURLにリダイレクトされました',

@@ -685,7 +685,12 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     final showVersions = _state.availableVersions.length > 1;
     final values = <String>[];
     if (showVersions) values.add(_selectedVersionLabel());
-    if (_state.serverSupportsTranscoding) {
+    final conversion = _state.serverConversion;
+    if (conversion != null) {
+      // Say what is arriving, not the preset: a play the server converted on
+      // its own must not read as "Original".
+      values.add(serverConversionLabel(conversion, withReasons: false));
+    } else if (_state.serverSupportsTranscoding) {
       values.add(
         qualityPresetLabel(
           _state.selectedQualityPreset,
@@ -1124,6 +1129,8 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
       selectedQualityPreset: _state.selectedQualityPreset,
       serverSupportsTranscoding: _state.serverSupportsTranscoding,
       sourceDurationMs: _state.sourceDurationMs,
+      serverConversion: _state.serverConversion,
+      player: widget.player,
       onVersionSelected: (index) => _state.onSwitchVersion?.call(index),
       onQualitySelected: (preset) => _state.onSwitchQualityPreset?.call(preset),
     );

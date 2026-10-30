@@ -259,6 +259,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     var playMethod = 'DirectPlay';
     var isTranscoding = false;
     TranscodeFallbackReason? fallbackReason;
+    ServerConversion? serverConversion;
 
     // Tracks negotiate with the audio device profile and ignore the
     // (video-shaped) [PlaybackInitializationOptions.qualityPreset]; capping
@@ -380,6 +381,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         videoUrl = _withApiKey(transcodingUrl);
         playMethod = 'Transcode';
         isTranscoding = true;
+        serverConversion = ServerConversion.fromTranscodingUrl(
+          transcodingUrl,
+          forced: wantsOriginal,
+          isDiscImage: isDiscImage,
+        );
       } else if (!wantsOriginal) {
         fallbackReason = TranscodeFallbackReason.directPlayOnly;
       }
@@ -428,6 +434,7 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
       isOffline: false,
       isTranscoding: isTranscoding,
       fallbackReason: fallbackReason,
+      serverConversion: serverConversion,
       activeAudioStreamId: requestedAudioStreamId,
       playSessionId: playSessionId,
       playMethod: playMethod,

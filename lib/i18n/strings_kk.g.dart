@@ -860,6 +860,12 @@ class _Translations$videoControls$kk extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Мбит/с';
 	@override String get transcodeUnavailableFallback => 'Түрлендіру қолжетімсіз — түпнұсқа сапада ойнатылады';
 	@override String get playingOriginalAboveSource => 'Бұл файлдың сапасы онсыз да осы деңгейде не одан төмен — түпнұсқа ойнатылады';
+	@override String get serverConverted => 'Сервер түрлендірді';
+	@override String get conversionReasonBitrateLimit => 'үйден тыс шектеу';
+	@override String get conversionReasonSound => 'дыбыс түрлендірілді';
+	@override String get conversionReasonPicture => 'сурет пішіміне қолдау жоқ';
+	@override String get conversionReasonSubtitles => 'субтитрлер суретке енгізілді';
+	@override String get conversionReasonDiscImage => 'диск бейнесі';
 	@override String get subtitleUnavailableFallback => 'Таңдалған субтитрлерді жүктеу мүмкін болмады — субтитрсіз жалғасады';
 	@override String get pipButton => 'Суреттегі сурет режимі';
 	@override String get aspectRatioButton => 'Тараптар қатынасы';
@@ -3691,6 +3697,12 @@ extension on TranslationsKk {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Мбит/с',
 			'videoControls.transcodeUnavailableFallback' => 'Түрлендіру қолжетімсіз — түпнұсқа сапада ойнатылады',
 			'videoControls.playingOriginalAboveSource' => 'Бұл файлдың сапасы онсыз да осы деңгейде не одан төмен — түпнұсқа ойнатылады',
+			'videoControls.serverConverted' => 'Сервер түрлендірді',
+			'videoControls.conversionReasonBitrateLimit' => 'үйден тыс шектеу',
+			'videoControls.conversionReasonSound' => 'дыбыс түрлендірілді',
+			'videoControls.conversionReasonPicture' => 'сурет пішіміне қолдау жоқ',
+			'videoControls.conversionReasonSubtitles' => 'субтитрлер суретке енгізілді',
+			'videoControls.conversionReasonDiscImage' => 'диск бейнесі',
 			'videoControls.subtitleUnavailableFallback' => 'Таңдалған субтитрлерді жүктеу мүмкін болмады — субтитрсіз жалғасады',
 			'videoControls.pipButton' => 'Суреттегі сурет режимі',
 			'videoControls.aspectRatioButton' => 'Тараптар қатынасы',
@@ -4038,14 +4050,14 @@ extension on TranslationsKk {
 			'libraries.noLibrariesFound' => 'Кітапханалар табылмады',
 			'libraries.allLibrariesHidden' => 'Барлық кітапханалар жасырылған',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Жасырын кітапханалар (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Бұл кітапхана бос',
 			'libraries.noItemsMatchFilters' => 'Фильтрлерге сәйкес элементтер табылмады',
 			'libraries.resetFilters' => 'Фильтрлерді қалпына келтіру',
 			'libraries.all' => 'Барлығы',
 			'libraries.clearAll' => 'Барлығын тазалау',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '"${title}" кітапханасын сканерлегіңіз келе ме?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '"${title}" кітапханасына талдау жасағыңыз келе ме?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '"${title}" метадеректерін жаңартасыз ба?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '"${title}" себетін тазалайсыз ба?',
@@ -4552,14 +4564,14 @@ extension on TranslationsKk {
 			'watchTogether.errors.sessionEnded' => 'Ұйымдастырушы сеансты аяқтады',
 			'watchTogether.errors.sessionUnavailable' => 'Бұл сеансты жалғастыру мүмкін емес. Жалғастыру үшін бөлмеге қосылыңыз немесе бөлме жасаңыз.',
 			'downloads.title' => 'Жүктеулер',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Басқару',
 			'downloads.tvShows' => 'TV Шоулар',
 			'downloads.movies' => 'Фильмдер',
 			'downloads.music' => 'Музыка',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} ән жүктеу кезегіне қосылды',
 			'downloads.noDownloads' => 'Әлі де жүктеулер жоқ',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Жүктелген файлдар офлайн көру үшін мұнда көрінеді',
 			'downloads.downloadNow' => 'Жүктеу',
 			'downloads.deleteDownload' => 'Жүктеуді өшіру',
@@ -5066,6 +5078,8 @@ extension on TranslationsKk {
 			'addServer.noReachableServer' => ({required Object product}) => 'Қолжетімді ${product} сервері табылмады',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Бұл URL-дер әртүрлі ${product} серверлеріне бағыттайды',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Бұл URL ${product} серверіне сәйкес келмейді',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Сервер қолдау көрсетілмейтін URL-ге қайта бағыттады',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Сервер басқа хостқа қайта бағыттады. Соңғы ${product} URL-ін тікелей енгізіңіз.',
 			'addServer.redirectInsecure' => 'Сервер HTTPS мекенжайынан қауіпсіз емес URL-ге қайта бағыттады',

@@ -3,6 +3,7 @@ import '../i18n/strings.g.dart';
 import '../media/media_item.dart';
 import '../media/media_source_info.dart';
 import '../media/media_version.dart';
+import '../media/server_conversion.dart';
 import '../models/audio_quality_preset.dart';
 import '../models/transcode_quality_preset.dart';
 import '../mpv/mpv.dart';
@@ -119,6 +120,10 @@ class PlaybackInitializationResult {
   /// Non-null when a non-original preset was requested but fallback kicked in.
   final TranscodeFallbackReason? fallbackReason;
 
+  /// What the server is really sending when [isTranscoding] came from its own
+  /// negotiation; null for a direct play and for backends that do not say.
+  final ServerConversion? serverConversion;
+
   /// Source audio stream ID selected by the backend (`null` when unknown).
   final int? activeAudioStreamId;
 
@@ -161,6 +166,7 @@ class PlaybackInitializationResult {
     this.isOffline = false,
     this.isTranscoding = false,
     this.fallbackReason,
+    this.serverConversion,
     this.activeAudioStreamId,
     this.playSessionId,
     this.playMethod,

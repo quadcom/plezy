@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/server_conversion.dart';
 import 'package:plezy/models/transcode_quality_preset.dart';
 import 'package:plezy/utils/quality_preset_labels.dart';
 
@@ -186,6 +187,48 @@ void main() {
       final pct4k = int.parse(pctRe.firstMatch(at4k!)!.group(1)!);
       final pct8k = int.parse(pctRe.firstMatch(at8k!)!.group(1)!);
       expect(pct4k, lessThan(pct8k));
+    });
+  });
+  group('serverConversionLabel', () {
+    const forcedRemote = ServerConversion(
+      bitrateKbps: 7104,
+      reasonCodes: ['AudioCodecNotSupported', 'ContainerBitrateExceedsLimit'],
+      forced: true,
+    );
+
+    test('says what arrives, from the player, with the reasons in plain words', () {
+      expect(
+        serverConversionLabel(forcedRemote, width: 1920, height: 802, codec: 'HEVC'),
+        'Converted by server: 1080p HEVC, 7.1 Mbps — outside the house limit, sound converted',
+      );
+    });
+
+    test('the settings row leaves the reasons out', () {
+      expect(
+        serverConversionLabel(forcedRemote, width: 1920, height: 802, withReasons: false),
+        'Converted by server: 1080p, 7.1 Mbps',
+      );
+    });
+
+    test('falls back to the URL caps, then to the bare label', () {
+      expect(
+        serverConversionLabel(const ServerConversion(maxWidth: 1280, maxHeight: 720, forced: false)),
+        'Converted by server: 720p',
+      );
+      expect(serverConversionLabel(const ServerConversion(forced: false)), 'Converted by server');
+    });
+  });
+
+  group('streamVideoCodecLabel', () {
+    test('names what mpv and ExoPlayer report the same way', () {
+      expect(streamVideoCodecLabel('hevc'), 'HEVC');
+      expect(streamVideoCodecLabel('video/hevc'), 'HEVC');
+      expect(streamVideoCodecLabel('hvc1.2.4.L120.B0'), 'HEVC');
+      expect(streamVideoCodecLabel('h264'), 'H.264');
+      expect(streamVideoCodecLabel('video/avc'), 'H.264');
+      expect(streamVideoCodecLabel('av01.0.08M.10'), 'AV1');
+      expect(streamVideoCodecLabel(''), isNull);
+      expect(streamVideoCodecLabel(null), isNull);
     });
   });
 }

@@ -860,6 +860,12 @@ class _Translations$videoControls$bg extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Транскодирането не е налично — пуска се оригиналното качество';
 	@override String get playingOriginalAboveSource => 'Този файл вече е с това или по-ниско качество — пуска се оригиналът';
+	@override String get serverConverted => 'Преобразувано от сървъра';
+	@override String get conversionReasonBitrateLimit => 'лимит извън дома';
+	@override String get conversionReasonSound => 'звукът е преобразуван';
+	@override String get conversionReasonPicture => 'форматът на картината не се поддържа';
+	@override String get conversionReasonSubtitles => 'субтитрите са вградени в картината';
+	@override String get conversionReasonDiscImage => 'образ на диск';
 	@override String get subtitleUnavailableFallback => 'Избраните субтитри не можаха да се заредят — възпроизвеждането продължава без субтитри';
 	@override String get pipButton => 'Режим картина в картината';
 	@override String get aspectRatioButton => 'Съотношение на страните';
@@ -3691,6 +3697,12 @@ extension on TranslationsBg {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Транскодирането не е налично — пуска се оригиналното качество',
 			'videoControls.playingOriginalAboveSource' => 'Този файл вече е с това или по-ниско качество — пуска се оригиналът',
+			'videoControls.serverConverted' => 'Преобразувано от сървъра',
+			'videoControls.conversionReasonBitrateLimit' => 'лимит извън дома',
+			'videoControls.conversionReasonSound' => 'звукът е преобразуван',
+			'videoControls.conversionReasonPicture' => 'форматът на картината не се поддържа',
+			'videoControls.conversionReasonSubtitles' => 'субтитрите са вградени в картината',
+			'videoControls.conversionReasonDiscImage' => 'образ на диск',
 			'videoControls.subtitleUnavailableFallback' => 'Избраните субтитри не можаха да се заредят — възпроизвеждането продължава без субтитри',
 			'videoControls.pipButton' => 'Режим картина в картината',
 			'videoControls.aspectRatioButton' => 'Съотношение на страните',
@@ -4038,14 +4050,14 @@ extension on TranslationsBg {
 			'libraries.noLibrariesFound' => 'Не са намерени библиотеки',
 			'libraries.allLibrariesHidden' => 'Всички библиотеки са скрити',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Скрити библиотеки (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Тази библиотека е празна',
 			'libraries.noItemsMatchFilters' => 'Няма елементи, съответстващи на активните филтри',
 			'libraries.resetFilters' => 'Нулирай филтрите',
 			'libraries.all' => 'Всички',
 			'libraries.clearAll' => 'Изчисти всички',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Сигурни ли сте, че искате да сканирате "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Сигурни ли сте, че искате да анализирате "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Сигурни ли сте, че искате да опресните метаданните за "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Сигурни ли сте, че искате да изпразните кошчето за "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsBg {
 			'watchTogether.errors.sessionEnded' => 'Организаторът прекрати сесията',
 			'watchTogether.errors.sessionUnavailable' => 'Тази сесия не може да бъде възобновена. Присъединете се към стая или създайте нова, за да продължите.',
 			'downloads.title' => 'Изтегляния',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Управление',
 			'downloads.tvShows' => 'ТВ сериали',
 			'downloads.movies' => 'Филми',
 			'downloads.music' => 'Музика',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} песни в опашката за изтегляне',
 			'downloads.noDownloads' => 'Все още няма изтегляния',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Изтегленото съдържание ще се показва тук за офлайн гледане',
 			'downloads.downloadNow' => 'Изтегли',
 			'downloads.deleteDownload' => 'Изтрий изтегляне',
@@ -5066,6 +5078,8 @@ extension on TranslationsBg {
 			'addServer.noReachableServer' => ({required Object product}) => 'Не беше намерен достъпен сървър на ${product}',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Тези URL адреси сочат към различни сървъри на ${product}',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Този URL не съответства на сървъра на ${product}',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Сървърът пренасочи към неподдържан URL',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Сървърът пренасочи към друг хост. Въведете директно крайния URL на ${product}.',
 			'addServer.redirectInsecure' => 'Сървърът пренасочи от HTTPS към незащитен URL',

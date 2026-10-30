@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_version.dart';
 import '../../../media/media_source_info.dart';
+import '../../../media/server_conversion.dart';
 import '../../../models/transcode_quality_preset.dart';
 import '../../../mpv/mpv.dart';
 import '../../../services/playback_initialization_types.dart';
@@ -19,6 +20,10 @@ class TrackControlsState {
   final TranscodeQualityPreset selectedQualityPreset;
   final bool serverSupportsTranscoding;
   final bool isTranscoding;
+
+  /// What the server is really sending on a conversion, so the quality picker
+  /// can say so instead of showing the chosen preset as if it were playing.
+  final ServerConversion? serverConversion;
   final List<MediaAudioTrack> sourceAudioTracks;
   final int? selectedAudioStreamId;
   final List<MediaSubtitleTrack> sourceSubtitleTracks;
@@ -107,6 +112,7 @@ class TrackControlsState {
     this.selectedQualityPreset = TranscodeQualityPreset.original,
     this.serverSupportsTranscoding = false,
     this.isTranscoding = false,
+    this.serverConversion,
     this.sourceAudioTracks = const [],
     this.selectedAudioStreamId,
     this.sourceSubtitleTracks = const [],

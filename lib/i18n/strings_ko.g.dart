@@ -857,6 +857,12 @@ class _Translations$videoControls$ko extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => '트랜스코딩을 사용할 수 없음 — 원본 화질로 재생';
 	@override String get playingOriginalAboveSource => '이 파일은 이미 해당 화질 이하입니다 — 원본으로 재생';
+	@override String get serverConverted => '서버에서 변환됨';
+	@override String get conversionReasonBitrateLimit => '집 밖 제한';
+	@override String get conversionReasonSound => '오디오 변환됨';
+	@override String get conversionReasonPicture => '지원되지 않는 화면 형식';
+	@override String get conversionReasonSubtitles => '자막 입힘';
+	@override String get conversionReasonDiscImage => '디스크 이미지';
 	@override String get subtitleUnavailableFallback => '선택한 자막을 불러올 수 없어 자막 없이 재생을 계속합니다';
 	@override String get pipButton => '픽처 인 픽처 모드';
 	@override String get aspectRatioButton => '화면비율';
@@ -3680,6 +3686,12 @@ extension on TranslationsKo {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => '트랜스코딩을 사용할 수 없음 — 원본 화질로 재생',
 			'videoControls.playingOriginalAboveSource' => '이 파일은 이미 해당 화질 이하입니다 — 원본으로 재생',
+			'videoControls.serverConverted' => '서버에서 변환됨',
+			'videoControls.conversionReasonBitrateLimit' => '집 밖 제한',
+			'videoControls.conversionReasonSound' => '오디오 변환됨',
+			'videoControls.conversionReasonPicture' => '지원되지 않는 화면 형식',
+			'videoControls.conversionReasonSubtitles' => '자막 입힘',
+			'videoControls.conversionReasonDiscImage' => '디스크 이미지',
 			'videoControls.subtitleUnavailableFallback' => '선택한 자막을 불러올 수 없어 자막 없이 재생을 계속합니다',
 			'videoControls.pipButton' => '픽처 인 픽처 모드',
 			'videoControls.aspectRatioButton' => '화면비율',
@@ -4027,14 +4039,14 @@ extension on TranslationsKo {
 			'libraries.noLibrariesFound' => '미디어 라이브러리 없음',
 			'libraries.allLibrariesHidden' => '모든 라이브러리가 숨겨졌습니다',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => '숨겨진 라이브러리 (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => '이 미디어 라이브러리는 비어 있습니다',
 			'libraries.noItemsMatchFilters' => '활성화된 필터와 일치하는 항목이 없습니다',
 			'libraries.resetFilters' => '필터 초기화',
 			'libraries.all' => '전체',
 			'libraries.clearAll' => '모두 삭제',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '「${title}」을(를) 스캔하시겠습니까?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '「${title}」을(를) 분석하시겠습니까?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '「${title}」의 메타데이터를 새로고침하시겠습니까?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '${title}의 휴지통을 비우시겠습니까?',
@@ -4541,14 +4553,14 @@ extension on TranslationsKo {
 			'watchTogether.errors.sessionEnded' => '호스트가 세션을 종료했습니다',
 			'watchTogether.errors.sessionUnavailable' => '이 세션을 재개할 수 없습니다. 방에 참여하거나 만들어 계속하세요.',
 			'downloads.title' => '다운로드',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => '관리',
 			'downloads.tvShows' => 'TV 프로그램',
 			'downloads.movies' => '영화',
 			'downloads.music' => '음악',
 			'downloads.tracksQueued' => ({required Object count}) => '${count}곡 다운로드 대기 중',
 			'downloads.noDownloads' => '다운로드 없음',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => '다운로드한 콘텐츠는 오프라인 시청을 위해 여기에 표시됩니다',
 			'downloads.downloadNow' => '다운로드',
 			'downloads.deleteDownload' => '다운로드 삭제',
@@ -5055,6 +5067,8 @@ extension on TranslationsKo {
 			'addServer.noReachableServer' => ({required Object product}) => '연결 가능한 ${product} 서버를 찾을 수 없습니다',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => '이 URL들은 서로 다른 ${product} 서버를 가리킵니다',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => '이 URL은 ${product} 서버와 일치하지 않습니다',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => '서버가 지원되지 않는 URL로 리디렉션했습니다',
 			'addServer.redirectDifferentHost' => ({required Object product}) => '서버가 다른 호스트로 리디렉션했습니다. 최종 ${product} URL을 직접 입력하세요.',
 			'addServer.redirectInsecure' => '서버가 HTTPS에서 안전하지 않은 URL로 리디렉션했습니다',

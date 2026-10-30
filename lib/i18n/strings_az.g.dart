@@ -860,6 +860,12 @@ class _Translations$videoControls$az extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Kod dəyişmə əlçatan deyil — orijinal keyfiyyətdə oynadılır';
 	@override String get playingOriginalAboveSource => 'Bu fayl artıq həmin keyfiyyətdə və ya ondan aşağıdır — orijinal oynadılır';
+	@override String get serverConverted => 'Server tərəfindən çevrilib';
+	@override String get conversionReasonBitrateLimit => 'ev xaricində limit';
+	@override String get conversionReasonSound => 'səs çevrilib';
+	@override String get conversionReasonPicture => 'görüntü formatı dəstəklənmir';
+	@override String get conversionReasonSubtitles => 'altyazılar görüntüyə yazılıb';
+	@override String get conversionReasonDiscImage => 'disk şəkli';
 	@override String get subtitleUnavailableFallback => 'Seçilmiş altyazı yüklənə bilmədi — altyazısız davam edilir';
 	@override String get pipButton => 'Pəncərə daxilində pəncərə rejimi';
 	@override String get aspectRatioButton => 'Tərəf nisbəti';
@@ -3691,6 +3697,12 @@ extension on TranslationsAz {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Kod dəyişmə əlçatan deyil — orijinal keyfiyyətdə oynadılır',
 			'videoControls.playingOriginalAboveSource' => 'Bu fayl artıq həmin keyfiyyətdə və ya ondan aşağıdır — orijinal oynadılır',
+			'videoControls.serverConverted' => 'Server tərəfindən çevrilib',
+			'videoControls.conversionReasonBitrateLimit' => 'ev xaricində limit',
+			'videoControls.conversionReasonSound' => 'səs çevrilib',
+			'videoControls.conversionReasonPicture' => 'görüntü formatı dəstəklənmir',
+			'videoControls.conversionReasonSubtitles' => 'altyazılar görüntüyə yazılıb',
+			'videoControls.conversionReasonDiscImage' => 'disk şəkli',
 			'videoControls.subtitleUnavailableFallback' => 'Seçilmiş altyazı yüklənə bilmədi — altyazısız davam edilir',
 			'videoControls.pipButton' => 'Pəncərə daxilində pəncərə rejimi',
 			'videoControls.aspectRatioButton' => 'Tərəf nisbəti',
@@ -4038,14 +4050,14 @@ extension on TranslationsAz {
 			'libraries.noLibrariesFound' => 'Kitabxana tapılmadı',
 			'libraries.allLibrariesHidden' => 'Bütün kitabxanalar gizlədilib',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Gizli kitabxanalar (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Bu kitabxana boşdur',
 			'libraries.noItemsMatchFilters' => 'Filtrlərə uyğun element tapılmadı',
 			'libraries.resetFilters' => 'Filtrləri sıfırla',
 			'libraries.all' => 'Hamısı',
 			'libraries.clearAll' => 'Hamısını təmizlə',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '"${title}" kitabxanasını skan etmək istədiyinizdən əminsiniz?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '"${title}" kitabxanasını analiz etmək istədiyinizdən əminsiniz?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '"${title}" üçün meta-məlumatları yeniləmək istədiyinizdən əminsiniz?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '"${title}" üçün zibil qutusunu təmizləmək istədiyinizdən əminsiniz?',
@@ -4552,14 +4564,14 @@ extension on TranslationsAz {
 			'watchTogether.errors.sessionEnded' => 'Təşkilatçı seansı bitirdi',
 			'watchTogether.errors.sessionUnavailable' => 'Bu seansı davam etdirmək olmur. Davam etmək üçün otağa qoşulun və ya otaq yaradın.',
 			'downloads.title' => 'Yükləmələr',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'İdarə et',
 			'downloads.tvShows' => 'TV Şoular',
 			'downloads.movies' => 'Kinolar',
 			'downloads.music' => 'Musiqi',
 			'downloads.tracksQueued' => ({required Object count}) => 'Yükləmə üçün ${count} mahnı növbəyə alındı',
 			'downloads.noDownloads' => 'Hələlik yükləmə yoxdur',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Yüklənmiş məzmun oflayn baxış üçün burada görünəcək',
 			'downloads.downloadNow' => 'Yüklə',
 			'downloads.deleteDownload' => 'Yükləməni sil',
@@ -5066,6 +5078,8 @@ extension on TranslationsAz {
 			'addServer.noReachableServer' => ({required Object product}) => 'Əlçatan ${product} serveri tapılmadı',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Bu URL-lər fərqli ${product} serverlərinə aiddir',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Bu URL ${product} serverinə uyğun gəlmir',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Server dəstəklənməyən URL-ə yönləndirdi',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Server başqa hosta yönləndirdi. Son ${product} URL-ni birbaşa daxil edin.',
 			'addServer.redirectInsecure' => 'Server HTTPS-dən təhlükəsiz olmayan URL-ə yönləndirdi',

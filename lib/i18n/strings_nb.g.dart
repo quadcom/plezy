@@ -860,6 +860,12 @@ class _Translations$videoControls$nb extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transkoding utilgjengelig — spiller av i original kvalitet';
 	@override String get playingOriginalAboveSource => 'Denne filen har allerede den kvaliteten eller lavere — spiller av originalen';
+	@override String get serverConverted => 'Konvertert av serveren';
+	@override String get conversionReasonBitrateLimit => 'grense utenfor hjemmet';
+	@override String get conversionReasonSound => 'lyd konvertert';
+	@override String get conversionReasonPicture => 'bildeformat støttes ikke';
+	@override String get conversionReasonSubtitles => 'undertekster brent inn';
+	@override String get conversionReasonDiscImage => 'diskavbilde';
 	@override String get subtitleUnavailableFallback => 'De valgte undertekstene kunne ikke lastes inn — avspillingen fortsetter uten undertekster';
 	@override String get pipButton => 'Bilde-i-bilde-modus';
 	@override String get aspectRatioButton => 'Sideforhold';
@@ -3691,6 +3697,12 @@ extension on TranslationsNb {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transkoding utilgjengelig — spiller av i original kvalitet',
 			'videoControls.playingOriginalAboveSource' => 'Denne filen har allerede den kvaliteten eller lavere — spiller av originalen',
+			'videoControls.serverConverted' => 'Konvertert av serveren',
+			'videoControls.conversionReasonBitrateLimit' => 'grense utenfor hjemmet',
+			'videoControls.conversionReasonSound' => 'lyd konvertert',
+			'videoControls.conversionReasonPicture' => 'bildeformat støttes ikke',
+			'videoControls.conversionReasonSubtitles' => 'undertekster brent inn',
+			'videoControls.conversionReasonDiscImage' => 'diskavbilde',
 			'videoControls.subtitleUnavailableFallback' => 'De valgte undertekstene kunne ikke lastes inn — avspillingen fortsetter uten undertekster',
 			'videoControls.pipButton' => 'Bilde-i-bilde-modus',
 			'videoControls.aspectRatioButton' => 'Sideforhold',
@@ -4038,14 +4050,14 @@ extension on TranslationsNb {
 			'libraries.noLibrariesFound' => 'Ingen biblioteker funnet',
 			'libraries.allLibrariesHidden' => 'Alle biblioteker er skjult',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Skjulte biblioteker (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Dette biblioteket er tomt',
 			'libraries.noItemsMatchFilters' => 'Ingen elementer samsvarer med de aktive filtrene',
 			'libraries.resetFilters' => 'Tilbakestill filtre',
 			'libraries.all' => 'Alle',
 			'libraries.clearAll' => 'Tøm alle',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Er du sikker på at du vil skanne "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Er du sikker på at du vil analysere "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Er du sikker på at du vil oppdatere metadata for "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Er du sikker på at du vil tømme papirkurven for "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsNb {
 			'watchTogether.errors.sessionEnded' => 'Verten avsluttet økten',
 			'watchTogether.errors.sessionUnavailable' => 'Kan ikke gjenoppta denne økten. Bli med i eller opprett et rom for å fortsette.',
 			'downloads.title' => 'Nedlastinger',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Administrer',
 			'downloads.tvShows' => 'TV-serier',
 			'downloads.movies' => 'Filmer',
 			'downloads.music' => 'Musikk',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} spor i nedlastingskø',
 			'downloads.noDownloads' => 'Ingen nedlastinger ennå',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Nedlastet innhold vil vises her for frakoblet visning',
 			'downloads.downloadNow' => 'Last ned',
 			'downloads.deleteDownload' => 'Slett nedlasting',
@@ -5066,6 +5078,8 @@ extension on TranslationsNb {
 			'addServer.noReachableServer' => ({required Object product}) => 'Fant ingen tilgjengelig ${product}-server',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Disse URL-ene peker til forskjellige ${product}-servere',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Denne URL-en samsvarer ikke med ${product}-serveren',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Serveren omdirigerte til en URL som ikke støttes',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Serveren omdirigerte til en annen vert. Angi den endelige ${product}-URL-en direkte.',
 			'addServer.redirectInsecure' => 'Serveren omdirigerte fra HTTPS til en usikker URL',

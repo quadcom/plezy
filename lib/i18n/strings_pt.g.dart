@@ -860,6 +860,12 @@ class _Translations$videoControls$pt extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transcodificação indisponível — reproduzindo qualidade original';
 	@override String get playingOriginalAboveSource => 'Este arquivo já está nessa qualidade ou abaixo — reproduzindo o original';
+	@override String get serverConverted => 'Convertido pelo servidor';
+	@override String get conversionReasonBitrateLimit => 'limite fora de casa';
+	@override String get conversionReasonSound => 'som convertido';
+	@override String get conversionReasonPicture => 'formato de imagem não suportado';
+	@override String get conversionReasonSubtitles => 'legendas gravadas na imagem';
+	@override String get conversionReasonDiscImage => 'imagem de disco';
 	@override String get subtitleUnavailableFallback => 'Não foi possível carregar as legendas selecionadas — a reprodução continuará sem legendas';
 	@override String get pipButton => 'Modo Picture-in-Picture';
 	@override String get aspectRatioButton => 'Proporção';
@@ -3691,6 +3697,12 @@ extension on TranslationsPt {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transcodificação indisponível — reproduzindo qualidade original',
 			'videoControls.playingOriginalAboveSource' => 'Este arquivo já está nessa qualidade ou abaixo — reproduzindo o original',
+			'videoControls.serverConverted' => 'Convertido pelo servidor',
+			'videoControls.conversionReasonBitrateLimit' => 'limite fora de casa',
+			'videoControls.conversionReasonSound' => 'som convertido',
+			'videoControls.conversionReasonPicture' => 'formato de imagem não suportado',
+			'videoControls.conversionReasonSubtitles' => 'legendas gravadas na imagem',
+			'videoControls.conversionReasonDiscImage' => 'imagem de disco',
 			'videoControls.subtitleUnavailableFallback' => 'Não foi possível carregar as legendas selecionadas — a reprodução continuará sem legendas',
 			'videoControls.pipButton' => 'Modo Picture-in-Picture',
 			'videoControls.aspectRatioButton' => 'Proporção',
@@ -4038,14 +4050,14 @@ extension on TranslationsPt {
 			'libraries.noLibrariesFound' => 'Nenhuma biblioteca encontrada',
 			'libraries.allLibrariesHidden' => 'Todas as bibliotecas estão ocultas',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Bibliotecas ocultas (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Esta biblioteca está vazia',
 			'libraries.noItemsMatchFilters' => 'Nenhum item corresponde aos filtros ativos',
 			'libraries.resetFilters' => 'Redefinir filtros',
 			'libraries.all' => 'Todos',
 			'libraries.clearAll' => 'Limpar tudo',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Tem certeza de que deseja escanear "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Tem certeza de que deseja analisar "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Tem certeza de que deseja atualizar os metadados de "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Tem certeza de que deseja esvaziar a lixeira de "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsPt {
 			'watchTogether.errors.sessionEnded' => 'O anfitrião encerrou a sessão',
 			'watchTogether.errors.sessionUnavailable' => 'Não foi possível retomar esta sessão. Entre em uma sala ou crie uma para continuar.',
 			'downloads.title' => 'Downloads',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Gerenciar',
 			'downloads.tvShows' => 'Séries de TV',
 			'downloads.movies' => 'Filmes',
 			'downloads.music' => 'Música',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} faixas na fila para download',
 			'downloads.noDownloads' => 'Nenhum download ainda',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'O conteúdo baixado aparecerá aqui para assistir offline',
 			'downloads.downloadNow' => 'Baixar',
 			'downloads.deleteDownload' => 'Excluir download',
@@ -5066,6 +5078,8 @@ extension on TranslationsPt {
 			'addServer.noReachableServer' => ({required Object product}) => 'Nenhum servidor ${product} acessível foi encontrado',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Estas URLs apontam para servidores ${product} diferentes',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Esta URL não corresponde ao servidor ${product}',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'O servidor redirecionou para uma URL não compatível',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'O servidor redirecionou para outro host. Insira diretamente a URL final do ${product}.',
 			'addServer.redirectInsecure' => 'O servidor redirecionou de HTTPS para uma URL insegura',

@@ -866,6 +866,12 @@ class _Translations$videoControls$pl extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transkodowanie niedostępne — odtwarzanie w oryginalnej jakości';
 	@override String get playingOriginalAboveSource => 'Ten plik ma już taką lub niższą jakość — odtwarzanie oryginału';
+	@override String get serverConverted => 'Przekonwertowane przez serwer';
+	@override String get conversionReasonBitrateLimit => 'limit poza domem';
+	@override String get conversionReasonSound => 'dźwięk przekonwertowany';
+	@override String get conversionReasonPicture => 'format obrazu nieobsługiwany';
+	@override String get conversionReasonSubtitles => 'napisy wtopione';
+	@override String get conversionReasonDiscImage => 'obraz płyty';
 	@override String get subtitleUnavailableFallback => 'Nie udało się wczytać wybranych napisów — odtwarzanie jest kontynuowane bez napisów';
 	@override String get pipButton => 'Tryb obraz w obrazie';
 	@override String get aspectRatioButton => 'Proporcje';
@@ -3713,6 +3719,12 @@ extension on TranslationsPl {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transkodowanie niedostępne — odtwarzanie w oryginalnej jakości',
 			'videoControls.playingOriginalAboveSource' => 'Ten plik ma już taką lub niższą jakość — odtwarzanie oryginału',
+			'videoControls.serverConverted' => 'Przekonwertowane przez serwer',
+			'videoControls.conversionReasonBitrateLimit' => 'limit poza domem',
+			'videoControls.conversionReasonSound' => 'dźwięk przekonwertowany',
+			'videoControls.conversionReasonPicture' => 'format obrazu nieobsługiwany',
+			'videoControls.conversionReasonSubtitles' => 'napisy wtopione',
+			'videoControls.conversionReasonDiscImage' => 'obraz płyty',
 			'videoControls.subtitleUnavailableFallback' => 'Nie udało się wczytać wybranych napisów — odtwarzanie jest kontynuowane bez napisów',
 			'videoControls.pipButton' => 'Tryb obraz w obrazie',
 			'videoControls.aspectRatioButton' => 'Proporcje',
@@ -4060,14 +4072,14 @@ extension on TranslationsPl {
 			'libraries.noLibrariesFound' => 'Nie znaleziono bibliotek',
 			'libraries.allLibrariesHidden' => 'Wszystkie biblioteki są ukryte',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Ukryte biblioteki (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Ta biblioteka jest pusta',
 			'libraries.noItemsMatchFilters' => 'Żaden element nie pasuje do aktywnych filtrów',
 			'libraries.resetFilters' => 'Resetuj filtry',
 			'libraries.all' => 'Wszystkie',
 			'libraries.clearAll' => 'Wyczyść wszystko',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Czy na pewno chcesz zeskanować "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Czy na pewno chcesz przeanalizować "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Czy na pewno chcesz odświeżyć metadane dla "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Czy na pewno chcesz opróżnić kosz dla "${title}"?',
@@ -4574,14 +4586,14 @@ extension on TranslationsPl {
 			'watchTogether.errors.sessionEnded' => 'Gospodarz zakończył sesję',
 			'watchTogether.errors.sessionUnavailable' => 'Nie można wznowić tej sesji. Dołącz do pokoju lub utwórz go, aby kontynuować.',
 			'downloads.title' => 'Pobrania',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Zarządzaj',
 			'downloads.tvShows' => 'Seriale TV',
 			'downloads.movies' => 'Filmy',
 			'downloads.music' => 'Muzyka',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} utworów w kolejce do pobrania',
 			'downloads.noDownloads' => 'Brak pobrań',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Pobrane treści pojawią się tutaj do oglądania offline',
 			'downloads.downloadNow' => 'Pobierz',
 			'downloads.deleteDownload' => 'Usuń pobranie',
@@ -5088,6 +5100,8 @@ extension on TranslationsPl {
 			'addServer.noReachableServer' => ({required Object product}) => 'Nie znaleziono żadnego osiągalnego serwera ${product}',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Te adresy URL wskazują różne serwery ${product}',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Ten adres URL nie odpowiada serwerowi ${product}',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Serwer przekierował do nieobsługiwanego adresu URL',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Serwer przekierował do innego hosta. Wprowadź bezpośrednio docelowy adres URL serwera ${product}.',
 			'addServer.redirectInsecure' => 'Serwer przekierował z HTTPS do niezabezpieczonego adresu URL',

@@ -159,6 +159,7 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
       selectedQualityPreset: widget.selectedQualityPreset,
       serverSupportsTranscoding: versionQuality.serverSupportsTranscoding,
       isTranscoding: versionQuality.isTranscoding,
+      serverConversion: versionQuality.isTranscoding ? widget.serverConversion : null,
       sourceAudioTracks: versionQuality.sourceAudioTracks,
       selectedAudioStreamId: versionQuality.selectedAudioStreamId,
       sourceSubtitleTracks: canSwitchSourceSubtitles

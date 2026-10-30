@@ -2289,6 +2289,24 @@ class Translations$videoControls$en {
 	/// en: 'This file is already at or below that quality — playing the original'
 	String get playingOriginalAboveSource => 'This file is already at or below that quality — playing the original';
 
+	/// en: 'Converted by server'
+	String get serverConverted => 'Converted by server';
+
+	/// en: 'outside the house limit'
+	String get conversionReasonBitrateLimit => 'outside the house limit';
+
+	/// en: 'sound converted'
+	String get conversionReasonSound => 'sound converted';
+
+	/// en: 'picture format not supported'
+	String get conversionReasonPicture => 'picture format not supported';
+
+	/// en: 'subtitles burned in'
+	String get conversionReasonSubtitles => 'subtitles burned in';
+
+	/// en: 'disc image'
+	String get conversionReasonDiscImage => 'disc image';
+
 	/// en: 'Selected subtitles could not be loaded — continuing without subtitles'
 	String get subtitleUnavailableFallback => 'Selected subtitles could not be loaded — continuing without subtitles';
 
@@ -8578,6 +8596,12 @@ extension on Translations {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transcoding unavailable — playing original quality',
 			'videoControls.playingOriginalAboveSource' => 'This file is already at or below that quality — playing the original',
+			'videoControls.serverConverted' => 'Converted by server',
+			'videoControls.conversionReasonBitrateLimit' => 'outside the house limit',
+			'videoControls.conversionReasonSound' => 'sound converted',
+			'videoControls.conversionReasonPicture' => 'picture format not supported',
+			'videoControls.conversionReasonSubtitles' => 'subtitles burned in',
+			'videoControls.conversionReasonDiscImage' => 'disc image',
 			'videoControls.subtitleUnavailableFallback' => 'Selected subtitles could not be loaded — continuing without subtitles',
 			'videoControls.pipButton' => 'Picture-in-Picture mode',
 			'videoControls.aspectRatioButton' => 'Aspect ratio',
@@ -8867,14 +8891,14 @@ extension on Translations {
 			'discover.title' => 'Discover',
 			'discover.noContentAvailable' => 'No content available',
 			'discover.addMediaToLibraries' => 'Add some media to your libraries',
+			_ => null,
+		} ?? switch (path) {
 			'discover.continueWatching' => 'Continue Watching',
 			'discover.continueWatchingIn' => ({required Object library}) => 'Continue Watching in ${library}',
 			'discover.nextUp' => 'Next Up',
 			'discover.nextUpIn' => ({required Object library}) => 'Next Up in ${library}',
 			'discover.recentlyAdded' => 'Recently Added',
 			'discover.recentlyAddedIn' => ({required Object library}) => 'Recently Added in ${library}',
-			_ => null,
-		} ?? switch (path) {
 			'discover.bannerComingSoon' => 'COMING SOON',
 			'discover.bannerNewMovie' => 'New Movie',
 			'discover.bannerNewEpisode' => 'New Episode',
@@ -9381,14 +9405,14 @@ extension on Translations {
 			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
 			'music.nowPlaying' => 'Now Playing',
 			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
+			_ => null,
+		} ?? switch (path) {
 			'music.queue' => 'Queue',
 			'music.clearQueue' => 'Clear queue',
 			'music.lyrics' => 'Lyrics',
 			'music.noLyrics' => 'No lyrics available',
 			'music.sleepTimer' => 'Sleep timer',
 			'music.sleepTimerEndOfTrack' => 'End of track',
-			_ => null,
-		} ?? switch (path) {
 			'music.sleepTimerMinutes' => ({required Object n}) => '${n} minutes',
 			'music.stopPlayback' => 'Stop playback',
 			'music.previousTrack' => 'Previous track',
@@ -9895,14 +9919,14 @@ extension on Translations {
 			'seerr.rootFolder' => 'Root folder',
 			'seerr.languageProfile' => 'Language profile',
 			'seerr.tags' => 'Tags',
+			_ => null,
+		} ?? switch (path) {
 			'seerr.noTags' => 'No tags',
 			'seerr.defaultOption' => ({required Object name}) => '${name} (Default)',
 			'seerr.animeNote' => 'This series is an anime.',
 			'seerr.requestSubmitted' => 'Request submitted',
 			'seerr.requestFailed' => ({required Object error}) => 'Request failed: ${error}',
 			'seerr.requestsLoadFailed' => 'Couldn\'t load request options',
-			_ => null,
-		} ?? switch (path) {
 			'seerr.nothingToRequest' => 'Everything is already available or requested.',
 			'seerr.statusAvailable' => 'Available',
 			'seerr.statusPartiallyAvailable' => 'Partially available',

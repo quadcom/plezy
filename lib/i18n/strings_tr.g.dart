@@ -860,6 +860,12 @@ class _Translations$videoControls$tr extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Kod dönüştürme kullanılamıyor — orijinal kalitede oynatılıyor';
 	@override String get playingOriginalAboveSource => 'Bu dosya zaten bu kalitede veya daha düşük — orijinal oynatılıyor';
+	@override String get serverConverted => 'Sunucu tarafından dönüştürüldü';
+	@override String get conversionReasonBitrateLimit => 'ev dışı sınırı';
+	@override String get conversionReasonSound => 'ses dönüştürüldü';
+	@override String get conversionReasonPicture => 'görüntü biçimi desteklenmiyor';
+	@override String get conversionReasonSubtitles => 'altyazılar görüntüye gömüldü';
+	@override String get conversionReasonDiscImage => 'disk görüntüsü';
 	@override String get subtitleUnavailableFallback => 'Seçilen altyazı yüklenemedi — altyazısız devam ediliyor';
 	@override String get pipButton => 'Pencere İçinde Pencere modu';
 	@override String get aspectRatioButton => 'En boy oranı';
@@ -3691,6 +3697,12 @@ extension on TranslationsTr {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Kod dönüştürme kullanılamıyor — orijinal kalitede oynatılıyor',
 			'videoControls.playingOriginalAboveSource' => 'Bu dosya zaten bu kalitede veya daha düşük — orijinal oynatılıyor',
+			'videoControls.serverConverted' => 'Sunucu tarafından dönüştürüldü',
+			'videoControls.conversionReasonBitrateLimit' => 'ev dışı sınırı',
+			'videoControls.conversionReasonSound' => 'ses dönüştürüldü',
+			'videoControls.conversionReasonPicture' => 'görüntü biçimi desteklenmiyor',
+			'videoControls.conversionReasonSubtitles' => 'altyazılar görüntüye gömüldü',
+			'videoControls.conversionReasonDiscImage' => 'disk görüntüsü',
 			'videoControls.subtitleUnavailableFallback' => 'Seçilen altyazı yüklenemedi — altyazısız devam ediliyor',
 			'videoControls.pipButton' => 'Pencere İçinde Pencere modu',
 			'videoControls.aspectRatioButton' => 'En boy oranı',
@@ -4038,14 +4050,14 @@ extension on TranslationsTr {
 			'libraries.noLibrariesFound' => 'Kitaplık bulunamadı',
 			'libraries.allLibrariesHidden' => 'Tüm kitaplıklar gizli',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Gizli kitaplıklar (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Bu kitaplık boş',
 			'libraries.noItemsMatchFilters' => 'Etkin filtrelerle eşleşen öge yok',
 			'libraries.resetFilters' => 'Filtreleri sıfırla',
 			'libraries.all' => 'Tümü',
 			'libraries.clearAll' => 'Tümünü Temizle',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '"${title}" kitaplığını taramak istediğinizden emin misiniz?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '"${title}" kitaplığını analiz etmek istediğinizden emin misiniz?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '"${title}" kitaplığı için meta verileri yenilemek istediğinizden emin misiniz?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '"${title}" için çöpü boşaltmak istediğinizden emin misiniz?',
@@ -4552,14 +4564,14 @@ extension on TranslationsTr {
 			'watchTogether.errors.sessionEnded' => 'Kurucu oturumu sonlandırdı',
 			'watchTogether.errors.sessionUnavailable' => 'Bu oturum sürdürülemiyor. Devam etmek için bir odaya katılın veya oda oluşturun.',
 			'downloads.title' => 'İndirmeler',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Yönet',
 			'downloads.tvShows' => 'TV Dizileri',
 			'downloads.movies' => 'Filmler',
 			'downloads.music' => 'Müzik',
 			'downloads.tracksQueued' => ({required Object count}) => 'İndirmek için ${count} parça kuyruğa alındı',
 			'downloads.noDownloads' => 'Henüz indirme yok',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'İndirilen içerik çevrimdışı izlemek için burada görünecektir',
 			'downloads.downloadNow' => 'İndir',
 			'downloads.deleteDownload' => 'İndirmeyi sil',
@@ -5066,6 +5078,8 @@ extension on TranslationsTr {
 			'addServer.noReachableServer' => ({required Object product}) => 'Ulaşılabilir ${product} sunucusu bulunamadı',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Bu URL\'ler farklı ${product} sunucularını gösteriyor',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Bu URL, ${product} sunucusuyla eşleşmiyor',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Sunucu desteklenmeyen bir URL\'ye yönlendirdi',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Sunucu farklı bir ana makineye yönlendirdi. Nihai ${product} URL\'sini doğrudan girin.',
 			'addServer.redirectInsecure' => 'Sunucu HTTPS\'den güvenli olmayan bir URL\'ye yönlendirdi',

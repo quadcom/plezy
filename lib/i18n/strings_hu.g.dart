@@ -860,6 +860,12 @@ class _Translations$videoControls$hu extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'A transzkódolás nem érhető el — eredeti minőség lejátszása';
 	@override String get playingOriginalAboveSource => 'Ez a fájl már ilyen vagy alacsonyabb minőségű — az eredeti lejátszása';
+	@override String get serverConverted => 'A szerver átalakította';
+	@override String get conversionReasonBitrateLimit => 'otthonon kívüli korlát';
+	@override String get conversionReasonSound => 'hang átalakítva';
+	@override String get conversionReasonPicture => 'a képformátum nem támogatott';
+	@override String get conversionReasonSubtitles => 'feliratok beégetve';
+	@override String get conversionReasonDiscImage => 'lemezkép';
 	@override String get subtitleUnavailableFallback => 'A kiválasztott feliratot nem sikerült betölteni — folytatás felirat nélkül';
 	@override String get pipButton => 'Kép a képben mód';
 	@override String get aspectRatioButton => 'Méretarány';
@@ -3691,6 +3697,12 @@ extension on TranslationsHu {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'A transzkódolás nem érhető el — eredeti minőség lejátszása',
 			'videoControls.playingOriginalAboveSource' => 'Ez a fájl már ilyen vagy alacsonyabb minőségű — az eredeti lejátszása',
+			'videoControls.serverConverted' => 'A szerver átalakította',
+			'videoControls.conversionReasonBitrateLimit' => 'otthonon kívüli korlát',
+			'videoControls.conversionReasonSound' => 'hang átalakítva',
+			'videoControls.conversionReasonPicture' => 'a képformátum nem támogatott',
+			'videoControls.conversionReasonSubtitles' => 'feliratok beégetve',
+			'videoControls.conversionReasonDiscImage' => 'lemezkép',
 			'videoControls.subtitleUnavailableFallback' => 'A kiválasztott feliratot nem sikerült betölteni — folytatás felirat nélkül',
 			'videoControls.pipButton' => 'Kép a képben mód',
 			'videoControls.aspectRatioButton' => 'Méretarány',
@@ -4038,14 +4050,14 @@ extension on TranslationsHu {
 			'libraries.noLibrariesFound' => 'Nem találhatók könyvtárak',
 			'libraries.allLibrariesHidden' => 'Minden könyvtár el van rejtve',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Rejtett könyvtárak (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Ez a könyvtár üres',
 			'libraries.noItemsMatchFilters' => 'Nincs az aktív szűrőknek megfelelő elem',
 			'libraries.resetFilters' => 'Szűrők visszaállítása',
 			'libraries.all' => 'Összes',
 			'libraries.clearAll' => 'Összes törlése',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Biztosan be szeretnéd olvasni a következőt: "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Biztosan elemezni szeretnéd a következőt: "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Biztosan frissíteni szeretnéd a metaadatokat a következőhöz: "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Biztosan ki szeretnéd üríteni a lomtárat a következőnél: "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsHu {
 			'watchTogether.errors.sessionEnded' => 'A házigazda befejezte a munkamenetet',
 			'watchTogether.errors.sessionUnavailable' => 'Ez a munkamenet nem folytatható. A folytatáshoz csatlakozz egy szobához vagy hozz létre egyet.',
 			'downloads.title' => 'Letöltések',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Kezelés',
 			'downloads.tvShows' => 'TV-sorozatok',
 			'downloads.movies' => 'Filmek',
 			'downloads.music' => 'Zene',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} zeneszám letöltésre sorba állítva',
 			'downloads.noDownloads' => 'Még nincsenek letöltések',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'A letöltött tartalmak itt jelennek meg az offline megtekintéshez',
 			'downloads.downloadNow' => 'Letöltés',
 			'downloads.deleteDownload' => 'Letöltés törlése',
@@ -5066,6 +5078,8 @@ extension on TranslationsHu {
 			'addServer.noReachableServer' => ({required Object product}) => 'Nem található elérhető ${product}-szerver',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Ezek az URL-ek különböző ${product}-szerverekre mutatnak',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Ez az URL nem egyezik a(z) ${product}-szerverrel',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'A szerver nem támogatott URL-re irányított át',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'A szerver egy másik gazdagépre irányított át. Add meg közvetlenül a végleges ${product} URL-t.',
 			'addServer.redirectInsecure' => 'A szerver HTTPS-ről nem biztonságos URL-re irányított át',

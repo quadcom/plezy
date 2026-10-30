@@ -857,6 +857,12 @@ class Translations$videoControls$zh extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => '转码不可用 — 以原始画质播放';
 	@override String get playingOriginalAboveSource => '此文件已等于或低于该画质 — 播放原始文件';
+	@override String get serverConverted => '已由服务器转换';
+	@override String get conversionReasonBitrateLimit => '家庭外限制';
+	@override String get conversionReasonSound => '音频已转换';
+	@override String get conversionReasonPicture => '不支持的画面格式';
+	@override String get conversionReasonSubtitles => '字幕已烧录';
+	@override String get conversionReasonDiscImage => '光盘映像';
 	@override String get subtitleUnavailableFallback => '无法加载所选字幕 — 将继续无字幕播放';
 	@override String get pipButton => '画中画';
 	@override String get aspectRatioButton => '宽高比';
@@ -3680,6 +3686,12 @@ extension on TranslationsZh {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => '转码不可用 — 以原始画质播放',
 			'videoControls.playingOriginalAboveSource' => '此文件已等于或低于该画质 — 播放原始文件',
+			'videoControls.serverConverted' => '已由服务器转换',
+			'videoControls.conversionReasonBitrateLimit' => '家庭外限制',
+			'videoControls.conversionReasonSound' => '音频已转换',
+			'videoControls.conversionReasonPicture' => '不支持的画面格式',
+			'videoControls.conversionReasonSubtitles' => '字幕已烧录',
+			'videoControls.conversionReasonDiscImage' => '光盘映像',
 			'videoControls.subtitleUnavailableFallback' => '无法加载所选字幕 — 将继续无字幕播放',
 			'videoControls.pipButton' => '画中画',
 			'videoControls.aspectRatioButton' => '宽高比',
@@ -4027,14 +4039,14 @@ extension on TranslationsZh {
 			'libraries.noLibrariesFound' => '未找到媒体库',
 			'libraries.allLibrariesHidden' => '所有媒体库已隐藏',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => '已隐藏的媒体库 (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => '此媒体库为空',
 			'libraries.noItemsMatchFilters' => '没有项目符合当前筛选条件',
 			'libraries.resetFilters' => '重置筛选条件',
 			'libraries.all' => '全部',
 			'libraries.clearAll' => '全部清除',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '确定要扫描“${title}”吗？',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '确定要分析“${title}”吗？',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => '确定要刷新“${title}”的元数据吗？',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => '确定要清空“${title}”的回收站吗？',
@@ -4541,14 +4553,14 @@ extension on TranslationsZh {
 			'watchTogether.errors.sessionEnded' => '主持人已结束会话',
 			'watchTogether.errors.sessionUnavailable' => '无法恢复此会话。请加入或创建房间以继续。',
 			'downloads.title' => '下载',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => '管理',
 			'downloads.tvShows' => '电视剧',
 			'downloads.movies' => '电影',
 			'downloads.music' => '音乐',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} 首曲目已加入下载队列',
 			'downloads.noDownloads' => '暂无下载',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => '下载的内容将在此处显示以供离线观看',
 			'downloads.downloadNow' => '下载',
 			'downloads.deleteDownload' => '删除下载',
@@ -5055,6 +5067,8 @@ extension on TranslationsZh {
 			'addServer.noReachableServer' => ({required Object product}) => '未找到可连接的 ${product} 服务器',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => '这些 URL 指向不同的 ${product} 服务器',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => '此 URL 与 ${product} 服务器不匹配',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => '服务器重定向到了不受支持的 URL',
 			'addServer.redirectDifferentHost' => ({required Object product}) => '服务器重定向到了其他主机。请直接输入最终的 ${product} URL。',
 			'addServer.redirectInsecure' => '服务器从 HTTPS 重定向到了不安全的 URL',

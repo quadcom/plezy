@@ -860,6 +860,12 @@ class _Translations$videoControls$nl extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transcoderen niet beschikbaar — originele kwaliteit wordt afgespeeld';
 	@override String get playingOriginalAboveSource => 'Dit bestand heeft al die kwaliteit of lager — origineel wordt afgespeeld';
+	@override String get serverConverted => 'Omgezet door de server';
+	@override String get conversionReasonBitrateLimit => 'limiet buitenshuis';
+	@override String get conversionReasonSound => 'geluid omgezet';
+	@override String get conversionReasonPicture => 'beeldformaat niet ondersteund';
+	@override String get conversionReasonSubtitles => 'ondertitels ingebrand';
+	@override String get conversionReasonDiscImage => 'schijfkopie';
 	@override String get subtitleUnavailableFallback => 'De geselecteerde ondertitels konden niet worden geladen — afspelen gaat door zonder ondertitels';
 	@override String get pipButton => 'Beeld-in-beeldmodus';
 	@override String get aspectRatioButton => 'Beeldverhouding';
@@ -3691,6 +3697,12 @@ extension on TranslationsNl {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transcoderen niet beschikbaar — originele kwaliteit wordt afgespeeld',
 			'videoControls.playingOriginalAboveSource' => 'Dit bestand heeft al die kwaliteit of lager — origineel wordt afgespeeld',
+			'videoControls.serverConverted' => 'Omgezet door de server',
+			'videoControls.conversionReasonBitrateLimit' => 'limiet buitenshuis',
+			'videoControls.conversionReasonSound' => 'geluid omgezet',
+			'videoControls.conversionReasonPicture' => 'beeldformaat niet ondersteund',
+			'videoControls.conversionReasonSubtitles' => 'ondertitels ingebrand',
+			'videoControls.conversionReasonDiscImage' => 'schijfkopie',
 			'videoControls.subtitleUnavailableFallback' => 'De geselecteerde ondertitels konden niet worden geladen — afspelen gaat door zonder ondertitels',
 			'videoControls.pipButton' => 'Beeld-in-beeldmodus',
 			'videoControls.aspectRatioButton' => 'Beeldverhouding',
@@ -4038,14 +4050,14 @@ extension on TranslationsNl {
 			'libraries.noLibrariesFound' => 'Geen bibliotheken gevonden',
 			'libraries.allLibrariesHidden' => 'Alle bibliotheken zijn verborgen',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Verborgen bibliotheken (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Deze bibliotheek is leeg',
 			'libraries.noItemsMatchFilters' => 'Geen items komen overeen met de actieve filters',
 			'libraries.resetFilters' => 'Filters opnieuw instellen',
 			'libraries.all' => 'Alles',
 			'libraries.clearAll' => 'Alles wissen',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Weet je zeker dat je "${title}" wilt scannen?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Weet je zeker dat je "${title}" wilt analyseren?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Weet je zeker dat je metadata wilt vernieuwen voor "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Weet je zeker dat je de prullenbak wilt legen voor "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsNl {
 			'watchTogether.errors.sessionEnded' => 'De host heeft de sessie beëindigd',
 			'watchTogether.errors.sessionUnavailable' => 'Kan deze sessie niet hervatten. Neem deel aan of maak een kamer om door te gaan.',
 			'downloads.title' => 'Downloads',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Beheren',
 			'downloads.tvShows' => 'Series',
 			'downloads.movies' => 'Films',
 			'downloads.music' => 'Muziek',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} nummers in wachtrij voor download',
 			'downloads.noDownloads' => 'Nog geen downloads',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Gedownloade inhoud verschijnt hier om offline te bekijken',
 			'downloads.downloadNow' => 'Downloaden',
 			'downloads.deleteDownload' => 'Download verwijderen',
@@ -5066,6 +5078,8 @@ extension on TranslationsNl {
 			'addServer.noReachableServer' => ({required Object product}) => 'Er is geen bereikbare ${product}-server gevonden',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Deze URL\'s verwijzen naar verschillende ${product}-servers',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Deze URL komt niet overeen met de ${product}-server',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'De server heeft doorgestuurd naar een niet-ondersteunde URL',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'De server heeft doorgestuurd naar een andere host. Voer de uiteindelijke ${product}-URL rechtstreeks in.',
 			'addServer.redirectInsecure' => 'De server heeft van HTTPS doorgestuurd naar een onbeveiligde URL',

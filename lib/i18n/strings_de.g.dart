@@ -860,6 +860,12 @@ class _Translations$videoControls$de extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transkodierung nicht verfügbar – Wiedergabe in Originalqualität';
 	@override String get playingOriginalAboveSource => 'Diese Datei hat bereits diese oder eine niedrigere Qualität – Wiedergabe im Original';
+	@override String get serverConverted => 'Vom Server umgewandelt';
+	@override String get conversionReasonBitrateLimit => 'Limit außer Haus';
+	@override String get conversionReasonSound => 'Ton umgewandelt';
+	@override String get conversionReasonPicture => 'Bildformat nicht unterstützt';
+	@override String get conversionReasonSubtitles => 'Untertitel eingebrannt';
+	@override String get conversionReasonDiscImage => 'Disc-Image';
 	@override String get subtitleUnavailableFallback => 'Die ausgewählten Untertitel konnten nicht geladen werden – die Wiedergabe wird ohne Untertitel fortgesetzt';
 	@override String get pipButton => 'Bild-in-Bild-Modus';
 	@override String get aspectRatioButton => 'Seitenverhältnis';
@@ -3691,6 +3697,12 @@ extension on TranslationsDe {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transkodierung nicht verfügbar – Wiedergabe in Originalqualität',
 			'videoControls.playingOriginalAboveSource' => 'Diese Datei hat bereits diese oder eine niedrigere Qualität – Wiedergabe im Original',
+			'videoControls.serverConverted' => 'Vom Server umgewandelt',
+			'videoControls.conversionReasonBitrateLimit' => 'Limit außer Haus',
+			'videoControls.conversionReasonSound' => 'Ton umgewandelt',
+			'videoControls.conversionReasonPicture' => 'Bildformat nicht unterstützt',
+			'videoControls.conversionReasonSubtitles' => 'Untertitel eingebrannt',
+			'videoControls.conversionReasonDiscImage' => 'Disc-Image',
 			'videoControls.subtitleUnavailableFallback' => 'Die ausgewählten Untertitel konnten nicht geladen werden – die Wiedergabe wird ohne Untertitel fortgesetzt',
 			'videoControls.pipButton' => 'Bild-in-Bild-Modus',
 			'videoControls.aspectRatioButton' => 'Seitenverhältnis',
@@ -4038,14 +4050,14 @@ extension on TranslationsDe {
 			'libraries.noLibrariesFound' => 'Keine Mediatheken gefunden',
 			'libraries.allLibrariesHidden' => 'Alle Mediatheken sind ausgeblendet',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Ausgeblendete Mediatheken (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Diese Mediathek ist leer',
 			'libraries.noItemsMatchFilters' => 'Keine Elemente entsprechen den aktiven Filtern',
 			'libraries.resetFilters' => 'Filter zurücksetzen',
 			'libraries.all' => 'Alle',
 			'libraries.clearAll' => 'Alle Filter entfernen',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => '„${title}“ wirklich scannen?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => '„${title}“ wirklich analysieren?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Metadaten für „${title}“ wirklich aktualisieren?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Papierkorb für „${title}“ wirklich leeren?',
@@ -4552,14 +4564,14 @@ extension on TranslationsDe {
 			'watchTogether.errors.sessionEnded' => 'Der Host hat die Sitzung beendet',
 			'watchTogether.errors.sessionUnavailable' => 'Diese Sitzung kann nicht fortgesetzt werden. Tritt einem Raum bei oder erstelle einen, um fortzufahren.',
 			'downloads.title' => 'Downloads',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Verwalten',
 			'downloads.tvShows' => 'Serien',
 			'downloads.movies' => 'Filme',
 			'downloads.music' => 'Musik',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} Titel zum Download in Warteschlange',
 			'downloads.noDownloads' => 'Noch keine Downloads',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Heruntergeladene Inhalte werden hier für die Offline-Wiedergabe angezeigt',
 			'downloads.downloadNow' => 'Herunterladen',
 			'downloads.deleteDownload' => 'Download löschen',
@@ -5066,6 +5078,8 @@ extension on TranslationsDe {
 			'addServer.noReachableServer' => ({required Object product}) => 'Es wurde kein erreichbarer ${product}-Server gefunden',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'Diese URLs verweisen auf verschiedene ${product}-Server',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Diese URL gehört nicht zum ${product}-Server',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Der Server hat zu einer nicht unterstützten URL weitergeleitet',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Der Server hat zu einem anderen Host weitergeleitet. Gib die endgültige ${product}-URL direkt ein.',
 			'addServer.redirectInsecure' => 'Der Server hat von HTTPS zu einer unsicheren URL weitergeleitet',

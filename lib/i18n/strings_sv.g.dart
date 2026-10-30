@@ -860,6 +860,12 @@ class _Translations$videoControls$sv extends Translations$videoControls$en {
 	@override String qualityPresetLabel({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps';
 	@override String get transcodeUnavailableFallback => 'Transkodning otillgänglig — spelar upp i originalkvalitet';
 	@override String get playingOriginalAboveSource => 'Den här filen har redan den kvaliteten eller lägre — spelar upp originalet';
+	@override String get serverConverted => 'Konverterad av servern';
+	@override String get conversionReasonBitrateLimit => 'gräns utanför hemmet';
+	@override String get conversionReasonSound => 'ljud konverterat';
+	@override String get conversionReasonPicture => 'bildformatet stöds inte';
+	@override String get conversionReasonSubtitles => 'undertexter inbrända';
+	@override String get conversionReasonDiscImage => 'skivavbild';
 	@override String get subtitleUnavailableFallback => 'De valda undertexterna kunde inte läsas in — uppspelningen fortsätter utan undertexter';
 	@override String get pipButton => 'Bild-i-bild-läge';
 	@override String get aspectRatioButton => 'Bildförhållande';
@@ -3691,6 +3697,12 @@ extension on TranslationsSv {
 			'videoControls.qualityPresetLabel' => ({required Object resolution, required Object bitrate}) => '${resolution}p ${bitrate} Mbps',
 			'videoControls.transcodeUnavailableFallback' => 'Transkodning otillgänglig — spelar upp i originalkvalitet',
 			'videoControls.playingOriginalAboveSource' => 'Den här filen har redan den kvaliteten eller lägre — spelar upp originalet',
+			'videoControls.serverConverted' => 'Konverterad av servern',
+			'videoControls.conversionReasonBitrateLimit' => 'gräns utanför hemmet',
+			'videoControls.conversionReasonSound' => 'ljud konverterat',
+			'videoControls.conversionReasonPicture' => 'bildformatet stöds inte',
+			'videoControls.conversionReasonSubtitles' => 'undertexter inbrända',
+			'videoControls.conversionReasonDiscImage' => 'skivavbild',
 			'videoControls.subtitleUnavailableFallback' => 'De valda undertexterna kunde inte läsas in — uppspelningen fortsätter utan undertexter',
 			'videoControls.pipButton' => 'Bild-i-bild-läge',
 			'videoControls.aspectRatioButton' => 'Bildförhållande',
@@ -4038,14 +4050,14 @@ extension on TranslationsSv {
 			'libraries.noLibrariesFound' => 'Inga bibliotek hittades',
 			'libraries.allLibrariesHidden' => 'Alla bibliotek är dolda',
 			'libraries.hiddenLibrariesCount' => ({required Object count}) => 'Dolda bibliotek (${count})',
+			_ => null,
+		} ?? switch (path) {
 			'libraries.thisLibraryIsEmpty' => 'Detta bibliotek är tomt',
 			'libraries.noItemsMatchFilters' => 'Inga objekt matchar de aktiva filtren',
 			'libraries.resetFilters' => 'Återställ filter',
 			'libraries.all' => 'Alla',
 			'libraries.clearAll' => 'Rensa alla',
 			'libraries.scanLibraryConfirm' => ({required Object title}) => 'Är du säker på att du vill skanna "${title}"?',
-			_ => null,
-		} ?? switch (path) {
 			'libraries.analyzeLibraryConfirm' => ({required Object title}) => 'Är du säker på att du vill analysera "${title}"?',
 			'libraries.refreshMetadataConfirm' => ({required Object title}) => 'Är du säker på att du vill uppdatera metadata för "${title}"?',
 			'libraries.emptyTrashConfirm' => ({required Object title}) => 'Är du säker på att du vill tömma papperskorgen för "${title}"?',
@@ -4552,14 +4564,14 @@ extension on TranslationsSv {
 			'watchTogether.errors.sessionEnded' => 'Värden avslutade sessionen',
 			'watchTogether.errors.sessionUnavailable' => 'Det går inte att återuppta sessionen. Gå med i eller skapa ett rum för att fortsätta.',
 			'downloads.title' => 'Nedladdningar',
+			_ => null,
+		} ?? switch (path) {
 			'downloads.manage' => 'Hantera',
 			'downloads.tvShows' => 'TV-serier',
 			'downloads.movies' => 'Filmer',
 			'downloads.music' => 'Musik',
 			'downloads.tracksQueued' => ({required Object count}) => '${count} låtar i nedladdningskö',
 			'downloads.noDownloads' => 'Inga nedladdningar ännu',
-			_ => null,
-		} ?? switch (path) {
 			'downloads.noDownloadsDescription' => 'Nedladdat innehåll visas här så att du kan titta offline',
 			'downloads.downloadNow' => 'Ladda ner',
 			'downloads.deleteDownload' => 'Ta bort nedladdning',
@@ -5066,6 +5078,8 @@ extension on TranslationsSv {
 			'addServer.noReachableServer' => ({required Object product}) => 'Ingen nåbar ${product}-server hittades',
 			'addServer.urlsPointToDifferentServers' => ({required Object product}) => 'De här URL:erna pekar på olika servrar för ${product}',
 			'addServer.urlDoesNotMatchServer' => ({required Object product}) => 'Den här URL:en stämmer inte överens med ${product}-servern',
+			_ => null,
+		} ?? switch (path) {
 			'addServer.redirectUnsupported' => 'Servern omdirigerade till en URL som inte stöds',
 			'addServer.redirectDifferentHost' => ({required Object product}) => 'Servern omdirigerade till en annan värd. Ange den slutliga URL:en för ${product} direkt.',
 			'addServer.redirectInsecure' => 'Servern omdirigerade från HTTPS till en osäker URL',

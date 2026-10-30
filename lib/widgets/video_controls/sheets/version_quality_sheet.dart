@@ -4,7 +4,10 @@ import 'package:plezy/widgets/app_icon.dart';
 
 import '../../../i18n/strings.g.dart';
 import '../../../media/media_version.dart';
+import '../../../media/server_conversion.dart';
 import '../../../models/transcode_quality_preset.dart';
+import '../../../mpv/player/player.dart';
+import '../../../theme/mono_tokens.dart';
 import '../../../utils/quality_preset_labels.dart';
 import '../../../widgets/focusable_list_tile.dart';
 import '../../../widgets/overlay_sheet.dart';
@@ -30,6 +33,13 @@ class VersionQualityPicker extends StatelessWidget {
   final ValueChanged<int> onVersionSelected;
   final ValueChanged<TranscodeQualityPreset> onQualitySelected;
 
+  /// What the server is really sending, when it converts the play; shown above
+  /// the quality list so a forced conversion never reads as "Original".
+  final ServerConversion? serverConversion;
+
+  /// Asked for the stream's real picture size and codec for that line.
+  final Player? player;
+
   const VersionQualityPicker({
     super.key,
     required this.availableVersions,
@@ -39,6 +49,8 @@ class VersionQualityPicker extends StatelessWidget {
     required this.onVersionSelected,
     required this.onQualitySelected,
     this.sourceDurationMs,
+    this.serverConversion,
+    this.player,
   });
 
   @override
@@ -46,11 +58,14 @@ class VersionQualityPicker extends StatelessWidget {
     final showVersions = availableVersions.length > 1;
     final showQuality = serverSupportsTranscoding;
 
-    final qualityColumn = FocusTraversalGroup(
+    final conversion = serverConversion;
+    final qualityList = FocusTraversalGroup(
       child: _QualityColumn(
         selected: selectedQualityPreset,
         enabledForTranscoding: serverSupportsTranscoding,
-        sourceBitrateKbps: _sourceBitrateKbps(),
+        // The file's own bitrate on the Original row would read as what is
+        // playing while the server sends something else.
+        sourceBitrateKbps: conversion != null && conversion.forced ? null : _sourceBitrateKbps(),
         sourceDurationMs: sourceDurationMs,
         sourceSizeBytes: _sourceSizeBytes(),
         onSelected: (preset) {
@@ -60,6 +75,15 @@ class VersionQualityPicker extends StatelessWidget {
         showHeader: showVersions,
       ),
     );
+    final qualityColumn = conversion == null
+        ? qualityList
+        : Column(
+            mainAxisSize: .min,
+            children: [
+              ServerConversionNotice(conversion: conversion, player: player),
+              Flexible(child: qualityList),
+            ],
+          );
 
     final versionColumn = FocusTraversalGroup(
       child: _VersionColumn(
@@ -235,5 +259,87 @@ class _SelectionTile extends StatelessWidget {
       enabled: enabled,
       onTap: onTap,
     );
+  }
+}
+
+/// One line saying what the server is really sending, e.g.
+/// `Converted by server: 1080p HEVC, 7.1 Mbps — outside the house limit`.
+/// The size and codec come from the player once it can say; until then (or on
+/// a player that cannot) the line uses what the server's URL carries.
+class ServerConversionNotice extends StatefulWidget {
+  final ServerConversion conversion;
+  final Player? player;
+
+  const ServerConversionNotice({super.key, required this.conversion, this.player});
+
+  @override
+  State<ServerConversionNotice> createState() => _ServerConversionNoticeState();
+}
+
+class _ServerConversionNoticeState extends State<ServerConversionNotice> {
+  Future<StreamPicture>? _picture;
+
+  @override
+  void initState() {
+    super.initState();
+    final player = widget.player;
+    if (player != null) _picture = readStreamPicture(player);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = tokens(context).textMuted;
+    return FutureBuilder<StreamPicture>(
+      future: _picture,
+      builder: (context, snapshot) {
+        final picture = snapshot.data;
+        final label = serverConversionLabel(
+          widget.conversion,
+          width: picture?.width,
+          height: picture?.height,
+          codec: picture?.codec,
+        );
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+          child: Row(
+            crossAxisAlignment: .start,
+            children: [
+              AppIcon(Symbols.swap_horiz_rounded, fill: 1, color: muted, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(label, style: TextStyle(color: muted)),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+typedef StreamPicture = ({int? width, int? height, String? codec});
+
+/// The decoded size and codec of what the player is actually playing. Android
+/// answers through its stats (ExoPlayer or its mpv fallback); other platforms
+/// through mpv properties. Anything it cannot say comes back null.
+Future<StreamPicture> readStreamPicture(Player player) async {
+  int? asInt(Object? value) => value is num ? value.toInt() : int.tryParse(value?.toString() ?? '');
+  try {
+    if (player.providesNativeStats) {
+      final stats = await player.getStats();
+      final codec = stats['videoMimeType'] ?? stats['videoCodec'] ?? stats['video-codec'];
+      return (
+        width: asInt(stats['videoWidth']),
+        height: asInt(stats['videoHeight']),
+        codec: streamVideoCodecLabel(codec?.toString()),
+      );
+    }
+    return (
+      width: asInt(await player.getProperty('width')),
+      height: asInt(await player.getProperty('height')),
+      codec: streamVideoCodecLabel(await player.getProperty('video-format')),
+    );
+  } catch (_) {
+    return (width: null, height: null, codec: null);
   }
 }
