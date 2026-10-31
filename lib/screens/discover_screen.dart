@@ -1052,7 +1052,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   Widget build(BuildContext context) {
     return SettingsBuilder(
       prefs: const [
-        SettingsService.showServerNameOnHubs,
         SettingsService.showHeroSection,
         SettingsService.hideSpoilers,
         SettingsService.libraryDensity,
@@ -1063,14 +1062,12 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   }
 
   Widget _buildContent(BuildContext context) {
-    final svc = SettingsService.instance;
     final showHeroSection = _heroOn;
 
     if (PlatformDetector.isTV()) {
       return _buildTvContent(context);
     }
 
-    final showServerNameOnHubs = svc.read(SettingsService.showServerNameOnHubs);
     final hubsSpanMultipleServers = _hubsSpanMultipleServers();
 
     final bottomPadding = MediaQuery.paddingOf(context).bottom;
@@ -1119,7 +1116,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                             hub: rows[i].hub,
                             focusMemory: _hubFocusMemory,
                             icon: hubIconFor(rows[i].hub),
-                            showServerName: showServerNameOnHubs || hubsSpanMultipleServers,
+                            showServerName: hubsSpanMultipleServers,
                             onRefresh: _discover.updateItem,
                             onVerticalNavigation: (isUp) => _handleVerticalNavigation(i, isUp),
                             onNavigateUp: i == 0 ? _focusTopBoundary : null,
@@ -1221,7 +1218,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   Widget _buildTvContent(BuildContext context) {
     final svc = SettingsService.instance;
     final hideSpoilers = svc.read(SettingsService.hideSpoilers);
-    final showServerNameOnHubs = svc.read(SettingsService.showServerNameOnHubs);
     final hubsSpanMultipleServers = _hubsSpanMultipleServers();
     final browseHubs = _tvBrowseHubs;
 
@@ -1255,7 +1251,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               left: 0,
               right: 0,
               bottom: 0,
-              child: _cachedTvBrowseRail(browseHubs, showServerName: showServerNameOnHubs || hubsSpanMultipleServers),
+              child: _cachedTvBrowseRail(browseHubs, showServerName: hubsSpanMultipleServers),
             ),
           TvToolbarOverlay(child: _buildOverlaidAppBar()),
           if (_switchingProfile) const ProfileSwitchingOverlay(),

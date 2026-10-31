@@ -111,8 +111,6 @@ List<SettingsSearchEntry> settingsSearchEntries() {
       t.discover.nextUp,
       s.homeSectionLibraries,
       s.homeSectionsLibraryCards,
-      s.useGlobalHubs,
-      s.showServerNameOnHubs,
     ]),
     ..._page(s.videoPlayback, (_) => const PlaybackSettingsScreen(), [
       s.playerBackend,
@@ -137,7 +135,6 @@ List<SettingsSearchEntry> settingsSearchEntries() {
       s.playbackBuffer,
       s.defaultQualityTitle,
       s.cellularQualityTitle,
-      s.directPlayCoveredQuality,
       s.musicQualityTitle,
       s.subtitles,
       s.subtitleStyling,

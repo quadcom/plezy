@@ -236,15 +236,6 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> with Controll
     };
   }
 
-  /// Sign out of this virtual profile's parent Plex account. The profile
-  /// ceases to exist with the account, so pop the detail screen — unless
-  /// the teardown already reset the stack to AuthScreen (unmounted here).
-  Future<void> _signOutParentAccount(Connection parentConn) async {
-    final signedOut = await confirmAndSignOutPlexAccount(context, accountConnectionId: parentConn.id);
-    if (!signedOut || !mounted) return;
-    Navigator.of(context).pop(true);
-  }
-
   Future<void> _deleteProfile() async {
     final deleted = await confirmAndDeleteProfile(
       context,
@@ -342,12 +333,7 @@ class _ProfileDetailScreenState extends State<ProfileDetailScreen> with Controll
                 ],
               ),
               const SizedBox(height: 8),
-              _ConnectionsList(
-                profile: _profile,
-                onRemove: _removeConnection,
-                onEdit: _editConnection,
-                onSignOutParent: _signOutParentAccount,
-              ),
+              _ConnectionsList(profile: _profile, onRemove: _removeConnection, onEdit: _editConnection),
               const SizedBox(height: 24),
               if (isLocal)
                 FocusableButton(
@@ -372,14 +358,8 @@ class _ConnectionsList extends StatefulWidget {
   final Profile profile;
   final Future<void> Function(ProfileConnection pc, Connection conn) onRemove;
   final Future<void> Function(Connection conn) onEdit;
-  final Future<void> Function(Connection conn) onSignOutParent;
 
-  const _ConnectionsList({
-    required this.profile,
-    required this.onRemove,
-    required this.onEdit,
-    required this.onSignOutParent,
-  });
+  const _ConnectionsList({required this.profile, required this.onRemove, required this.onEdit});
 
   @override
   State<_ConnectionsList> createState() => _ConnectionsListState();
@@ -456,16 +436,6 @@ class _ConnectionsListState extends State<_ConnectionsList> {
                         leading: BackendBadge(backend: parentConn.backend, size: 24),
                         title: Text(parentConn.displayLabel),
                         subtitle: Text(t.profiles.plexHomeAccount),
-                        trailing: FocusablePopupMenuButton<String>(
-                          icon: const AppIcon(Symbols.more_vert_rounded, fill: 1),
-                          tooltip: t.profiles.manage,
-                          onSelected: (value) {
-                            if (value == 'sign_out') {
-                              unawaited(widget.onSignOutParent(parentConn));
-                            }
-                          },
-                          itemBuilder: (_) => [AppMenuItem(value: 'sign_out', label: t.profiles.signOut)],
-                        ),
                       ),
                     for (final pc in visiblePcs)
                       if (byId[pc.connectionId] case final conn?)

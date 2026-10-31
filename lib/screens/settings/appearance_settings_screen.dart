@@ -127,9 +127,6 @@ class AppearanceSettingsScreen extends StatelessWidget {
               ),
             _continueWatchingActionSelector(),
             _episodeActionSelector(),
-            // Use home layout and Show server names on hubs moved to Home
-            // sections (Adrian, 2026-10-10). Hosts without it keep them here.
-            if (!hasHomeSections) ...homeHubSwitches(),
           ],
         ),
 

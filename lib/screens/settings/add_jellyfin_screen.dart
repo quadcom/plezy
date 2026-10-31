@@ -287,8 +287,7 @@ class _AddJellyfinScreenState extends State<AddJellyfinScreen>
           _urlController.text = endpoint.baseUrls.join('\n');
         });
         // On TV, typing a username/password with a remote is misery — auto-jump
-        // to Quick Connect when the server supports it. Mirrors the
-        // PlatformDetector.isTV() default in add_plex_account_screen.dart.
+        // to Quick Connect when the server supports it.
         // A built-in server does the same wherever its QR code fits, so the
         // people it is shared with never type an address or a password.
         final autoStart = qcEnabled && (PlatformDetector.isTV() || (fromInitialServer && quickConnectQrFits(context)));

@@ -159,8 +159,8 @@ void main() {
     expect(find.text('Next Up'), findsOneWidget);
     // A folded library keeps its home row in the list, switched off for now.
     expect(find.text('TV'), findsOneWidget);
-    // The banner, the two device switches and four rows.
-    expect(find.byType(Switch), findsNWidgets(7));
+    // The banner and four rows (the two Plex-era device switches went with Plex, 2026-10-31).
+    expect(find.byType(Switch), findsNWidgets(5));
 
     expect(find.descendant(of: rowOf('Movies'), matching: find.text('Poster')), findsOneWidget);
     expect(find.descendant(of: rowOf('Movies'), matching: find.text('Season poster')), findsNothing);

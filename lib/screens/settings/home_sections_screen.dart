@@ -19,29 +19,9 @@ import '../../utils/platform_detector.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/focusable_list_tile.dart';
-import '../../widgets/setting_tile.dart';
 import '../../widgets/settings_page.dart';
 import '../../widgets/settings_section.dart';
 import 'settings_utils.dart';
-
-/// The two Plex-era home switches, kept on this device: Plex's own home hubs,
-/// and server names in row titles. They sit on the Home sections page for
-/// now, under the banner, and go when Plezy leaves Plex behind (Adrian,
-/// 2026-10-10).
-List<Widget> homeHubSwitches() => [
-  SettingSwitchTile(
-    pref: SettingsService.useGlobalHubs,
-    icon: Symbols.home_rounded,
-    title: t.settings.useGlobalHubs,
-    subtitle: t.settings.useGlobalHubsDescription,
-  ),
-  SettingSwitchTile(
-    pref: SettingsService.showServerNameOnHubs,
-    icon: Symbols.dns_rounded,
-    title: t.settings.showServerNameOnHubs,
-    subtitle: t.settings.showServerNameOnHubsDescription,
-  ),
-];
 
 /// What the user can do to one home section (device mode).
 enum _SectionAction { turnOn, turnOff, moveUp, moveDown, cardsUsual, cardsPosters, cardsSeason, cardsScreenGrabs }
@@ -78,7 +58,6 @@ class HomeSectionsScreen extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
           child: Text(t.settings.homeSectionsSavedDevice, style: Theme.of(context).textTheme.bodySmall),
         ),
-        SettingsGroup(children: homeHubSwitches()),
         SettingsGroup(
           title: t.settings.homeSectionsRows,
           children: [
@@ -134,7 +113,6 @@ class HomeSectionsScreen extends StatelessWidget {
               value: bannerOn,
               onChanged: (on) => _save(context, () => layout.setHomeSectionOn(HomeLayout.hero, on: on)),
             ),
-            ...homeHubSwitches(),
           ],
         ),
         SettingsSectionHeader(t.settings.homeSectionsRows),

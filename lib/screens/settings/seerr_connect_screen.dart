@@ -26,8 +26,7 @@ enum _CredentialForm { none, jellyfin, emby, local }
 ///   1. Probe the instance URL (`/settings/public`), racing https/http/default
 ///      port candidates for schemeless input like the MediaBrowser add-server
 ///      form, but never settling on plaintext while TLS may still answer.
-///   2. Sign in with one of the methods the instance supports — one-tap
-///      Plex (reusing the profile's stored token), Jellyfin/Emby
+///   2. Sign in with one of the methods the instance supports — Jellyfin
 ///      credentials, Jellyfin Quick Connect (Seerr 3.4+), or a local Seerr
 ///      account.
 ///
@@ -56,7 +55,6 @@ class _SeerrConnectScreenState extends State<SeerrConnectScreen>
 
   SeerrPublicSettings? _instance;
   String _baseUrl = '';
-  bool _plexTokenAvailable = false;
   _CredentialForm _form = _CredentialForm.none;
 
   @override
@@ -72,14 +70,6 @@ class _SeerrConnectScreenState extends State<SeerrConnectScreen>
     _quickConnectFocus.dispose();
     _cancelQuickConnectFocus.dispose();
     super.dispose();
-  }
-
-  bool get _offersPlex {
-    final instance = _instance;
-    return instance != null &&
-        instance.mediaServerLogin &&
-        instance.mediaServerType == SeerrMediaServerType.plex &&
-        _plexTokenAvailable;
   }
 
   _CredentialForm get _mediaServerForm {
@@ -105,34 +95,20 @@ class _SeerrConnectScreenState extends State<SeerrConnectScreen>
       // assuming https and failing every plain-HTTP LAN instance.
       final reached = await account.authService.probeFirstReachable(input);
       final settings = reached.settings;
-      final plexToken = await account.resolvePlexToken();
       if (!mounted) return;
       setState(() {
         _instance = settings;
         _baseUrl = reached.baseUrl;
-        _plexTokenAvailable = plexToken != null && plexToken.isNotEmpty;
         // With exactly one credential form on offer, skip the method list.
         final mediaForm = _mediaServerForm;
-        if (!_offersPlex && mediaForm != _CredentialForm.none && !settings.localLogin) {
+        if (mediaForm != _CredentialForm.none && !settings.localLogin) {
           _form = mediaForm;
-        } else if (!_offersPlex && mediaForm == _CredentialForm.none && settings.localLogin) {
+        } else if (mediaForm == _CredentialForm.none && settings.localLogin) {
           _form = _CredentialForm.local;
         } else {
           _form = _CredentialForm.none;
         }
       });
-    }, errorMapper: _describeError);
-  }
-
-  Future<void> _signInWithPlex() async {
-    await runAsync<void>(() async {
-      final account = context.read<SeerrAccountProvider>();
-      final token = await account.resolvePlexToken();
-      if (token == null || token.isEmpty) {
-        throw SeerrAuthException('No Plex token available', display: t.seerr.noPlexTokenForReauth);
-      }
-      final session = await account.authService.signInWithPlex(baseUrl: _baseUrl, plexToken: token);
-      await _finish(account, session);
     }, errorMapper: _describeError);
   }
 
@@ -299,25 +275,13 @@ class _SeerrConnectScreenState extends State<SeerrConnectScreen>
     final mediaForm = _mediaServerForm;
     final showLocalOption = instance.localLogin && _form != _CredentialForm.local;
     final showMediaOption = mediaForm != _CredentialForm.none && _form != mediaForm;
-    final noMethods = !_offersPlex && mediaForm == _CredentialForm.none && !instance.localLogin;
+    final noMethods = mediaForm == _CredentialForm.none && !instance.localLogin;
     return [
       _buildInstanceCard(theme, instance),
       const SizedBox(height: 16),
       if (noMethods)
         Text(t.seerr.noSignInMethods, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.error))
       else ...[
-        if (_offersPlex) ...[
-          FocusableButton(
-            useBackgroundFocus: true,
-            onPressed: busy ? null : _signInWithPlex,
-            child: FilledButton.icon(
-              onPressed: busy ? null : _signInWithPlex,
-              icon: busy ? const LoadingIndicatorBox() : const AppIcon(Symbols.login_rounded, fill: 1),
-              label: Text(t.auth.signInWithPlex),
-            ),
-          ),
-          const SizedBox(height: 12),
-        ],
         if (_form != _CredentialForm.none) ..._buildCredentialFields(theme),
         if (showMediaOption)
           _buildMethodButton(

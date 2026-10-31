@@ -8,12 +8,11 @@ import 'package:plezy/media/media_browser_dialect.dart';
 import 'package:plezy/profiles/profile.dart';
 import 'package:plezy/screens/settings/add_connection_screen.dart';
 import 'package:plezy/screens/settings/add_jellyfin_screen.dart';
-import 'package:plezy/screens/settings/add_plex_account_screen.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/widgets/backend_badge.dart';
 
-/// The "Add connection" picker is the only route to a new server, so a backend
-/// missing from this list is unreachable no matter how complete its client is.
+/// The "Add connection" picker is the only route to a new server. Plezy signs
+/// in to PlezyFin only (Adrian, 2026-10-31): no Plex, no Emby.
 void main() {
   Widget app(Widget home) => MaterialApp(
     theme: monoTheme(dark: true),
@@ -23,16 +22,16 @@ void main() {
   Profile profile(String id) =>
       Profile.local(id: id, displayName: id, sortOrder: 0, createdAt: DateTime.fromMillisecondsSinceEpoch(0));
 
-  testWidgets('offers Plex, Jellyfin and Emby, each with its own badge', (tester) async {
+  testWidgets('offers PlezyFin only, with its badge', (tester) async {
     await tester.pumpWidget(app(const AddConnectionScreen()));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in with Plex'), findsOneWidget);
     expect(find.text('Connect to PlezyFin'), findsOneWidget);
-    expect(find.text('Connect to Emby'), findsOneWidget);
+    expect(find.text('Sign in with Plex'), findsNothing);
+    expect(find.text('Connect to Emby'), findsNothing);
 
     final badges = tester.widgetList<BackendBadge>(find.byType(BackendBadge)).map((b) => b.backend).toList();
-    expect(badges, containsAll(<MediaBackend>[MediaBackend.plex, MediaBackend.jellyfin, MediaBackend.emby]));
+    expect(badges, <MediaBackend>[MediaBackend.jellyfin]);
   });
 
   /// The pushed sign-in screen starts a 2s LAN discovery sweep and a
@@ -46,64 +45,42 @@ void main() {
     return tester.widget<AddJellyfinScreen>(find.byType(AddJellyfinScreen));
   }
 
-  testWidgets('the Emby card opens the sign-in screen bound to the Emby dialect', (tester) async {
-    await tester.pumpWidget(app(const AddConnectionScreen()));
-    await tester.pumpAndSettle();
-
-    final screen = await tapCard(tester, 'Connect to Emby');
-    expect(screen.dialect, MediaBrowserDialect.emby);
-    expect(screen.targetProfile, isNull);
-    expect(find.text('Add Emby server'), findsOneWidget);
-  });
-
-  testWidgets('the Jellyfin card still opens the Jellyfin dialect', (tester) async {
+  testWidgets('the PlezyFin card opens the Jellyfin dialect', (tester) async {
     await tester.pumpWidget(app(const AddConnectionScreen()));
     await tester.pumpAndSettle();
 
     final screen = await tapCard(tester, 'Connect to PlezyFin');
     expect(screen.dialect, MediaBrowserDialect.jellyfin);
+    expect(screen.targetProfile, isNull);
     expect(find.text('Add PlezyFin server'), findsOneWidget);
   });
 
-  testWidgets('the Plex card is unaffected by the new option', (tester) async {
-    await tester.pumpWidget(app(const AddConnectionScreen()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Sign in with Plex'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 400));
-
-    expect(find.byType(AddPlexAccountScreen), findsOneWidget);
-    expect(find.byType(AddJellyfinScreen), findsNothing);
-  });
-
-  testWidgets('a scoped Emby card names the profile it will bind to', (tester) async {
+  testWidgets('a scoped picker names the profile and offers borrowing', (tester) async {
     final target = profile('Living Room');
     await tester.pumpWidget(app(AddConnectionScreen(targetProfile: target)));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to your Emby server. Binds to Living Room.'), findsOneWidget);
     expect(find.text('Sign in to your PlezyFin server. Binds to Living Room.'), findsOneWidget);
+    expect(find.byType(FocusableWrapper), findsNWidgets(2));
 
-    final screen = await tapCard(tester, 'Connect to Emby');
-    expect(screen.dialect, MediaBrowserDialect.emby);
+    final screen = await tapCard(tester, 'Connect to PlezyFin');
+    expect(screen.dialect, MediaBrowserDialect.jellyfin);
     expect(screen.targetProfile?.id, target.id);
   });
 
-  testWidgets('the D-pad steps through all three backend cards', (tester) async {
-    await tester.pumpWidget(app(const AddConnectionScreen()));
+  testWidgets('the D-pad reaches both cards of a scoped picker', (tester) async {
+    await tester.pumpWidget(app(AddConnectionScreen(targetProfile: profile('Den'))));
     await tester.pumpAndSettle();
 
     // The cards share a debugLabel, so track focus-node identity instead.
     final visited = <FocusNode>{};
-    for (var i = 0; i < 6; i++) {
+    for (var i = 0; i < 4; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
       final focused = FocusManager.instance.primaryFocus;
       if (focused != null) visited.add(focused);
     }
 
-    expect(find.byType(FocusableWrapper), findsNWidgets(3));
-    expect(visited.length, greaterThanOrEqualTo(3), reason: 'D-pad did not reach every backend card');
+    expect(visited.length, greaterThanOrEqualTo(2), reason: 'D-pad did not reach every card');
   });
 }

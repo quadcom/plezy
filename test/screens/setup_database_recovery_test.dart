@@ -48,7 +48,7 @@ void main() {
     expect(prefs.getString('current_user_uuid'), 'legacy-user');
   });
 
-  testWidgets('AuthScreen visibly renders recovery notice with Plex and Jellyfin actions', (tester) async {
+  testWidgets('AuthScreen visibly renders recovery notice with the PlezyFin action', (tester) async {
     await tester.pumpWidget(
       TranslationProvider(
         child: MaterialApp(
@@ -63,18 +63,18 @@ void main() {
     await tester.pump();
 
     expect(find.text(t.auth.localDataRecoveryRequired), findsOneWidget);
-    expect(find.text(t.auth.signInWithPlex), findsOneWidget);
+    expect(find.text(t.auth.signInWithPlex), findsNothing);
     expect(find.text(t.auth.connectToMediaBrowser(product: 'PlezyFin')), findsOneWidget);
-    expect(find.text(t.auth.connectToMediaBrowser(product: 'Emby')), findsOneWidget);
+    expect(find.text(t.auth.connectToMediaBrowser(product: 'Emby')), findsNothing);
   });
 
-  testWidgets('fresh AuthScreen has normal actions without recovery notice', (tester) async {
+  testWidgets('fresh AuthScreen offers PlezyFin only, without recovery notice', (tester) async {
     await tester.pumpWidget(TranslationProvider(child: const MaterialApp(home: AuthScreen(initializeServices: false))));
     await tester.pump();
 
     expect(find.text(t.auth.localDataRecoveryRequired), findsNothing);
-    expect(find.text(t.auth.signInWithPlex), findsOneWidget);
+    expect(find.text(t.auth.signInWithPlex), findsNothing);
     expect(find.text(t.auth.connectToMediaBrowser(product: 'PlezyFin')), findsOneWidget);
-    expect(find.text(t.auth.connectToMediaBrowser(product: 'Emby')), findsOneWidget);
+    expect(find.text(t.auth.connectToMediaBrowser(product: 'Emby')), findsNothing);
   });
 }

@@ -2,15 +2,12 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:plezy/connection/connection.dart';
 import 'package:plezy/connection/connection_registry.dart';
 import 'package:plezy/database/app_database.dart';
-import 'package:plezy/media/ids.dart';
 import 'package:plezy/profiles/active_profile_binder.dart';
 import 'package:plezy/profiles/active_profile_provider.dart';
 import 'package:plezy/profiles/plex_home_service.dart';
 import 'package:plezy/profiles/profile.dart';
-import 'package:plezy/profiles/profile_connection.dart';
 import 'package:plezy/profiles/profile_connection_registry.dart';
 import 'package:plezy/profiles/profile_registry.dart';
 import 'package:plezy/providers/account_preferences_controller.dart';
@@ -19,7 +16,6 @@ import 'package:plezy/providers/download_provider.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/providers/playback_state_provider.dart';
 import 'package:plezy/screens/profile/profile_teardown.dart';
-import 'package:plezy/services/plex_auth_service.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/services/storage_service.dart';
 import 'package:plezy/services/system_shelf_service.dart';
@@ -134,75 +130,6 @@ void main() {
     await expectLater(deleteProfile(harness.context, inactive), throwsStateError);
 
     expect(events, ['delete-downloads:inactive']);
-  });
-
-  testWidgets('Plex sign-out keeps account and joins when download deletion fails, then retry completes', (
-    tester,
-  ) async {
-    final events = <String>[];
-    final harness = await _pumpHarness(tester, events: events, channel: channel);
-    addTearDown(harness.dispose);
-    const homeUserUuid = 'aaaaaaaaaaaaaaaa';
-    final account = _plexAccount();
-    final virtualProfileId = plexHomeProfileId(accountConnectionId: account.id, homeUserUuid: homeUserUuid);
-    await harness.connections.upsert(account);
-    await harness.profileConnections.upsert(
-      ProfileConnection(
-        profileId: virtualProfileId,
-        connectionId: account.id,
-        userToken: 'virtual-token',
-        userIdentifier: homeUserUuid,
-      ),
-    );
-    await harness.profileConnections.upsert(
-      ProfileConnection(
-        profileId: 'active',
-        connectionId: account.id,
-        userToken: 'borrower-token',
-        userIdentifier: homeUserUuid,
-      ),
-    );
-    await harness.database.insertSyncRule(
-      profileId: virtualProfileId,
-      serverId: ServerId('plex-machine'),
-      ratingKey: 'show-1',
-      globalKey: 'plex-machine:show-1',
-      targetType: 'show',
-      episodeCount: 1,
-    );
-    await harness.database.insertWatchAction(
-      profileId: virtualProfileId,
-      serverId: ServerId('plex-machine'),
-      ratingKey: 'episode-1',
-      actionType: 'watched',
-    );
-
-    final failedSignOut = confirmAndSignOutPlexAccount(harness.context, accountConnectionId: account.id);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
-
-    expect(await failedSignOut, isFalse);
-    expect(await harness.connections.get(account.id), isNotNull);
-    expect((await harness.profileConnections.listForConnection(account.id)).map((row) => row.profileId).toSet(), {
-      'active',
-      virtualProfileId,
-    });
-    expect(await harness.database.getSyncRules(profileId: virtualProfileId), hasLength(1));
-    expect(await harness.database.getPendingSyncCount(profileId: virtualProfileId), 1);
-
-    final retry = confirmAndSignOutPlexAccount(harness.context, accountConnectionId: account.id);
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(FilledButton));
-    await tester.pumpAndSettle();
-
-    expect(await retry, isTrue);
-    expect(await harness.connections.get(account.id), isNull);
-    expect(await harness.profileConnections.listForConnection(account.id), isEmpty);
-    expect(await harness.database.getSyncRules(profileId: virtualProfileId), isEmpty);
-    expect(await harness.database.getPendingSyncCount(profileId: virtualProfileId), 0);
-    expect(events.where((event) => event == 'delete-downloads:$virtualProfileId'), hasLength(2));
-    expect(events, contains('release-downloads:active:[plex-machine]'));
   });
 
   testWidgets('full logout clears shelf before companion, identity, or credential teardown', (tester) async {
@@ -330,33 +257,3 @@ Future<_Harness> _pumpHarness(
 
 TestDefaultBinaryMessenger messengerFor(MethodChannel channel) =>
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-
-PlexAccountConnection _plexAccount() {
-  return PlexAccountConnection(
-    id: 'plex-account',
-    accountToken: 'account-token',
-    clientIdentifier: 'client-1',
-    accountLabel: 'Plex',
-    servers: [
-      PlexServer(
-        name: 'Plex Server',
-        clientIdentifier: 'plex-machine',
-        accessToken: 'server-token',
-        connections: [
-          PlexConnection(
-            protocol: 'https',
-            address: 'plex.example.test',
-            port: 443,
-            uri: 'https://plex.example.test',
-            local: false,
-            relay: false,
-            ipv6: false,
-          ),
-        ],
-        owned: true,
-      ),
-    ],
-    createdAt: DateTime.fromMillisecondsSinceEpoch(1_000_000),
-    lastAuthenticatedAt: DateTime.fromMillisecondsSinceEpoch(1_000_000),
-  );
-}
