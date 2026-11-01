@@ -3472,6 +3472,7 @@ class Translations$libraries$en {
 
 	late final Translations$libraries$tabs$en tabs = Translations$libraries$tabs$en.internal(_root);
 	late final Translations$libraries$groupings$en groupings = Translations$libraries$groupings$en.internal(_root);
+	late final Translations$libraries$folderGrid$en folderGrid = Translations$libraries$folderGrid$en.internal(_root);
 	late final Translations$libraries$filterCategories$en filterCategories = Translations$libraries$filterCategories$en.internal(_root);
 	late final Translations$libraries$sortLabels$en sortLabels = Translations$libraries$sortLabels$en.internal(_root);
 	late final Translations$libraries$advancedFilters$en advancedFilters = Translations$libraries$advancedFilters$en.internal(_root);
@@ -6154,6 +6155,36 @@ class Translations$oldSchool$en {
 
 	/// en: '${minutes} min'
 	String runMinutes({required Object minutes}) => '${minutes} min';
+
+	/// en: 'Tomorrow'
+	String get tomorrow => 'Tomorrow';
+
+	/// en: 'Remind me'
+	String get remindMe => 'Remind me';
+
+	/// en: 'Couldn't save the reminder.'
+	String get reminderFailed => 'Couldn\'t save the reminder.';
+
+	/// en: 'Directed by ${names}'
+	String directedBy({required Object names}) => 'Directed by ${names}';
+
+	/// en: 'Starring ${names}'
+	String starring({required Object names}) => 'Starring ${names}';
+
+	/// en: 'Watched'
+	String get watched => 'Watched';
+
+	/// en: 'Starts on ${number} ${name}'
+	String reminderStartsOn({required Object number, required Object name}) => 'Starts on ${number} ${name}';
+
+	/// en: 'Switching in ${time}'
+	String reminderSwitchingIn({required Object time}) => 'Switching in ${time}';
+
+	/// en: 'Watch now'
+	String get reminderSwitchNow => 'Watch now';
+
+	/// en: 'Stay'
+	String get reminderStay => 'Stay';
 }
 
 // Path: iptv
@@ -6655,6 +6686,51 @@ class Translations$libraries$groupings$en {
 
 	/// en: 'Folders'
 	String get folders => 'Folders';
+}
+
+// Path: libraries.folderGrid
+class Translations$libraries$folderGrid$en {
+	Translations$libraries$folderGrid$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Folder view'
+	String get view => 'Folder view';
+
+	/// en: 'Grid'
+	String get grid => 'Grid';
+
+	/// en: 'List'
+	String get list => 'List';
+
+	/// en: 'Folder sort'
+	String get sort => 'Folder sort';
+
+	/// en: 'Name'
+	String get sortName => 'Name';
+
+	/// en: 'Newest first'
+	String get sortNewest => 'Newest first';
+
+	/// en: 'Largest first'
+	String get sortLargest => 'Largest first';
+
+	/// en: '1 video'
+	String get oneVideo => '1 video';
+
+	/// en: '${count} videos'
+	String videos({required Object count}) => '${count} videos';
+
+	/// en: '1 folder'
+	String get oneFolder => '1 folder';
+
+	/// en: '${count} folders'
+	String folders({required Object count}) => '${count} folders';
+
+	/// en: 'Up one folder'
+	String get up => 'Up one folder';
 }
 
 // Path: libraries.filterCategories
@@ -9015,6 +9091,18 @@ extension on Translations {
 			'libraries.groupings.albums' => 'Albums',
 			'libraries.groupings.tracks' => 'Tracks',
 			'libraries.groupings.folders' => 'Folders',
+			'libraries.folderGrid.view' => 'Folder view',
+			'libraries.folderGrid.grid' => 'Grid',
+			'libraries.folderGrid.list' => 'List',
+			'libraries.folderGrid.sort' => 'Folder sort',
+			'libraries.folderGrid.sortName' => 'Name',
+			'libraries.folderGrid.sortNewest' => 'Newest first',
+			'libraries.folderGrid.sortLargest' => 'Largest first',
+			'libraries.folderGrid.oneVideo' => '1 video',
+			'libraries.folderGrid.videos' => ({required Object count}) => '${count} videos',
+			'libraries.folderGrid.oneFolder' => '1 folder',
+			'libraries.folderGrid.folders' => ({required Object count}) => '${count} folders',
+			'libraries.folderGrid.up' => 'Up one folder',
 			'libraries.filterCategories.genre' => 'Genre',
 			'libraries.filterCategories.year' => 'Year',
 			'libraries.filterCategories.contentRating' => 'Content Rating',
@@ -9402,6 +9490,8 @@ extension on Translations {
 			'playlists.itemRemoved' => 'Removed from playlist',
 			'playlists.selectPlaylist' => 'Select Playlist',
 			'playlists.searchPlaylists' => 'Search playlists...',
+			_ => null,
+		} ?? switch (path) {
 			'playlists.errorCreating' => 'Failed to create playlist',
 			'playlists.errorDeleting' => 'Failed to delete playlist',
 			'playlists.errorLoading' => 'Failed to load playlists',
@@ -9414,8 +9504,6 @@ extension on Translations {
 			'music.playNext' => 'Play next',
 			'music.addToQueue' => 'Add to queue',
 			'music.discNumber' => ({required Object n}) => 'Disc ${n}',
-			_ => null,
-		} ?? switch (path) {
 			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
 			'music.nowPlaying' => 'Now Playing',
 			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
@@ -9916,6 +10004,8 @@ extension on Translations {
 			'seerr.signInWithJellyfin' => 'Sign in with Jellyfin',
 			'seerr.signInWithEmby' => 'Sign in with Emby',
 			'seerr.signInWithLocal' => 'Use a local account',
+			_ => null,
+		} ?? switch (path) {
 			'seerr.email' => 'Email',
 			'seerr.noSignInMethods' => 'This Seerr instance offers no sign-in method Plezy supports.',
 			'seerr.instance' => 'Instance',
@@ -9928,8 +10018,6 @@ extension on Translations {
 			'seerr.advancedOptions' => 'Advanced',
 			'seerr.destinationServer' => 'Destination server',
 			'seerr.qualityProfile' => 'Quality profile',
-			_ => null,
-		} ?? switch (path) {
 			'seerr.rootFolder' => 'Root folder',
 			'seerr.languageProfile' => 'Language profile',
 			'seerr.tags' => 'Tags',
@@ -10124,6 +10212,16 @@ extension on Translations {
 			'oldSchool.startsIn' => ({required Object time}) => 'Starts in ${time}',
 			'oldSchool.runHoursMinutes' => ({required Object hours, required Object minutes}) => '${hours} h ${minutes} min',
 			'oldSchool.runMinutes' => ({required Object minutes}) => '${minutes} min',
+			'oldSchool.tomorrow' => 'Tomorrow',
+			'oldSchool.remindMe' => 'Remind me',
+			'oldSchool.reminderFailed' => 'Couldn\'t save the reminder.',
+			'oldSchool.directedBy' => ({required Object names}) => 'Directed by ${names}',
+			'oldSchool.starring' => ({required Object names}) => 'Starring ${names}',
+			'oldSchool.watched' => 'Watched',
+			'oldSchool.reminderStartsOn' => ({required Object number, required Object name}) => 'Starts on ${number} ${name}',
+			'oldSchool.reminderSwitchingIn' => ({required Object time}) => 'Switching in ${time}',
+			'oldSchool.reminderSwitchNow' => 'Watch now',
+			'oldSchool.reminderStay' => 'Stay',
 			'iptv.title' => 'IPTV',
 			'iptv.exit' => 'Exit',
 			'iptv.live' => 'LIVE',

@@ -1225,6 +1225,20 @@
       "tracks": "Tracks",
       "folders": "Folders"
     },
+    "folderGrid": {
+      "view": "Folder view",
+      "grid": "Grid",
+      "list": "List",
+      "sort": "Folder sort",
+      "sortName": "Name",
+      "sortNewest": "Newest first",
+      "sortLargest": "Largest first",
+      "oneVideo": "1 video",
+      "videos": "${count} videos",
+      "oneFolder": "1 folder",
+      "folders": "${count} folders",
+      "up": "Up one folder"
+    },
     "filterCategories": {
       "genre": "Genre",
       "year": "Year",
@@ -2467,7 +2481,17 @@
     "endsAt": "Ends at ${time}",
     "startsIn": "Starts in ${time}",
     "runHoursMinutes": "${hours} h ${minutes} min",
-    "runMinutes": "${minutes} min"
+    "runMinutes": "${minutes} min",
+    "tomorrow": "Tomorrow",
+    "remindMe": "Remind me",
+    "reminderFailed": "Couldn't save the reminder.",
+    "directedBy": "Directed by ${names}",
+    "starring": "Starring ${names}",
+    "watched": "Watched",
+    "reminderStartsOn": "Starts on ${number} ${name}",
+    "reminderSwitchingIn": "Switching in ${time}",
+    "reminderSwitchNow": "Watch now",
+    "reminderStay": "Stay"
   },
   "iptv": {
     "title": "IPTV",

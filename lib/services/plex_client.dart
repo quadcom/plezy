@@ -4368,6 +4368,7 @@ class PlexClient
   Future<List<MediaItem>> fetchLibraryFolders(
     String libraryId, {
     void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
   }) async {
     final raw = await _getLibraryFolders(libraryId);
     return raw.map((m) => _classifyFolderRow(PlexMappers.mediaItem(m))).toList();
@@ -4381,6 +4382,7 @@ class PlexClient
     String? libraryId,
     String? libraryTitle,
     void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
   }) async {
     final folderKey = folder.backendFolderKey;
     if (folderKey == null) return const [];

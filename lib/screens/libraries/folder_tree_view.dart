@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import '../../media/ids.dart';
 import 'package:material_symbols_icons/symbols.dart';
@@ -14,11 +16,31 @@ import '../../utils/media_navigation_helper.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/snackbar_helper.dart';
 import '../../i18n/strings.g.dart';
+import '../../services/settings_service.dart';
+import '../../utils/grid_size_calculator.dart';
+import '../../widgets/app_icon.dart';
+import '../../widgets/media_grid_delegate.dart';
+import 'folder_grid_tile.dart';
 import 'folder_tree_item.dart';
 import 'state_messages.dart';
 
+/// How the folder grid orders a folder's videos; sub-folders always come
+/// first, by name (local/plans/home-video-grid.md).
+enum FolderGridSort {
+  name,
+  newest,
+  largest;
+
+  static FolderGridSort parse(String? value) => values.firstWhere((s) => s.name == value, orElse: () => name);
+}
+
 /// Expandable tree view for browsing library folders
 /// Shows a hierarchical file/folder structure
+///
+/// With [grid] it is the home-video folder grid instead
+/// (local/plans/home-video-grid.md): the open folder's sub-folders and
+/// videos as tiles, opened one level at a time, with a path bar to go back
+/// up. Back also goes up a folder before it leaves the library.
 class FolderTreeView extends StatefulWidget {
   final String libraryKey;
   final String? serverId; // Server this library belongs to
@@ -28,6 +50,13 @@ class FolderTreeView extends StatefulWidget {
   final VoidCallback? onNavigateUp;
   final VoidCallback? onNavigateLeft;
   final VoidCallback? onBack;
+
+  /// Tiles, one folder at a time, instead of the expandable tree.
+  final bool grid;
+  final FolderGridSort gridSort;
+
+  /// The library's name, the first part of the grid's path bar.
+  final String? libraryTitle;
 
   const FolderTreeView({
     super.key,
@@ -39,6 +68,9 @@ class FolderTreeView extends StatefulWidget {
     this.onNavigateUp,
     this.onNavigateLeft,
     this.onBack,
+    this.grid = false,
+    this.gridSort = FolderGridSort.name,
+    this.libraryTitle,
   });
 
   @override
@@ -89,10 +121,140 @@ class FolderTreeViewState extends State<FolderTreeView> {
     return item.backendFolderKey ?? item.id;
   }
 
+  /// The grid's open folders, outermost first; empty at the library's top.
+  final List<MediaItem> _openPath = [];
+
+  /// Folder tiles waiting for their contents (collage and count), loaded a
+  /// few at a time so a big folder doesn't fire a burst of calls.
+  final List<MediaItem> _prefetchQueue = [];
+  int _prefetchesRunning = 0;
+  static const _maxPrefetches = 3;
+
   @override
   void initState() {
     super.initState();
     _trackRootLoad(_loadRootFolders());
+  }
+
+  @override
+  void didUpdateWidget(FolderTreeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // The grid asks for file details the tree leaves out: start over.
+    if (oldWidget.grid != widget.grid) {
+      _openPath.clear();
+      _prefetchQueue.clear();
+      _childrenCache.clear();
+      _expandedFolders.clear();
+      _trackRootLoad(_loadRootFolders());
+    }
+  }
+
+  /// Back in the grid: up one folder. False at the top (or in the tree), so
+  /// Back leaves the library as before.
+  bool goUp() {
+    if (!widget.grid || _openPath.isEmpty) return false;
+    setState(() => _openPath.removeLast());
+    _focusFirstTile();
+    return true;
+  }
+
+  /// With a remote or keyboard, land on the first tile of the folder shown.
+  void _focusFirstTile() {
+    if (FocusManager.instance.highlightMode != FocusHighlightMode.traditional) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final node = widget.firstItemFocusNode;
+      if (mounted && node != null && node.context != null) node.requestFocus();
+    });
+  }
+
+  void _goTo(int depth) {
+    if (depth >= _openPath.length) return;
+    setState(() => _openPath.removeRange(depth, _openPath.length));
+    _focusFirstTile();
+  }
+
+  void _openFolder(MediaItem folder) {
+    setState(() => _openPath.add(folder));
+    _focusFirstTile();
+    unawaited(_fetchChildren(folder, opened: true).then((_) => _focusFirstTile()));
+  }
+
+  /// Queue [folder]'s contents for its tile (collage and count).
+  void _prefetch(MediaItem folder) {
+    final key = _folderIdentity(folder);
+    if (key == null || _childrenCache.containsKey(key) || _loadingFolders.contains(key)) return;
+    if (_prefetchQueue.any((f) => _folderIdentity(f) == key)) return;
+    _prefetchQueue.add(folder);
+    _pumpPrefetches();
+  }
+
+  void _pumpPrefetches() {
+    while (_prefetchesRunning < _maxPrefetches && _prefetchQueue.isNotEmpty) {
+      final folder = _prefetchQueue.removeAt(0);
+      _prefetchesRunning++;
+      unawaited(
+        _fetchChildren(folder, opened: false).whenComplete(() {
+          _prefetchesRunning--;
+          if (mounted) _pumpPrefetches();
+        }),
+      );
+    }
+  }
+
+  /// Load [folder]'s contents into the cache for the grid. [opened]: the
+  /// viewer opened it, so a failure is reported.
+  Future<void> _fetchChildren(MediaItem folder, {required bool opened}) async {
+    final key = _folderIdentity(folder);
+    if (key == null || _childrenCache.containsKey(key) || _loadingFolders.contains(key)) return;
+    final epoch = _loadEpoch;
+    setState(() => _loadingFolders.add(key));
+    try {
+      final client = context.getMediaClientForServer(ServerId(widget.serverId!));
+      final children = await client.fetchFolderChildren(
+        folder,
+        withFileDetails: true,
+        onPage: (items) {
+          if (!mounted || epoch != _loadEpoch) return;
+          setState(() => _childrenCache[key] = items);
+        },
+      );
+      if (!mounted || epoch != _loadEpoch) return;
+      setState(() {
+        _childrenCache[key] = children;
+        _loadingFolders.remove(key);
+      });
+    } catch (e, stackTrace) {
+      if (!mounted || epoch != _loadEpoch) return;
+      setState(() {
+        _loadingFolders.remove(key);
+        _childrenCache.remove(key);
+      });
+      if (opened && mounted) {
+        showErrorSnackBar(context, localizedLoadErrorMessage(e, stackTrace, context: t.libraries.folders));
+      }
+    }
+  }
+
+  /// Sub-folders first by name, then videos in [FolderTreeView.gridSort].
+  List<MediaItem> _gridOrder(List<MediaItem> items) {
+    final folders = [
+      for (final i in items)
+        if (_isExpandable(i)) i,
+    ];
+    final videos = [
+      for (final i in items)
+        if (!_isExpandable(i)) i,
+    ];
+    int size(MediaItem i) => i.mediaVersions?.firstOrNull?.parts.firstOrNull?.sizeBytes ?? 0;
+    switch (widget.gridSort) {
+      case FolderGridSort.name:
+        break;
+      case FolderGridSort.newest:
+        videos.sort((a, b) => (b.addedAt ?? 0).compareTo(a.addedAt ?? 0));
+      case FolderGridSort.largest:
+        videos.sort((a, b) => size(b).compareTo(size(a)));
+    }
+    return [...folders, ...videos];
   }
 
   /// Invalidate in-flight loads (epoch bump) and drop their partial results
@@ -301,7 +463,7 @@ class FolderTreeViewState extends State<FolderTreeView> {
     MediaServerClient client, {
     void Function(List<MediaItem> itemsSoFar)? onPage,
   }) {
-    return client.fetchLibraryFolders(widget.libraryKey, onPage: onPage);
+    return client.fetchLibraryFolders(widget.libraryKey, onPage: onPage, withFileDetails: widget.grid);
   }
 
   Future<List<MediaItem>> _fetchFolderChildren(
@@ -366,6 +528,8 @@ class FolderTreeViewState extends State<FolderTreeView> {
       );
     }
 
+    if (widget.grid) return _buildGrid(context);
+
     final flattened = <({MediaItem item, int depth, String path, MediaItem? parent})>[];
     _flattenTreeItems(_rootFolders, 0, '', null, flattened);
 
@@ -404,6 +568,166 @@ class FolderTreeViewState extends State<FolderTreeView> {
             onNavigateLeft: widget.onNavigateLeft,
             onRefresh: widget.onRefresh,
             onListRefresh: () => _refreshAfterDeletion(entry.parent),
+          );
+        },
+      ),
+    );
+  }
+
+  // --- Grid ---------------------------------------------------------------
+
+  Widget _buildGrid(BuildContext context) {
+    final open = _openPath.lastOrNull;
+    final openKey = open == null ? null : _folderIdentity(open);
+    final items = open == null ? _rootFolders : _childrenCache[openKey];
+    final loading = open != null && items == null && _loadingFolders.contains(openKey);
+    final atTop = _openPath.isEmpty;
+
+    final Widget body;
+    if (items == null && loading) {
+      body = const SliverFillRemaining(hasScrollBody: false, child: Center(child: CircularProgressIndicator()));
+    } else if (items == null || items.isEmpty) {
+      body = SliverFillRemaining(
+        hasScrollBody: false,
+        child: EmptyStateWidget(message: t.libraries.noFoldersFound, icon: Symbols.folder_open_rounded),
+      );
+    } else {
+      body = _buildGridItems(context, _gridOrder(items), parent: open);
+    }
+
+    return PopScope(
+      // A phone's Back gesture goes up a folder first.
+      canPop: atTop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) goUp();
+      },
+      child: SliverMainAxisGroup(
+        slivers: [
+          if (!atTop) SliverToBoxAdapter(child: _buildPathBar(context)),
+          body,
+        ],
+      ),
+    );
+  }
+
+  String _folderName(MediaItem folder) {
+    final title = folder.title?.trim();
+    return title != null && title.isNotEmpty ? title : folder.displayTitle;
+  }
+
+  Widget _buildPathBar(BuildContext context) {
+    final theme = Theme.of(context);
+    final open = _openPath.last;
+    final canPlay = open.kind == MediaKind.folder && _canPlayFolder(open);
+    final crumbs = <Widget>[
+      TextButton(
+        onPressed: () => _goTo(0),
+        child: Text(widget.libraryTitle ?? t.libraries.groupings.folders, maxLines: 1, overflow: .ellipsis),
+      ),
+      for (var i = 0; i < _openPath.length; i++) ...[
+        AppIcon(Symbols.chevron_right_rounded, fill: 1, size: 18, color: theme.colorScheme.onSurfaceVariant),
+        if (i == _openPath.length - 1)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              _folderName(_openPath[i]),
+              style: theme.textTheme.titleSmall?.copyWith(fontWeight: .w700),
+              maxLines: 1,
+              overflow: .ellipsis,
+            ),
+          )
+        else
+          TextButton(
+            onPressed: () => _goTo(i + 1),
+            child: Text(_folderName(_openPath[i]), maxLines: 1, overflow: .ellipsis),
+          ),
+      ],
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      child: Row(
+        children: [
+          IconButton(
+            tooltip: t.libraries.folderGrid.up,
+            onPressed: goUp,
+            icon: const AppIcon(Symbols.arrow_upward_rounded, fill: 1),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              reverse: true,
+              child: Row(children: crumbs),
+            ),
+          ),
+          if (canPlay) ...[
+            IconButton(
+              tooltip: t.common.play,
+              onPressed: () => unawaited(_launchFolder(open, shuffle: false)),
+              icon: const AppIcon(Symbols.play_arrow_rounded, fill: 1),
+            ),
+            IconButton(
+              tooltip: t.common.shuffle,
+              onPressed: () => unawaited(_launchFolder(open, shuffle: true)),
+              icon: const AppIcon(Symbols.shuffle_rounded, fill: 1),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGridItems(BuildContext context, List<MediaItem> items, {required MediaItem? parent}) {
+    final density = SettingsService.instance.read(SettingsService.libraryDensity);
+    final spacing = MediaGridDelegate.spacingFor(context: context, useWideAspectRatio: true);
+    final textHeight = FolderGridTile.textHeight(MediaQuery.textScalerOf(context));
+    // Wide cells, sized from the Library density setting like the
+    // library's flat grid.
+    final maxExtent = GridSizeCalculator.getMaxCrossAxisExtent(context, density) * 1.8;
+    return SliverPadding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      sliver: SliverLayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.crossAxisExtent;
+          final columns = GridSizeCalculator.getColumnCount(width, maxExtent, crossAxisSpacing: spacing);
+          final cellWidth = GridSizeCalculator.getCellWidthForColumnCount(width, columns, crossAxisSpacing: spacing);
+          return SliverGrid.builder(
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: columns,
+              crossAxisSpacing: spacing,
+              mainAxisSpacing: spacing + 4,
+              mainAxisExtent: cellWidth * 9 / 16 + textHeight,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final isFolder = _isExpandable(item);
+              final key = isFolder ? _folderIdentity(item) : null;
+              final children = key == null ? null : _childrenCache[key];
+              // A folder tile needs its contents for the collage and the
+              // count; only built tiles ask, a few at a time.
+              if (isFolder && children == null) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _prefetch(item);
+                });
+              }
+              final canPlay = isFolder && item.kind == MediaKind.folder && _canPlayFolder(item);
+              return FolderGridTile(
+                key: ValueKey('${parent?.id ?? 'root'}:${item.id}'),
+                item: item,
+                isFolder: isFolder,
+                serverId: widget.serverId,
+                children: children,
+                onTap: isFolder ? () => _openFolder(item) : () => unawaited(_handleItemTap(item, parent)),
+                onPlayAll: canPlay ? () => unawaited(_launchFolder(item, shuffle: false)) : null,
+                onShuffle: canPlay ? () => unawaited(_launchFolder(item, shuffle: true)) : null,
+                focusNode: index == 0 ? widget.firstItemFocusNode : null,
+                onNavigateUp: index < columns && _openPath.isEmpty ? widget.onNavigateUp : null,
+                onNavigateLeft: index % columns == 0 ? widget.onNavigateLeft : null,
+                onBack: _openPath.isEmpty ? null : () => goUp(),
+                onRefresh: widget.onRefresh,
+                onListRefresh: () => _refreshAfterDeletion(parent),
+              );
+            },
           );
         },
       ),

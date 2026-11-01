@@ -31,6 +31,8 @@ class StorageService extends BaseSharedPreferencesService {
   static const String _prefixLibraryFilters = 'library_filters_';
   static const String _prefixLibrarySort = 'library_sort_';
   static const String _prefixLibraryGrouping = 'library_grouping_';
+  static const String _prefixLibraryFolderView = 'library_folder_view_';
+  static const String _prefixLibraryFolderSort = 'library_folder_sort_';
   static const String _prefixLibraryTab = 'library_tab_';
   static const String _prefixPlexHomeUsers = 'plex_home_users_';
   static const String _prefixProfileLastUsed = 'profile_last_used_';
@@ -328,6 +330,22 @@ class StorageService extends BaseSharedPreferencesService {
   String? getLibraryGrouping(String sectionId) {
     return _getScopedString('$_prefixLibraryGrouping$sectionId');
   }
+
+  // Folders grouping's view ('grid' or 'list') and grid sort, per library and
+  // per device (local/plans/home-video-grid.md).
+  Future<void> saveLibraryFolderView(String sectionId, String view, {String? profileId}) async {
+    final prefix = _prefixFor(profileId);
+    await prefs.setString('$prefix$_prefixLibraryFolderView$sectionId', view);
+  }
+
+  String? getLibraryFolderView(String sectionId) => _getScopedString('$_prefixLibraryFolderView$sectionId');
+
+  Future<void> saveLibraryFolderSort(String sectionId, String sort, {String? profileId}) async {
+    final prefix = _prefixFor(profileId);
+    await prefs.setString('$prefix$_prefixLibraryFolderSort$sectionId', sort);
+  }
+
+  String? getLibraryFolderSort(String sectionId) => _getScopedString('$_prefixLibraryFolderSort$sectionId');
 
   // Library Tab (per-library, saves last selected tab name)
   Future<void> saveLibraryTab(String sectionId, String tabName, {String? profileId}) async {

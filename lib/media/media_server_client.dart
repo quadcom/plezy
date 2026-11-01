@@ -233,18 +233,26 @@ abstract class MediaServerClient {
   /// back as [MediaKind.folder] (Plex additionally stamps
   /// [MediaItem.backendFolderKey]). [onPage] surfaces accumulated items after
   /// each intermediate page on backends that paginate (Jellyfin); single-shot
-  /// backends (Plex) never call it.
-  Future<List<MediaItem>> fetchLibraryFolders(String libraryId, {void Function(List<MediaItem> itemsSoFar)? onPage});
+  /// backends (Plex) never call it. [withFileDetails] asks for each file's
+  /// size, resolution, codec and date added where the backend leaves them out
+  /// of a plain listing (the home-video folder grid,
+  /// local/plans/home-video-grid.md).
+  Future<List<MediaItem>> fetchLibraryFolders(
+    String libraryId, {
+    void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
+  });
 
   /// Children of a [MediaKind.folder] row from [fetchLibraryFolders] /
   /// [fetchFolderChildren] — or, on Jellyfin, of a show/season row, which act
   /// as expandable folders in folder browsing. Same [onPage] semantics as
-  /// [fetchLibraryFolders].
+  /// [fetchLibraryFolders], and the same [withFileDetails].
   Future<List<MediaItem>> fetchFolderChildren(
     MediaItem folder, {
     String? libraryId,
     String? libraryTitle,
     void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
   });
 
   /// Page through direct children of [parentId]. Unlike

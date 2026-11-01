@@ -3694,6 +3694,28 @@ void main() {
       expect(items[1].kind, MediaKind.show);
     });
 
+    // local/plans/home-video-grid.md: the folder grid asks for file details
+    // on media rows only; folder rows stay slim.
+    test('fetchLibraryFolders withFileDetails adds sources and date added to media rows', () async {
+      final captured = <Uri>[];
+      final scoped = JellyfinClient.forTesting(
+        connection: _conn(),
+        httpClient: MockClient((req) async {
+          captured.add(req.url);
+          return jsonResponse({'Items': <Object?>[], 'TotalRecordCount': 0});
+        }),
+      );
+      addTearDown(scoped.close);
+
+      await scoped.fetchLibraryFolders('lib-1', withFileDetails: true);
+
+      final folderQuery = captured.firstWhere((u) => u.queryParameters.containsKey('IncludeItemTypes'));
+      final mediaQuery = captured.firstWhere((u) => u.queryParameters.containsKey('ExcludeItemTypes'));
+      expect(mediaQuery.queryParameters['Fields'], contains('MediaSources'));
+      expect(mediaQuery.queryParameters['Fields'], contains('DateCreated'));
+      expect(folderQuery.queryParameters['Fields'], isNot(contains('MediaSources')));
+    });
+
     test('fetchFolderChildren pages direct folder contents', () async {
       final mediaStarts = <String?>[];
       final pages = <List<MediaItem>>[];

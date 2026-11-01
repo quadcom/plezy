@@ -133,6 +133,13 @@ const _baseFolderBrowseFields = 'PremiereDate,OriginalTitle,SortName';
 /// dominant cost of folder browsing (see [_fetchFolderChildren]).
 const _baseFolderRowFields = 'SortName';
 
+/// Folder-tree field set for MEDIA children when the folder GRID asks for
+/// file details (`withFileDetails`, local/plans/home-video-grid.md): the
+/// browse set plus `DateCreated` and `MediaSources`, so each file's size,
+/// resolution and codec show and the grid can sort by date added. Leaves
+/// only, no recursive counts; the plain tree keeps the slim set.
+const _baseFolderMediaFields = '$_baseFolderBrowseFields,DateCreated,MediaSources';
+
 /// Latest Albums hub row. `/Users/{id}/Items/Latest` on a music library
 /// returns MusicAlbum FOLDER dtos, so [_browseFields] would trigger the same
 /// per-folder recursive COUNT queries described on [_folderBrowseFields] —
@@ -1162,8 +1169,11 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   /// distinct from [fetchLibraryPagedContent], which intentionally recurses
   /// through a library to show metadata groupings like albums, artists, shows, etc.
   @override
-  Future<List<MediaItem>> fetchLibraryFolders(String libraryId, {void Function(List<MediaItem> itemsSoFar)? onPage}) =>
-      _fetchFolderChildren(libraryId, onPage: onPage);
+  Future<List<MediaItem>> fetchLibraryFolders(
+    String libraryId, {
+    void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
+  }) => _fetchFolderChildren(libraryId, onPage: onPage, withFileDetails: withFileDetails);
 
   /// Contents of a Jellyfin folder. Kept separate from [fetchChildren] so the
   /// folder tree can use direct-child semantics even for music libraries —
@@ -1180,11 +1190,12 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     String? libraryId,
     String? libraryTitle,
     void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
   }) {
     if (folder.kind == MediaKind.show || folder.kind == MediaKind.season) {
       return _fetchChildrenInternal(folder.id, onPage: onPage);
     }
-    return _fetchFolderChildren(folder.id, onPage: onPage);
+    return _fetchFolderChildren(folder.id, onPage: onPage, withFileDetails: withFileDetails);
   }
 
   /// Page through `/Items?ParentId=...&Recursive=false` with the given type
@@ -1226,6 +1237,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
   Future<List<MediaItem>> _fetchFolderChildren(
     String parentId, {
     void Function(List<MediaItem> itemsSoFar)? onPage,
+    bool withFileDetails = false,
   }) async {
     final cacheKey = '/Items?ParentId=$parentId&Recursive=false&userId=${connection.userId}';
     if (isOfflineMode) {
@@ -1249,7 +1261,7 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     final mediaFuture = _pageFolderQuery(
       parentId,
       {'ExcludeItemTypes': _folderItemTypes},
-      _folderBrowseFields,
+      withFileDetails ? _folderMediaFields : _folderBrowseFields,
       onRawPage: onPage == null
           ? null
           : (rowsSoFar) {

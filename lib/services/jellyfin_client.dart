@@ -239,6 +239,7 @@ mixin _JellyfinClientInternals on MediaServerCacheMixin {
   String get _episodeRowFields => _withDialectRowFields(_baseEpisodeRowFields);
   String get _folderBrowseFields => _withDialectRowFields(_baseFolderBrowseFields);
   String get _folderRowFields => _withDialectRowFields(_baseFolderRowFields);
+  String get _folderMediaFields => _withDialectRowFields(_baseFolderMediaFields);
   String get _musicAlbumRowFields => _withDialectRowFields(_baseMusicAlbumRowFields);
   String get _musicTrackRowFields => _withDialectRowFields(_baseMusicTrackRowFields);
   String get _queueFields => _withDialectRowFields(_baseQueueFields);

@@ -412,6 +412,13 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
   // sliver inside the same CustomScrollView (no longer self-owning RefreshIndicator).
   final GlobalKey<FolderTreeViewState> _folderTreeKey = GlobalKey<FolderTreeViewState>();
 
+  /// Folders grouping as tiles or the tree, saved per library on this device;
+  /// unset, home-video libraries open as tiles (local/plans/home-video-grid.md).
+  bool? _savedFolderGrid;
+  FolderGridSort _folderSort = FolderGridSort.name;
+
+  bool get _folderGrid => _savedFolderGrid ?? widget.library.kind == MediaKind.clip;
+
   void _bindInnerPosition(ScrollPosition? position) {
     if (position == _innerPosition) return;
     _innerPosition?.removeListener(_onScrollChanged);
@@ -615,6 +622,14 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
       final savedFilters = storage.getLibraryFilters(sectionId: libraryGlobalKey);
       final savedSort = storage.getLibrarySort(libraryGlobalKey);
       final savedGrouping = storage.getLibraryGrouping(libraryGlobalKey);
+      final savedFolderView = storage.getLibraryFolderView(libraryGlobalKey);
+      final savedFolderSort = storage.getLibraryFolderSort(libraryGlobalKey);
+      if (mounted) {
+        setState(() {
+          _savedFolderGrid = savedFolderView == null ? null : savedFolderView == 'grid';
+          _folderSort = FolderGridSort.parse(savedFolderSort);
+        });
+      }
       // Resolve the restored grouping before the sort fetch — music groupings
       // (albums/tracks) request their own per-type sort list.
       final restoredGrouping = _normalizeGrouping(savedGrouping);
@@ -1079,6 +1094,23 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
             trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
             onTap: () => _showGroupingOptionsPage(controller),
           ),
+          if (_selectedGrouping == 'folders') ...[
+            FocusableListTile(
+              leading: AppIcon(_folderGrid ? Symbols.grid_view_rounded : Symbols.account_tree_rounded, fill: 1),
+              title: Text(t.libraries.folderGrid.view),
+              subtitle: Text(_folderGrid ? t.libraries.folderGrid.grid : t.libraries.folderGrid.list),
+              trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+              onTap: () => _showFolderViewPage(controller),
+            ),
+            if (_folderGrid)
+              FocusableListTile(
+                leading: const AppIcon(Symbols.sort_rounded, fill: 1),
+                title: Text(t.libraries.folderGrid.sort),
+                subtitle: Text(_folderSortLabel(_folderSort)),
+                trailing: const AppIcon(Symbols.chevron_right_rounded, fill: 1),
+                onTap: () => _showFolderSortPage(controller),
+              ),
+          ],
           if (_isFiltersChipVisible)
             FocusableListTile(
               leading: const AppIcon(Symbols.filter_alt_rounded, fill: 1),
@@ -1101,6 +1133,93 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
         ],
       ),
     );
+  }
+
+  static String _folderSortLabel(FolderGridSort sort) => switch (sort) {
+    FolderGridSort.name => t.libraries.folderGrid.sortName,
+    FolderGridSort.newest => t.libraries.folderGrid.sortNewest,
+    FolderGridSort.largest => t.libraries.folderGrid.sortLargest,
+  };
+
+  /// A sub-page of radio choices in the library options sheet.
+  Widget _choicePage<T>({
+    required String title,
+    required IconData icon,
+    required List<T> options,
+    required T selected,
+    required String Function(T) labelOf,
+    required OverlaySheetController controller,
+  }) {
+    return BottomSheetPageScaffold(
+      title: title,
+      icon: icon,
+      onBack: () => controller.pop(),
+      child: ListView(
+        primary: false,
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        children: [
+          for (final option in options)
+            FocusableListTile(
+              dense: true,
+              leading: AppIcon(
+                option == selected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+                fill: 1,
+              ),
+              title: Text(labelOf(option)),
+              onTap: () => controller.close(option),
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _showFolderViewPage(OverlaySheetController controller) {
+    SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
+    controller
+        .push<bool>(
+          builder: (_) => _choicePage<bool>(
+            title: t.libraries.folderGrid.view,
+            icon: Symbols.grid_view_rounded,
+            options: const [true, false],
+            selected: _folderGrid,
+            labelOf: (grid) => grid ? t.libraries.folderGrid.grid : t.libraries.folderGrid.list,
+            controller: controller,
+          ),
+        )
+        .then((grid) {
+          if (!mounted || grid == null || grid == _folderGrid) return;
+          setState(() => _savedFolderGrid = grid);
+          unawaited(
+            StorageService.getInstance().then(
+              (storage) => storage.saveLibraryFolderView(widget.library.globalKey, grid ? 'grid' : 'list'),
+            ),
+          );
+        });
+  }
+
+  void _showFolderSortPage(OverlaySheetController controller) {
+    SelectKeyUpSuppressor.suppressSelectUntilKeyUp();
+    controller
+        .push<FolderGridSort>(
+          builder: (_) => _choicePage<FolderGridSort>(
+            title: t.libraries.folderGrid.sort,
+            icon: Symbols.sort_rounded,
+            options: FolderGridSort.values,
+            selected: _folderSort,
+            labelOf: _folderSortLabel,
+            controller: controller,
+          ),
+        )
+        .then((sort) {
+          if (!mounted || sort == null || sort == _folderSort) return;
+          setState(() => _folderSort = sort);
+          unawaited(
+            StorageService.getInstance().then(
+              (storage) => storage.saveLibraryFolderSort(widget.library.globalKey, sort.name),
+            ),
+          );
+        });
   }
 
   void _showGroupingBottomSheet() {
@@ -2046,6 +2165,9 @@ class _LibraryBrowseTabState extends BaseLibraryTabState<MediaItem, LibraryBrows
           onNavigateUp: _navigateToChips,
           onNavigateLeft: _navigateToSidebar,
           onBack: widget.onBack,
+          grid: _folderGrid,
+          gridSort: _folderSort,
+          libraryTitle: widget.library.title,
         ),
       ];
     }
