@@ -12,11 +12,13 @@ import '../../focus/key_event_utils.dart';
 import '../../i18n/strings.g.dart';
 import '../../models/old_school.dart';
 import '../../services/image_cache_service.dart';
+import '../../services/old_school_reminders.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/formatters.dart';
 import '../../widgets/app_icon.dart';
 import 'old_school_controller.dart';
 import 'old_school_layout.dart';
+import 'old_school_programme_dialog.dart';
 
 enum _Zone { exit, window, channel, grid }
 
@@ -76,11 +78,13 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
 
   OldSchoolController get _c => widget.controller;
   OldSchoolLayout get _layout => widget.layout;
+  OldSchoolReminderService get _reminders => OldSchoolReminderService.instance;
 
   @override
   void initState() {
     super.initState();
     _c.addListener(_onControllerChanged);
+    _reminders.addListener(_onRemindersChanged);
     _clock = Timer.periodic(const Duration(seconds: 30), (_) => _onClockTick());
     _onControllerChanged();
     // Autofocus is not enough when the video shrinks into the corner: the
@@ -103,6 +107,7 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   @override
   void dispose() {
     _c.removeListener(_onControllerChanged);
+    _reminders.removeListener(_onRemindersChanged);
     _clock?.cancel();
     _rows.dispose();
     _ownFocusNode.dispose();
@@ -160,6 +165,11 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
   }
 
   // --- Focus --------------------------------------------------------------
+
+  /// A reminder set or cleared: the bells change.
+  void _onRemindersChanged() {
+    if (mounted) setState(() {});
+  }
 
   void _onControllerChanged() {
     if (!mounted) return;
@@ -343,39 +353,21 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
     ].join(' · ');
   }
 
+  /// A later programme's details, with its poster and Remind me
+  /// (local/plans/old-school-future-details.md).
   Future<void> _showDetails(OldSchoolChannel channel, OldSchoolEntry entry) async {
     final is24 = MediaQuery.alwaysUse24HourFormatOf(context);
-    await showDialog<void>(
-      context: context,
-      builder: (context) {
-        final theme = Theme.of(context);
-        return AlertDialog(
-          title: Text(_entryTitle(entry)),
-          content: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 520),
-            child: Column(
-              mainAxisSize: .min,
-              crossAxisAlignment: .start,
-              children: [
-                Text(
-                  t.oldSchool.channelLine(number: '${channel.number}', name: channel.name),
-                  style: theme.textTheme.labelLarge,
-                ),
-                const SizedBox(height: 4),
-                Text(_entryTimeLine(entry, is24: is24), style: theme.textTheme.bodyMedium),
-                if (_entryDetail(entry) case final detail? when detail.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  Text(detail, style: theme.textTheme.bodyMedium, maxLines: 8, overflow: .ellipsis),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(autofocus: true, onPressed: () => Navigator.of(context).pop(), child: Text(t.common.close)),
-          ],
-        );
-      },
+    await showOldSchoolProgrammeDialog(
+      context,
+      controller: _c,
+      channel: channel,
+      entry: entry,
+      title: _entryTitle(entry),
+      timeLine: _entryTimeLine(entry, is24: is24),
+      detail: _entryDetail(entry),
     );
+    // Focus back on the grid for the remote.
+    if (mounted) _focusNode.requestFocus();
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
@@ -1083,6 +1075,11 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
                       ],
                     ),
                   ),
+                  if (_reminders.reminderFor(channel.id, p) != null)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: AppIcon(Symbols.notifications_active_rounded, fill: 1, size: 16, color: muted),
+                    ),
                 ],
               ),
             ),

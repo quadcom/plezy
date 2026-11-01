@@ -29,7 +29,8 @@ import 'old_school_guide_events.dart';
 /// client supplies that call through [registerCapabilities].
 /// - PlezyFin adds `OldSchoolGuideChanged` (`{"ChannelIds", "From", "To"}`)
 ///   when stored Old School guide entries change (PLAN_PFN_87); it goes to
-///   [OldSchoolGuideEvents], not the library-change path.
+///   [OldSchoolGuideEvents], not the library-change path; so does
+///   `OldSchoolRemindersChanged` (PLAN_PFN_100).
 class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
   MediaBrowserLibraryEventSocket({
     required super.serverId,
@@ -89,6 +90,8 @@ class MediaBrowserLibraryEventSocket extends LibraryEventSocket {
       case 'OldSchoolGuideChanged':
         final change = OldSchoolGuideChange.fromJson(serverId, message['Data']);
         if (change != null) _oldSchoolGuideEvents.notifyChanged(change);
+      case 'OldSchoolRemindersChanged':
+        _oldSchoolGuideEvents.notifyRemindersChanged(serverId);
       default:
         // KeepAlive acks, RefreshProgress, UserDataChanged (future watch-state
         // sync seam), session traffic — not library content.

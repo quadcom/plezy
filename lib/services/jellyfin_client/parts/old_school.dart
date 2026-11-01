@@ -50,6 +50,44 @@ mixin _JellyfinOldSchoolMethods on _JellyfinClientInternals {
     return tune;
   }
 
+  /// The signed-in user's upcoming reminders, soonest first (PlezyFin
+  /// PLAN_PFN_100). Throws [MediaServerHttpException] 404 on a server
+  /// without reminders.
+  Future<List<OldSchoolReminder>> fetchOldSchoolReminders() async {
+    final response = await _http.get('$_base/Reminders');
+    throwIfHttpError(response);
+    final data = response.data;
+    final list = data is List ? data : (data is Map ? (data['Items'] ?? data['items']) : null);
+    return [
+      if (list is List)
+        for (final json in list) ?OldSchoolReminder.fromJson(json),
+    ]..sort((a, b) => (a.start ?? DateTime(9999)).compareTo(b.start ?? DateTime(9999)));
+  }
+
+  /// Remind the user of [itemId] starting at [start] on [channelId]. Adding
+  /// one twice gives back the same reminder.
+  Future<OldSchoolReminder> addOldSchoolReminder({
+    required String channelId,
+    required DateTime start,
+    required String itemId,
+  }) async {
+    final response = await _http.post(
+      '$_base/Reminders',
+      body: {'ChannelId': channelId, 'Start': start.toUtc().toIso8601String(), 'ItemId': itemId},
+    );
+    throwIfHttpError(response);
+    final reminder = OldSchoolReminder.fromJson(response.data);
+    if (reminder == null) throw const FormatException('Old School reminder answer had no Id or ChannelId');
+    return reminder;
+  }
+
+  Future<void> removeOldSchoolReminder(String id) async {
+    final response = await _http.delete('$_base/Reminders/${Uri.encodeComponent(id)}');
+    // Already gone counts as removed.
+    if (response.statusCode == 404) return;
+    throwIfHttpError(response);
+  }
+
   /// A channel's logo as a transparent PNG about [width] physical pixels
   /// wide. No sign-in needed; the server clamps the width to 16-1024 and
   /// rounds it up to a step of 8, so this does the same to share its cache.

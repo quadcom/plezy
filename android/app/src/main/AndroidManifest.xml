@@ -99,6 +99,10 @@
         <receiver
             android:name=".AppUpdateInstallReceiver"
             android:exported="false" />
+        <!-- Old School reminders: posts the notice while Plezy is in the background. -->
+        <receiver
+            android:name=".OldSchoolReminderReceiver"
+            android:exported="false" />
         <receiver
             android:name=".watchnext.SystemShelfUpdateReceiver"
             android:exported="false">

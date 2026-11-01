@@ -11,6 +11,7 @@ import '../media/media_library.dart';
 import '../media/media_server_client.dart';
 import '../mixins/disposable_change_notifier_mixin.dart';
 import '../services/jellyfin_client.dart';
+import '../services/old_school_reminders.dart';
 import '../services/settings_service.dart';
 import '../services/storage_service.dart';
 import '../utils/app_logger.dart';
@@ -629,6 +630,7 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
       if (_oldSchoolClient != null || _iptvClient != null) {
         _oldSchoolClient = null;
         _iptvClient = null;
+        OldSchoolReminderService.instance.attach(null);
         safeNotifyListeners();
       }
       return;
@@ -640,6 +642,9 @@ class HiddenLibrariesProvider extends ChangeNotifier with DisposableChangeNotifi
     if (!identical(oldSchool, _oldSchoolClient) || !identical(iptv, _iptvClient)) {
       _oldSchoolClient = oldSchool;
       _iptvClient = iptv;
+      // Old School reminders follow the Old School client
+      // (local/plans/old-school-future-details.md).
+      OldSchoolReminderService.instance.attach(oldSchool);
       safeNotifyListeners();
     }
     try {

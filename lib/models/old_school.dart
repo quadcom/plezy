@@ -606,3 +606,75 @@ DateTime? _localDate(String? value) {
 }
 
 String _camel(String pascal) => pascal.isEmpty ? pascal : pascal[0].toLowerCase() + pascal.substring(1);
+
+/// A "Remind me" on a programme that starts later (PlezyFin PLAN_PFN_100,
+/// local/plans/old-school-future-details.md). Saved on the server per user,
+/// so one set on a phone fires on the TV in use.
+class OldSchoolReminder {
+  final String id;
+  final String channelId;
+  final int? channelNumber;
+  final String? channelName;
+  final String? itemId;
+  final String name;
+  final String? seriesName;
+  final int? seasonNumber;
+  final int? episodeNumber;
+
+  /// When it starts now; null once the programme is no longer scheduled.
+  final DateTime? start;
+  final DateTime? end;
+
+  /// When it started when the reminder was set; differs from [start] after
+  /// the schedule moved it ([moved]).
+  final DateTime? originalStart;
+  final bool moved;
+
+  const OldSchoolReminder({
+    required this.id,
+    required this.channelId,
+    this.channelNumber,
+    this.channelName,
+    this.itemId,
+    this.name = '',
+    this.seriesName,
+    this.seasonNumber,
+    this.episodeNumber,
+    this.start,
+    this.end,
+    this.originalStart,
+    this.moved = false,
+  });
+
+  /// The series for an episode, else the name; as the guide titles it.
+  String get title => (seriesName?.isNotEmpty ?? false) ? seriesName! : name;
+
+  /// Whether this reminder is for [entry] on [channelId]: the same item at
+  /// the same start.
+  bool matches(String channelId, OldSchoolEntry entry) =>
+      this.channelId == channelId && itemId == entry.itemId && start == entry.start;
+
+  static OldSchoolReminder? fromJson(Object? json) {
+    if (json is! Map) return null;
+    final map = json.cast<String, dynamic>();
+    final id = _string(map, 'Id');
+    final channelId = _string(map, 'ChannelId');
+    if (id == null || channelId == null) return null;
+    final moved = map['Moved'] ?? map['moved'];
+    return OldSchoolReminder(
+      id: id,
+      channelId: channelId,
+      channelNumber: _int(map, 'ChannelNumber'),
+      channelName: _string(map, 'ChannelName'),
+      itemId: _string(map, 'ItemId'),
+      name: _string(map, 'Name') ?? '',
+      seriesName: _string(map, 'SeriesName'),
+      seasonNumber: _int(map, 'SeasonNumber') ?? _int(map, 'ParentIndexNumber'),
+      episodeNumber: _int(map, 'EpisodeNumber') ?? _int(map, 'IndexNumber'),
+      start: _date(map, 'Start'),
+      end: _date(map, 'End'),
+      originalStart: _date(map, 'OriginalStart'),
+      moved: moved == true,
+    );
+  }
+}

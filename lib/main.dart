@@ -79,6 +79,7 @@ import 'database/app_database.dart';
 import 'database/download_operations.dart';
 import 'database/tvos_database_recovery_store.dart';
 import 'screens/video_player_screen.dart';
+import 'screens/old_school/old_school_reminder_host.dart';
 import 'utils/app_logger.dart';
 import 'utils/certificate_trust.dart';
 import 'utils/managed_http_client.dart';
@@ -1899,7 +1900,12 @@ Widget rootShell(Widget? child) {
   return FormFactorScale(
     child: ScaffoldMessenger(
       key: rootScaffoldMessengerKey,
-      child: Scaffold(backgroundColor: Colors.transparent, body: child),
+      // The Old School reminder notice shows over every screen
+      // (local/plans/old-school-future-details.md).
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: OldSchoolReminderHost(child: child ?? const SizedBox.shrink()),
+      ),
     ),
   );
 }

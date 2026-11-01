@@ -125,6 +125,7 @@ class MainActivity : FlutterActivity() {
   private val userCertificateChannel = UserCertificateChannel()
   private val appUpdateChannel = AppUpdateChannel(this)
   private val voiceSearchChannel = VoiceSearchChannel(this)
+  private val oldSchoolReminders = OldSchoolReminderAlarms(this)
   private val exitDiagnosticsRequested = AtomicBoolean(false)
 
   private inline fun logTextInputDiag(message: () -> String) {
@@ -572,12 +573,15 @@ class MainActivity : FlutterActivity() {
 
     // Handle Watch Next deep link from initial launch
     handleWatchNextIntent(intent)
+    // An Old School reminder's notification: Dart asks for it once it is up.
+    oldSchoolReminders.handleIntent(intent, live = false)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
     // Handle Watch Next deep link when app is already running
     handleWatchNextIntent(intent)
+    oldSchoolReminders.handleIntent(intent, live = true)
   }
 
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
@@ -597,7 +601,9 @@ class MainActivity : FlutterActivity() {
   }
 
   override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
-    if (!voiceSearchChannel.onRequestPermissionsResult(requestCode, grantResults)) {
+    if (!voiceSearchChannel.onRequestPermissionsResult(requestCode, grantResults) &&
+      !oldSchoolReminders.onRequestPermissionsResult(requestCode, grantResults)
+    ) {
       super.onRequestPermissionsResult(requestCode, permissions, grantResults)
     }
   }
@@ -613,6 +619,7 @@ class MainActivity : FlutterActivity() {
   override fun onDestroy() {
     externalPlayerChannel.dispose()
     voiceSearchChannel.dispose()
+    oldSchoolReminders.dispose()
     systemBarsInsetsHost?.setOnApplyWindowInsetsListener(null)
     systemBarsInsetsHost = null
     cancelPendingSystemBarsHide()
@@ -721,6 +728,7 @@ class MainActivity : FlutterActivity() {
 
   override fun onStop() {
     activityStarted = false
+    OldSchoolReminderAlarms.appVisible = false
     if (isAndroidTvDevice()) flutterSurfaceReconnectPending = true
     super.onStop()
   }
@@ -728,6 +736,7 @@ class MainActivity : FlutterActivity() {
   override fun onStart() {
     super.onStart()
     activityStarted = true
+    OldSchoolReminderAlarms.appVisible = true
     tryReconnectFlutterSurface()
   }
 
@@ -944,6 +953,7 @@ class MainActivity : FlutterActivity() {
     userCertificateChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
     appUpdateChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
     voiceSearchChannel.attach(flutterEngine.dartExecutor.binaryMessenger)
+    oldSchoolReminders.attach(flutterEngine.dartExecutor.binaryMessenger)
 
     // Splash screen theme: persist user's chosen theme for next launch (API 31+)
     MethodChannel(flutterEngine.dartExecutor.binaryMessenger, THEME_CHANNEL).setMethodCallHandler { call, result ->

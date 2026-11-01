@@ -71,6 +71,7 @@ import '../services/offline_watch_sync_service.dart';
 import '../services/display_mode_service.dart';
 import '../services/media_control_router.dart';
 import '../services/read_ahead_ramp.dart';
+import '../services/old_school_reminders.dart';
 import '../services/scoped_player_prefs.dart';
 import '../services/settings_service.dart';
 import '../services/sleep_timer_service.dart';
@@ -735,6 +736,17 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   late MediaItem _currentMetadata;
   final EpisodeSessionState _episode = EpisodeSessionState();
   final OldSchoolPlayerState _os = OldSchoolPlayerState();
+
+  /// An Old School reminder coming due while this player is up changes the
+  /// channel here, full screen (local/plans/old-school-future-details.md).
+  bool _oldSchoolReminderTune(String channelId) {
+    if (!mounted || _shuttingDown || widget.oldSchool == null) return false;
+    if (_osController.channelById(channelId) == null) return false;
+    if (!_os.fullScreen) _oldSchoolSetFullScreen(true);
+    if (channelId != _osController.tunedChannelId) unawaited(_oldSchoolTune(channelId, reason: 'reminder'));
+    return true;
+  }
+
   final IptvPlayerState _iptv = IptvPlayerState();
   late final FocusNode _iptvFullFocusNode = FocusNode(debugLabel: 'iptv_full_screen');
   late final IptvNumberEntry _iptvNumbers = IptvNumberEntry(
@@ -1329,6 +1341,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       _os.fullScreen = !oldSchool.startInGuide;
       // The film's own trailer shows its card alone (PLAN_SHA_47).
       _chromeController.setSuppressed(oldSchool.startsInPreRoll);
+      OldSchoolReminderService.instance.tuneInPlace = _oldSchoolReminderTune;
     }
     PlaybackCoordinator.instance.registerVideoSession(shutdown: _shutdownVideo, stopAndExit: _stopVideoAndExit);
     SleepTimerService().bindPlayback(
@@ -2414,6 +2427,8 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     _playerInitializationGeneration++;
     _frameRate.dispose();
     _readAheadRamp.dispose();
+    final reminders = OldSchoolReminderService.instance;
+    if (reminders.tuneInPlace == _oldSchoolReminderTune) reminders.tuneInPlace = null;
     _os.dispose();
     widget.oldSchool?.controller.dispose();
     _iptv.dispose();

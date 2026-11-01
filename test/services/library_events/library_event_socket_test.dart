@@ -477,6 +477,21 @@ void main() {
       expect(libraryEvents, isEmpty);
     });
 
+    // local/plans/old-school-future-details.md, PlezyFin PLAN_PFN_100.
+    test('passes OldSchoolRemindersChanged to the Old School bus', () async {
+      final server = await startServer();
+      final bus = OldSchoolGuideEvents();
+      final reminders = <ServerId>[];
+      bus.remindersChanged.listen(reminders.add);
+      final channel = mediaBrowserSocket(server, oldSchoolGuideEvents: bus);
+      channel.start();
+      final socket = await server.nextConnection();
+
+      server.send(socket, {'MessageType': 'OldSchoolRemindersChanged', 'Data': <String, Object?>{}});
+      await _waitFor(() => reminders.isNotEmpty);
+      expect(reminders.single, 'mb_1');
+    });
+
     test('connects to the dialect path and answers ForceKeepAlive', () async {
       final server = await startServer();
       final channel = mediaBrowserSocket(server);

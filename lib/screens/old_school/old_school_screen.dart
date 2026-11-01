@@ -8,6 +8,7 @@ import '../../i18n/strings.g.dart';
 import '../../media/media_item.dart';
 import '../../models/old_school.dart';
 import '../../providers/hidden_libraries_provider.dart';
+import '../../services/old_school_reminders.dart';
 import '../../services/settings_service.dart';
 import '../../theme/mono_tokens.dart';
 import '../../utils/app_logger.dart';
@@ -28,8 +29,9 @@ bool oldSchoolAvailable(BuildContext context) => context.watch<HiddenLibrariesPr
 /// Open Old School full screen over the app (no side rail, top bar or
 /// bottom bar). It opens on the guide, with the channel last tuned on this
 /// device playing in the corner window; with none remembered, nothing plays
-/// until a programme that's on now is picked.
-Future<void> openOldSchool(BuildContext context) async {
+/// until a programme that's on now is picked. [channelId] (a reminder
+/// coming due) opens on that channel full screen instead.
+Future<void> openOldSchool(BuildContext context, {String? channelId}) async {
   final client = context.read<HiddenLibrariesProvider>().oldSchoolClient;
   if (client == null) return;
   // Watch Together re-seeks every viewer, which Old School can't allow.
@@ -42,7 +44,7 @@ Future<void> openOldSchool(BuildContext context) async {
   await Navigator.of(context).push<void>(
     PageRouteBuilder<void>(
       settings: const RouteSettings(name: '/old_school'),
-      pageBuilder: (_, _, _) => OldSchoolScreen(controller: controller),
+      pageBuilder: (_, _, _) => OldSchoolScreen(controller: controller, initialChannelId: channelId),
       transitionDuration: Duration.zero,
       reverseTransitionDuration: Duration.zero,
     ),
@@ -55,7 +57,11 @@ Future<void> openOldSchool(BuildContext context) async {
 class OldSchoolScreen extends StatefulWidget {
   final OldSchoolController controller;
 
-  const OldSchoolScreen({super.key, required this.controller});
+  /// Tune this channel full screen once the line-up is in, rather than the
+  /// last one quietly in the corner (an Old School reminder).
+  final String? initialChannelId;
+
+  const OldSchoolScreen({super.key, required this.controller, this.initialChannelId});
 
   @override
   State<OldSchoolScreen> createState() => _OldSchoolScreenState();
@@ -78,6 +84,15 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
     super.initState();
     widget.controller.addListener(_resumeLastChannel);
     _resumeLastChannel();
+    OldSchoolReminderService.instance.tuneInPlace = _tuneInPlace;
+  }
+
+  /// A reminder coming due while the guide is up: tune its channel.
+  bool _tuneInPlace(String channelId) {
+    final channel = widget.controller.channelById(channelId);
+    if (channel == null || !mounted) return false;
+    unawaited(_tune(channel));
+    return true;
   }
 
   /// Once the line-up is in, tune the channel last played on this device
@@ -89,6 +104,11 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
     if (_resumeChecked || !controller.hasLoaded) return;
     _resumeChecked = true;
     controller.removeListener(_resumeLastChannel);
+    final asked = controller.channelById(widget.initialChannelId);
+    if (asked != null) {
+      unawaited(_tune(asked));
+      return;
+    }
     final channel = controller.channelById(SettingsService.instanceOrNull?.read(SettingsService.oldSchoolLastChannel));
     if (channel != null) unawaited(_tune(channel, quiet: true));
   }
@@ -96,6 +116,9 @@ class _OldSchoolScreenState extends State<OldSchoolScreen> {
   @override
   void dispose() {
     widget.controller.removeListener(_resumeLastChannel);
+    final reminders = OldSchoolReminderService.instance;
+    // Method tear-offs compare equal, so a successor's stays.
+    if (reminders.tuneInPlace == _tuneInPlace) reminders.tuneInPlace = null;
     _backNoteTimer?.cancel();
     // Once the player has taken over, it owns the controller.
     if (!_handedOver) widget.controller.dispose();

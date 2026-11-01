@@ -42,10 +42,16 @@ class OldSchoolGuideEvents {
 
   final _changes = StreamController<OldSchoolGuideChange>.broadcast(sync: true);
   final _connected = StreamController<ServerId>.broadcast(sync: true);
+  final _remindersChanged = StreamController<ServerId>.broadcast(sync: true);
 
   Stream<OldSchoolGuideChange> get changes => _changes.stream;
   Stream<ServerId> get connected => _connected.stream;
 
+  /// The user's Old School reminders changed on another device (PlezyFin
+  /// PLAN_PFN_100 `OldSchoolRemindersChanged`).
+  Stream<ServerId> get remindersChanged => _remindersChanged.stream;
+
   void notifyChanged(OldSchoolGuideChange change) => _changes.add(change);
   void notifyConnected(ServerId serverId) => _connected.add(serverId);
+  void notifyRemindersChanged(ServerId serverId) => _remindersChanged.add(serverId);
 }
