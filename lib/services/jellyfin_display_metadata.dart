@@ -34,6 +34,7 @@ MediaDisplayCriteria? jellyfinDisplayCriteriaFromStream(
     transfer: transfer ?? defaults.transfer,
     primaries: primaries ?? defaults.primaries,
     matrix: matrix ?? defaults.matrix,
+    rangeType: videoStream['VideoRangeType'],
   );
   return criteria.isUsable ? criteria : null;
 }

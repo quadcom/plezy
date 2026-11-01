@@ -206,6 +206,8 @@ class JellyfinFileInfoStreamReader implements FileInfoStreamReader {
       title: f.title,
       displayTitle: f.displayTitle,
       channels: f.channels,
+      profile: (s['Profile'] as Object?)?.toString(),
+      spatialFormat: (s['AudioSpatialFormat'] as Object?)?.toString(),
       selected: f.isDefault,
       isDefault: f.isDefault,
       external: f.isExternal,

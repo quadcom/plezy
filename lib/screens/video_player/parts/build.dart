@@ -194,9 +194,34 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
   /// The poster corner, coming and going with the controls.
   Widget _posterCorner() => ValueListenableBuilder<bool>(
     valueListenable: _chromeController,
-    builder: (context, controlsVisible, _) =>
-        PlaybackCorner(metadata: _currentMetadata, player: player!, controlsVisible: controlsVisible),
+    builder: (context, controlsVisible, _) => PlaybackCorner(
+      metadata: _currentMetadata,
+      player: player!,
+      controlsVisible: controlsVisible,
+      badges: _formatBadges(),
+    ),
   );
+
+  /// The playing file's resolution, HDR kind and audio track for the corner's
+  /// format row: the chosen version's size, the source's display info, and
+  /// the audio track picked (else the server's default, else the first).
+  List<FormatBadge> _formatBadges() {
+    final info = _currentMediaInfo;
+    final versions = _availableVersions;
+    final index = _effectiveSelectedMediaIndex;
+    final version = index >= 0 && index < versions.length ? versions[index] : null;
+    final tracks = info?.audioTracks ?? const <MediaAudioTrack>[];
+    final audio =
+        tracks.where((t) => t.id == _selectedAudioStreamId).firstOrNull ??
+        tracks.where((t) => t.selected).firstOrNull ??
+        tracks.firstOrNull;
+    return formatBadges(
+      width: version?.width,
+      height: version?.resolutionHeight,
+      display: info?.displayCriteria,
+      audio: audio,
+    );
+  }
 
   Widget _buildVideoPlayer(BuildContext context) {
     // Cache platform detection to avoid multiple calls

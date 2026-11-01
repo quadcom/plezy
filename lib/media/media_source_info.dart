@@ -115,6 +115,12 @@ class MediaAudioTrack with _TrackLabelMixin {
   final String? title;
   final String? displayTitle;
   final int? channels;
+
+  /// Codec profile (Jellyfin `Profile`: `DTS-HD MA`, `Dolby TrueHD + Dolby Atmos`).
+  final String? profile;
+
+  /// Jellyfin `AudioSpatialFormat` (`DolbyAtmos`, `DTSX`, `None`).
+  final String? spatialFormat;
   final bool selected;
 
   /// Container fallback, independent of the server/user-selected row.
@@ -130,6 +136,8 @@ class MediaAudioTrack with _TrackLabelMixin {
     this.title,
     this.displayTitle,
     this.channels,
+    this.profile,
+    this.spatialFormat,
     required this.selected,
     this.isDefault = false,
     this.external = false,
@@ -148,6 +156,8 @@ class MediaAudioTrack with _TrackLabelMixin {
       title: title,
       displayTitle: displayTitle,
       channels: channels,
+      profile: profile,
+      spatialFormat: spatialFormat,
       selected: selected,
       isDefault: isDefault,
       external: external,

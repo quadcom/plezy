@@ -2,6 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:plezy/media/format_badges.dart';
 import 'package:plezy/media/media_item.dart';
 import 'package:plezy/media/media_kind.dart';
 import 'package:plezy/mpv/mpv.dart';
@@ -101,7 +103,7 @@ void main() {
   });
 
   group('Poster corner', () {
-    Widget page(MediaItem item, {bool visible = true}) => MaterialApp(
+    Widget page(MediaItem item, {bool visible = true, List<FormatBadge> badges = const []}) => MaterialApp(
       home: Center(
         child: Stack(
           children: [
@@ -111,6 +113,7 @@ void main() {
                 const PlayerState(duration: Duration(hours: 2, minutes: 7), position: Duration(hours: 1)),
               ),
               controlsVisible: visible,
+              badges: badges,
             ),
           ],
         ),
@@ -123,6 +126,45 @@ void main() {
         expect(find.text('Real Steel'), findsOneWidget);
         expect(find.text('2011 · PG-13 · 2 h 7 min'), findsOneWidget);
         expect(find.textContaining('Ends at'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox());
+      });
+    });
+
+    testWidgets('the format row: white logos, and text where there is no logo', (tester) async {
+      await _onDesktop(tester, () async {
+        await tester.pumpWidget(page(_film(), badges: const [FormatBadge('4K'), dolbyVisionBadge, FormatBadge('7.1')]));
+        await tester.pump(const Duration(seconds: 2));
+        expect(find.text('4K'), findsOneWidget);
+        expect(find.text('7.1'), findsOneWidget);
+        final logo = tester.widget<SvgPicture>(find.byType(SvgPicture));
+        expect(logo.colorFilter, const ColorFilter.mode(Colors.white, BlendMode.srcIn));
+        await tester.pumpWidget(const SizedBox());
+      });
+    });
+
+    testWidgets('every format logo parses', (tester) async {
+      const names = [
+        'dolby_atmos',
+        'dolby_digital',
+        'dolby_digital_plus',
+        'dolby_truehd',
+        'dolby_vision',
+        'dts',
+        'dts_hd_ma',
+        'hdr10',
+        'hdr10_plus',
+      ];
+      for (final name in names) {
+        final info = await tester.runAsync(() => vg.loadPicture(SvgAssetLoader('assets/format_logos/$name.svg'), null));
+        expect(info!.size.width, greaterThan(0), reason: name);
+        info.picture.dispose();
+      }
+    });
+
+    testWidgets('no badges, no row', (tester) async {
+      await _onDesktop(tester, () async {
+        await tester.pumpWidget(page(_film()));
+        expect(find.byType(FormatBadgeRow), findsNothing);
         await tester.pumpWidget(const SizedBox());
       });
     });

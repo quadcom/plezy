@@ -75,6 +75,11 @@ class MediaDisplayCriteria {
   final String? primaries;
   final String? matrix;
 
+  /// The server's own name for the picture's range (Jellyfin `VideoRangeType`:
+  /// `HDR10Plus`, `DOVIWithHDR10`, `HLG`, `SDR`). Only labels read it — the
+  /// playback corner's HDR logo tells HDR10+ apart from HDR10 by it.
+  final String? rangeType;
+
   const MediaDisplayCriteria({
     this.fps,
     this.width,
@@ -85,6 +90,7 @@ class MediaDisplayCriteria {
     this.transfer,
     this.primaries,
     this.matrix,
+    this.rangeType,
   });
 
   factory MediaDisplayCriteria.fromRaw({
@@ -97,6 +103,7 @@ class MediaDisplayCriteria {
     Object? transfer,
     Object? primaries,
     Object? matrix,
+    Object? rangeType,
   }) {
     return MediaDisplayCriteria(
       fps: flexibleDouble(fps),
@@ -108,6 +115,7 @@ class MediaDisplayCriteria {
       transfer: _stringOrNull(transfer),
       primaries: _stringOrNull(primaries),
       matrix: _stringOrNull(matrix),
+      rangeType: _stringOrNull(rangeType),
     );
   }
 

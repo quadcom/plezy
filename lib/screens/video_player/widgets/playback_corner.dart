@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../i18n/strings.g.dart';
+import '../../../media/format_badges.dart';
 import '../../../media/ids.dart';
 import '../../../media/media_item.dart';
 import '../../../media/media_kind.dart';
@@ -85,22 +87,32 @@ class PlaybackCornerGate {
 /// clock and when it ends. Each time the controls come up it arrives step by
 /// step like Old School's break corner (Adrian, 2026-10-15); it fades out
 /// with them. The header's clock and title stand down while it shows. Never
-/// pressable.
+/// pressable. Under the times, a row of the file's format in white logos
+/// (resolution, HDR, audio; Adrian, 2026-10-31).
 class PlaybackCorner extends StatefulWidget {
   final MediaItem metadata;
   final Player player;
   final bool controlsVisible;
 
-  const PlaybackCorner({super.key, required this.metadata, required this.player, required this.controlsVisible});
+  /// The playing file's format marks, left to right; empty hides the row.
+  final List<FormatBadge> badges;
+
+  const PlaybackCorner({
+    super.key,
+    required this.metadata,
+    required this.player,
+    required this.controlsVisible,
+    this.badges = const [],
+  });
 
   @override
   State<PlaybackCorner> createState() => _PlaybackCornerState();
 }
 
 class _PlaybackCornerState extends State<PlaybackCorner> with SingleTickerProviderStateMixin {
-  /// Band 0-5, name 4-9, poster 9-14, details 10-14, times 13-17, in steps of
-  /// [cornerUnit]: Old School's break corner order.
-  static const _steps = 17;
+  /// Band 0-5, name 4-9, poster 9-14, details 10-14, times 13-17, format
+  /// row 15-19, in steps of [cornerUnit]: Old School's break corner order.
+  static const _steps = 19;
   late final AnimationController _entrance = AnimationController(vsync: this, duration: cornerUnit * _steps);
   Timer? _tick;
 
@@ -241,6 +253,14 @@ class _PlaybackCornerState extends State<PlaybackCorner> with SingleTickerProvid
               child: Text(times, textAlign: .right, style: small),
             ),
           ),
+          if (widget.badges.isNotEmpty)
+            cornerFadeStep(
+              cornerStep(a, 15, 19, n, Curves.ease),
+              Padding(
+                padding: EdgeInsets.only(top: 10 * s),
+                child: FormatBadgeRow(badges: widget.badges, scale: s),
+              ),
+            ),
         ],
       ),
     );
@@ -293,4 +313,50 @@ String? _episodeLine(MediaItem item) {
     if (item.title?.isNotEmpty ?? false) item.title!,
   ];
   return parts.isEmpty ? null : parts.join(' · ');
+}
+
+/// The format marks in one right-aligned row (wrapping if the corner is
+/// narrow): white logos, and plain bold text where no logo exists - no boxes
+/// or pills over the picture (Adrian's overlay taste).
+class FormatBadgeRow extends StatelessWidget {
+  final List<FormatBadge> badges;
+  final double scale;
+
+  const FormatBadgeRow({super.key, required this.badges, required this.scale});
+
+  /// Thin one-line wordmarks read small at the boxed logos' height, so they
+  /// draw shorter and stay about as wide as the rest.
+  static const _wordmarks = {'assets/format_logos/dolby_vision.svg', 'assets/format_logos/dolby_atmos.svg'};
+
+  @override
+  Widget build(BuildContext context) {
+    final s = scale;
+    return Wrap(
+      alignment: WrapAlignment.end,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 14 * s,
+      runSpacing: 6 * s,
+      children: [
+        for (final badge in badges)
+          if (badge.logo case final logo?)
+            SvgPicture.asset(
+              logo,
+              height: (_wordmarks.contains(logo) ? 13 : 22) * s,
+              colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+              semanticsLabel: badge.label,
+            )
+          else
+            Text(
+              badge.label,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 15 * s,
+                fontWeight: .w800,
+                letterSpacing: 0.4 * s,
+                height: 1,
+              ),
+            ),
+      ],
+    );
+  }
 }
