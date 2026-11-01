@@ -30,6 +30,7 @@ import '../widgets/desktop_app_bar.dart';
 import '../widgets/loading_indicator_box.dart';
 import '../widgets/media_card_sliver_layout.dart';
 import '../widgets/search_input_field.dart';
+import '../widgets/voice_listening_dialog.dart';
 import '../widgets/focusable_media_card.dart';
 import '../widgets/focusable_tab_chip.dart';
 import '../widgets/settings_builder.dart';
@@ -108,17 +109,24 @@ class _SearchScreenState extends State<SearchScreen>
     }
   }
 
-  /// Gboard's own voice typing is broken on some Google TV boxes; the system
-  /// voice screen is not. What was said runs as a submitted query.
+  /// Plezy's own listening card over Android's speech service (Google TV's
+  /// voice screen heard the words but never handed them back, 2026-10-31).
+  /// What was said runs as a submitted query.
   Future<void> _startVoiceSearch() async {
     if (_voiceSearchActive) return;
     _voiceSearchActive = true;
     try {
       _tvTextInputController.closeTextInput();
-      final text = await VoiceSearchService.listen(prompt: t.search.voicePrompt);
+      final result = await showVoiceListeningDialog(context, prompt: t.search.voicePrompt);
       if (!mounted) return;
-      if (text == null) {
-        showAppSnackBar(context, t.search.voiceNoMatch);
+      final text = result.text;
+      if (result.outcome != VoiceSearchOutcome.heard || text == null) {
+        // Back or Cancel says nothing; a miss or a refused mic gets a reason.
+        if (result.outcome == VoiceSearchOutcome.permissionDenied) {
+          showAppSnackBar(context, t.search.voiceNeedsMic);
+        } else if (result.outcome == VoiceSearchOutcome.failed) {
+          showAppSnackBar(context, t.search.voiceNoMatch);
+        }
         if (_voiceFirst) _voiceFocusNode.requestFocus();
         return;
       }

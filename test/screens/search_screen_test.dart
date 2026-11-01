@@ -100,49 +100,30 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('TV native Search action moves focus to the first result', (tester) async {
+  // TV search uses Plezy's own keyboard, opened as soon as the field is
+  // highlighted (Adrian, 2026-10-31), never the Android one.
+  testWidgets("TV Search opens Plezy's keyboard and its Search key runs the query at once", (tester) async {
     final (client, _) = await _pumpTvSearchScreen(tester);
     await tester.pumpAndSettle();
-    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
-
-    _searchController(tester).text = 'movie';
-    // Let the normal debounce populate results while native input remains active.
-    await tester.pump(const Duration(milliseconds: 500));
-    await tester.pump();
-    expect(client.queries, ['movie']);
-    expect(find.text('Movie 1'), findsOneWidget);
-
-    await tester.showKeyboard(find.byType(TextField));
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pumpAndSettle();
-
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchFirstResult');
-    expect(find.text('Movie 1'), findsOneWidget);
-    expect(client.queries, ['movie']);
-  });
-
-  testWidgets('TV native Search action before debounce searches immediately', (tester) async {
-    final (client, _) = await _pumpTvSearchScreen(tester);
-    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
 
     _searchController(tester).text = 'movie';
     await tester.pump(const Duration(milliseconds: 100));
     expect(client.queries, isEmpty);
 
-    await tester.showKeyboard(find.byType(TextField));
-    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
     expect(client.queries, ['movie']);
+    expect(find.text('Movie 1'), findsOneWidget);
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchFirstResult');
   });
 
-  testWidgets('companion-remote submitSearchQuery closes native input and focuses results', (tester) async {
+  testWidgets('companion-remote submitSearchQuery closes the keyboard and focuses results', (tester) async {
     final (client, key) = await _pumpTvSearchScreen(tester);
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
 
     (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
     await tester.pumpAndSettle();
@@ -164,26 +145,18 @@ void main() {
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchFirstResult');
     expect(client.queries, ['movie']);
 
-    // Returning to the input is the D-pad-up path from the first result
-    // (search_screen.dart onNavigateUp), so it must not re-raise the system
-    // keyboard; Select does. The field's first focus already opened it once.
+    // Back up to the field (D-pad up from the first result): highlighting it
+    // opens Plezy's keyboard again.
     searchInput.focusSearchInput();
     await tester.pumpAndSettle();
-    expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchInput');
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
-    await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
-    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('companion-remote query with no results keeps native input closed', (tester) async {
+  testWidgets('companion-remote query with no results leaves the keyboard closed', (tester) async {
     final (client, key) = await _pumpTvSearchScreen(tester, items: []);
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
 
     (key.currentState! as SearchInputFocusable).submitSearchQuery('zzz');
     await tester.pumpAndSettle();
@@ -191,19 +164,17 @@ void main() {
     expect(client.queries, ['zzz']);
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchInput');
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
 
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('failed companion-remote query keeps native input closed', (tester) async {
+  testWidgets('failed companion-remote query leaves the keyboard closed', (tester) async {
     final (client, key) = await _pumpTvSearchScreen(tester, registerClient: false);
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isFalse);
 
     (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
     await tester.pumpAndSettle();
@@ -212,11 +183,10 @@ void main() {
     expect(find.byIcon(Symbols.error_rounded), findsOneWidget);
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchInput');
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
 
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(find.byType(TextField)).readOnly, isTrue);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -10,6 +10,7 @@ import '../i18n/strings.g.dart';
 import '../utils/platform_detector.dart';
 import 'app_icon.dart';
 import 'clickable_cursor.dart';
+import 'corner_band.dart';
 import 'listenable_selector.dart';
 
 bool _keyboardTextWarmedUp = false;
@@ -698,11 +699,11 @@ class _TvVirtualKeyboardDialogState extends State<_TvVirtualKeyboardDialog> {
       bottomInset: (size.height * 0.025).clamp(12.0, 28.0).toDouble(),
       gridWidth: gridWidth,
       panelWidth: gridWidth + panelPadding * 2,
-      panelRadius: (keySize * 0.55).clamp(18.0, 28.0).toDouble(),
-      keyRadius: (keySize * 0.28).clamp(10.0, 16.0).toDouble(),
+      panelRadius: (keySize * 0.2).clamp(6.0, 10.0).toDouble(),
+      keyRadius: (keySize * 0.1).clamp(3.0, 6.0).toDouble(),
       previewHeight: (_isMultiline ? keySize * 1.45 : keySize).clamp(40.0, 76.0).toDouble(),
       previewGap: (keySize * 0.18).clamp(6.0, 12.0).toDouble(),
-      previewRadius: (keySize * 0.36).clamp(12.0, 18.0).toDouble(),
+      previewRadius: (keySize * 0.1).clamp(3.0, 6.0).toDouble(),
       iconSize: (keySize * 0.58).clamp(20.0, 30.0).toDouble(),
       keyFontSize: (keySize * 0.52).clamp(17.0, 26.0).toDouble(),
     );
@@ -761,15 +762,18 @@ class _TvVirtualKeyboardDialogState extends State<_TvVirtualKeyboardDialog> {
       builder: (context, selected, _) {
         final colorScheme = Theme.of(context).colorScheme;
         final active = key.type == _TvKeyType.shift && _shiftEnabled;
+        // Plezy's look (Adrian, 2026-10-31: "a plezzy themed keyboard"): the
+        // key under the remote is Plezy amber with dark text, Shift when on is
+        // an amber outline colour, the rest stay the app's dark key colour.
         final background = selected
-            ? colorScheme.primary
+            ? cornerAmber
             : active
-            ? colorScheme.secondaryContainer
+            ? cornerAmber.withValues(alpha: 0.28)
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.88);
         final foreground = selected
-            ? colorScheme.onPrimary
+            ? Colors.black
             : active
-            ? colorScheme.onSecondaryContainer
+            ? cornerAmber
             : colorScheme.onSurface;
 
         return ClickableCursor(

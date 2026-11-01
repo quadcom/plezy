@@ -97,11 +97,10 @@ class _SearchInputFieldState extends State<SearchInputField> {
           focusNode: widget.focusNode,
           tvTextInputController: widget.tvTextInputController,
           tvTextInputPresentation: TvTextInputPresentation.flutterOverlay,
-          // With the mic first, the remote passes over the field on its way
-          // right or up; OK opens the keyboard instead of every pass.
-          tvTextInputAutoOpenBehavior: voiceFirst
-              ? TvTextInputAutoOpenBehavior.never
-              : TvTextInputAutoOpenBehavior.automatic,
+          // Plezy's keyboard opens the moment the field is highlighted
+          // (Adrian, 2026-10-31: "We also need the keyboard displayed if the
+          // input is highlighted"). The page lands on the mic, not here.
+          tvTextInputAutoOpenBehavior: TvTextInputAutoOpenBehavior.automatic,
           textInputAction: TextInputAction.search,
           onNavigateLeft: voiceFirst ? _voiceFocusNode.requestFocus : widget.onNavigateLeft,
           onNavigateRight: hasText

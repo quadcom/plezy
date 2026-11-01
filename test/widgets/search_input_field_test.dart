@@ -69,7 +69,7 @@ void main() {
     expect(mic.dx, lessThan(field.dx));
   });
 
-  testWidgets('on TV the mic answers OK and RIGHT walks onto the field without a keyboard', (tester) async {
+  testWidgets("on TV the mic answers OK and RIGHT onto the field opens Plezy's keyboard", (tester) async {
     await useAndroidTv();
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
@@ -79,25 +79,86 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.select);
     await tester.pumpAndSettle();
     expect(voicePresses, 1);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
 
+    // Adrian, 2026-10-31: "We also need the keyboard displayed if the input is
+    // highlighted."
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
     await tester.pumpAndSettle();
-    expect(fieldFocus.hasFocus, isTrue);
-    // Passing over the field does not open a keyboard.
-    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
   });
 
-  testWidgets("on TV OK on the field opens Plezy's own keyboard", (tester) async {
+  testWidgets('on TV Back closes the keyboard without a lock-up', (tester) async {
     await useAndroidTv();
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
 
     fieldFocus.requestFocus();
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.select);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  // Greatroom TV, 2026-10-31: after voice search the field was rebuilt as a new
+  // host on the same FocusNode; the new host chained to the disposed one's key
+  // handler, so every key threw ("Null check operator" in State.context): no
+  // keyboard and Back dead.
+  testWidgets('a field rebuilt on the same focus node still takes keys', (tester) async {
+    await useAndroidTv();
+    var generation = 0;
+    late StateSetter rebuild;
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: InputModeTracker(
+          child: MaterialApp(
+            home: Scaffold(
+              body: StatefulBuilder(
+                builder: (context, setState) {
+                  rebuild = setState;
+                  return KeyedSubtree(
+                    key: ValueKey(generation),
+                    child: SearchInputField(
+                      controller: controller,
+                      focusNode: fieldFocus,
+                      hintText: 'Search',
+                      debugLabel: 'Search',
+                      onVoiceSearch: () => voicePresses++,
+                      voiceSearchTooltip: 'Voice search',
+                      voiceFocusNode: voiceFocus,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
 
+    rebuild(() => generation++);
+    await tester.pumpAndSettle();
+    rebuild(() => generation++);
+    await tester.pumpAndSettle();
+
+    fieldFocus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(voiceFocus.hasFocus, isTrue);
   });
 
   testWidgets('off TV the mic stays at the end of the field', (tester) async {

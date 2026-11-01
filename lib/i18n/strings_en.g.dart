@@ -1494,6 +1494,12 @@ class Translations$search$en {
 
 	/// en: 'Didn't catch that. Press the mic and try again.'
 	String get voiceNoMatch => 'Didn\'t catch that. Press the mic and try again.';
+
+	/// en: 'Listening...'
+	String get voiceListening => 'Listening...';
+
+	/// en: 'Voice search needs the microphone. Allow it for Plezy in the TV's app settings, or type instead.'
+	String get voiceNeedsMic => 'Voice search needs the microphone. Allow it for Plezy in the TV\'s app settings, or type instead.';
 }
 
 // Path: hotkeys
@@ -8335,6 +8341,8 @@ extension on Translations {
 			'search.voiceSearch' => 'Voice search',
 			'search.voicePrompt' => 'Say a title, actor, or keyword',
 			'search.voiceNoMatch' => 'Didn\'t catch that. Press the mic and try again.',
+			'search.voiceListening' => 'Listening...',
+			'search.voiceNeedsMic' => 'Voice search needs the microphone. Allow it for Plezy in the TV\'s app settings, or type instead.',
 			'hotkeys.setShortcutFor' => ({required Object actionName}) => 'Set Shortcut for ${actionName}',
 			'hotkeys.clearShortcut' => 'Clear shortcut',
 			'hotkeys.noShortcutSet' => 'No shortcut set',
@@ -8378,10 +8386,10 @@ extension on Translations {
 			'fileInfo.attachments' => 'Attachments',
 			'fileInfo.delivery' => 'Delivery',
 			'fileInfo.versionCounter' => ({required Object index, required Object count}) => 'Version ${index} of ${count}',
-			'fileInfo.fileCounter' => ({required Object index, required Object count}) => 'File ${index} of ${count}',
-			'fileInfo.noStreams' => 'The server reported no streams for this file.',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.fileCounter' => ({required Object index, required Object count}) => 'File ${index} of ${count}',
+			'fileInfo.noStreams' => 'The server reported no streams for this file.',
 			'fileInfo.copyPath' => 'Copy path',
 			'fileInfo.pathCopied' => 'File path copied',
 			'fileInfo.codec' => 'Codec',
@@ -8892,10 +8900,10 @@ extension on Translations {
 			'accountPreferences.mediaReviewsOptions.usersOnly' => 'Users only',
 			'accountPreferences.mediaReviewsOptions.criticsOnly' => 'Critics only',
 			'accountPreferences.mediaReviewsOptions.nobody' => 'Hidden',
-			'discover.title' => 'Discover',
-			'discover.noContentAvailable' => 'No content available',
 			_ => null,
 		} ?? switch (path) {
+			'discover.title' => 'Discover',
+			'discover.noContentAvailable' => 'No content available',
 			'discover.addMediaToLibraries' => 'Add some media to your libraries',
 			'discover.continueWatching' => 'Continue Watching',
 			'discover.continueWatchingIn' => ({required Object library}) => 'Continue Watching in ${library}',
@@ -9406,10 +9414,10 @@ extension on Translations {
 			'music.playNext' => 'Play next',
 			'music.addToQueue' => 'Add to queue',
 			'music.discNumber' => ({required Object n}) => 'Disc ${n}',
-			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
-			'music.nowPlaying' => 'Now Playing',
 			_ => null,
 		} ?? switch (path) {
+			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
+			'music.nowPlaying' => 'Now Playing',
 			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
 			'music.queue' => 'Queue',
 			'music.clearQueue' => 'Clear queue',
@@ -9920,10 +9928,10 @@ extension on Translations {
 			'seerr.advancedOptions' => 'Advanced',
 			'seerr.destinationServer' => 'Destination server',
 			'seerr.qualityProfile' => 'Quality profile',
-			'seerr.rootFolder' => 'Root folder',
-			'seerr.languageProfile' => 'Language profile',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.rootFolder' => 'Root folder',
+			'seerr.languageProfile' => 'Language profile',
 			'seerr.tags' => 'Tags',
 			'seerr.noTags' => 'No tags',
 			'seerr.defaultOption' => ({required Object name}) => '${name} (Default)',

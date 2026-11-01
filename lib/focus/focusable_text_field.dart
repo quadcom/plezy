@@ -823,6 +823,26 @@ class _FocusableTextInputHostState extends State<_FocusableTextInputHost> with W
   FocusNode? _installedFocusNode;
   FocusOnKeyEventCallback? _previousOnKeyEvent;
   late final FocusOnKeyEventCallback _keyHandler = _handleKey;
+
+  /// Which host owns each installed key handler. A rebuild can mount a new
+  /// host on the same FocusNode before the old one is disposed; the new host
+  /// must not keep the old host's handler as its "previous" one, or every key
+  /// reaches a disposed State and throws (Greatroom TV, 2026-10-31: no
+  /// keyboard, Back dead, after returning from voice search).
+  static final Expando<_FocusableTextInputHostState> _hostOfHandler = Expando('FocusableTextInputHost');
+
+  /// [handler] with any other host's handler skipped down to what that host
+  /// had found on the node.
+  FocusOnKeyEventCallback? _withoutOtherHosts(FocusOnKeyEventCallback? handler) {
+    var current = handler;
+    for (var guard = 0; current != null && guard < 8; guard++) {
+      final owner = _hostOfHandler[current];
+      if (owner == null || identical(owner, this)) return current;
+      current = owner._previousOnKeyEvent;
+    }
+    return current;
+  }
+
   late final VoidCallback _focusListener = _handleFocusChanged;
   final Object _nativeFocusToken = Object();
   bool _reportedNativeTextInputFocused = false;
@@ -845,6 +865,7 @@ class _FocusableTextInputHostState extends State<_FocusableTextInputHost> with W
   @override
   void initState() {
     super.initState();
+    _hostOfHandler[_keyHandler] = this;
     _focusNodeBinding.bind(externalNode: widget.input.focusNode, debugLabel: 'FocusableTextInput');
     widget.input.tvTextInputController?._attach(this);
   }
@@ -1362,6 +1383,8 @@ class _FocusableTextInputHostState extends State<_FocusableTextInputHost> with W
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    // A disposed host never handles keys (see [_hostOfHandler]).
+    if (!mounted) return KeyEventResult.ignored;
     final previous = _previousOnKeyEvent;
     if (previous != null && !identical(previous, _keyHandler)) {
       final result = previous(node, event);
@@ -1437,7 +1460,7 @@ class _FocusableTextInputHostState extends State<_FocusableTextInputHost> with W
     // can't consume directions before our reusable navigation callbacks run.
     if (_installedFocusNode == node) {
       if (identical(node.onKeyEvent, _keyHandler)) return;
-      _previousOnKeyEvent = node.onKeyEvent;
+      _previousOnKeyEvent = _withoutOtherHosts(node.onKeyEvent);
       node.onKeyEvent = _keyHandler;
       _logTvTextInput('Host.reinstalled key handler node=${node.debugLabel} previous=${_previousOnKeyEvent != null}');
       return;
@@ -1445,7 +1468,7 @@ class _FocusableTextInputHostState extends State<_FocusableTextInputHost> with W
 
     _restoreInstalledHandler();
     _installedFocusNode = node;
-    _previousOnKeyEvent = node.onKeyEvent;
+    _previousOnKeyEvent = _withoutOtherHosts(node.onKeyEvent);
     node.onKeyEvent = _keyHandler;
     node.addListener(_focusListener);
     _logTvTextInput('Host.installed key handler node=${node.debugLabel} previous=${_previousOnKeyEvent != null}');

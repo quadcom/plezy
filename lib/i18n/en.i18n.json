@@ -482,7 +482,9 @@
     "enterTitleActorOrKeyword": "Enter a title, actor, or keyword",
     "voiceSearch": "Voice search",
     "voicePrompt": "Say a title, actor, or keyword",
-    "voiceNoMatch": "Didn't catch that. Press the mic and try again."
+    "voiceNoMatch": "Didn't catch that. Press the mic and try again.",
+    "voiceListening": "Listening...",
+    "voiceNeedsMic": "Voice search needs the microphone. Allow it for Plezy in the TV's app settings, or type instead."
   },
   "hotkeys": {
     "setShortcutFor": "Set Shortcut for ${actionName}",
