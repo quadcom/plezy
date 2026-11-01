@@ -6180,11 +6180,14 @@ class Translations$oldSchool$en {
 	/// en: 'Switching in ${time}'
 	String reminderSwitchingIn({required Object time}) => 'Switching in ${time}';
 
-	/// en: 'Watch now'
-	String get reminderSwitchNow => 'Watch now';
+	/// en: 'OK to watch now · Back to stay'
+	String get reminderHintTv => 'OK to watch now · Back to stay';
 
-	/// en: 'Stay'
-	String get reminderStay => 'Stay';
+	/// en: 'Tap to watch now · Swipe away to stay'
+	String get reminderHintTouch => 'Tap to watch now · Swipe away to stay';
+
+	/// en: 'Click to watch now · Esc to stay'
+	String get reminderHintPointer => 'Click to watch now · Esc to stay';
 }
 
 // Path: iptv
@@ -10220,8 +10223,9 @@ extension on Translations {
 			'oldSchool.watched' => 'Watched',
 			'oldSchool.reminderStartsOn' => ({required Object number, required Object name}) => 'Starts on ${number} ${name}',
 			'oldSchool.reminderSwitchingIn' => ({required Object time}) => 'Switching in ${time}',
-			'oldSchool.reminderSwitchNow' => 'Watch now',
-			'oldSchool.reminderStay' => 'Stay',
+			'oldSchool.reminderHintTv' => 'OK to watch now · Back to stay',
+			'oldSchool.reminderHintTouch' => 'Tap to watch now · Swipe away to stay',
+			'oldSchool.reminderHintPointer' => 'Click to watch now · Esc to stay',
 			'iptv.title' => 'IPTV',
 			'iptv.exit' => 'Exit',
 			'iptv.live' => 'LIVE',

@@ -2490,8 +2490,9 @@
     "watched": "Watched",
     "reminderStartsOn": "Starts on ${number} ${name}",
     "reminderSwitchingIn": "Switching in ${time}",
-    "reminderSwitchNow": "Watch now",
-    "reminderStay": "Stay"
+    "reminderHintTv": "OK to watch now · Back to stay",
+    "reminderHintTouch": "Tap to watch now · Swipe away to stay",
+    "reminderHintPointer": "Click to watch now · Esc to stay"
   },
   "iptv": {
     "title": "IPTV",

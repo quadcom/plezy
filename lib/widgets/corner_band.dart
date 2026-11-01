@@ -76,7 +76,17 @@ class CornerLayout extends MultiChildLayoutDelegate {
   final bool hasPoster;
   final double top;
 
-  CornerLayout({required this.onTop, required this.scale, required this.hasPoster, this.top = 0});
+  /// How much of the screen's width the block may take; a phone held
+  /// upright needs all of it.
+  final double panelFraction;
+
+  CornerLayout({
+    required this.onTop,
+    required this.scale,
+    required this.hasPoster,
+    this.top = 0,
+    this.panelFraction = 0.66,
+  });
 
   static const posterHeight = 144.0;
   static const posterWidth = posterHeight * 2 / 3;
@@ -84,7 +94,7 @@ class CornerLayout extends MultiChildLayoutDelegate {
   @override
   void performLayout(Size size) {
     final s = scale;
-    final panel = size.width * 0.66;
+    final panel = size.width * panelFraction;
     final right = 24 * s + (hasPoster ? posterWidth * s + 16 * s : 0);
     final text = layoutChild(CornerPart.text, BoxConstraints(maxWidth: panel - right));
     final bandHeight = text.height;
@@ -108,7 +118,8 @@ class CornerLayout extends MultiChildLayoutDelegate {
       oldDelegate.onTop != onTop ||
       oldDelegate.scale != scale ||
       oldDelegate.hasPoster != hasPoster ||
-      oldDelegate.top != top;
+      oldDelegate.top != top ||
+      oldDelegate.panelFraction != panelFraction;
 }
 
 /// A ClipRect, which a test build can switch off (dev-flags `noclip`).
