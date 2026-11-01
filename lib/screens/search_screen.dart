@@ -85,28 +85,47 @@ class _SearchScreenState extends State<SearchScreen>
   /// On TV the mic is the first thing highlighted (Adrian, 2026-10-31).
   bool get _voiceFirst => _voiceSearchAvailable && PlatformDetector.isTV();
 
+  /// Whether the voice check has answered. On TV nothing takes focus before
+  /// it does: focusing the field first popped Plezy's keyboard open over the
+  /// mic (Adrian, 2026-10-31: "The search keyboard should only be displayed
+  /// when the input is in focus").
+  bool _voiceChecked = false;
+  bool _focusWhenVoiceChecked = false;
+
   /// Where focus lands when Search opens or the user comes back up to the bar.
-  void _focusSearchBar() => (_voiceFirst ? _voiceFocusNode : searchFocusNode).requestFocus();
+  void _focusSearchBar() {
+    if (PlatformDetector.isTV() && !_voiceChecked) {
+      _focusWhenVoiceChecked = true;
+      return;
+    }
+    (_voiceFirst ? _voiceFocusNode : searchFocusNode).requestFocus();
+  }
 
   @override
   void initState() {
     super.initState();
-    FocusUtils.requestFocusAfterBuild(this, searchFocusNode);
+    if (PlatformDetector.isTV()) {
+      _focusWhenVoiceChecked = true;
+    } else {
+      FocusUtils.requestFocusAfterBuild(this, searchFocusNode);
+    }
     unawaited(_bindHiddenLibraries());
     unawaited(_checkVoiceSearch());
   }
 
   Future<void> _checkVoiceSearch() async {
     final available = await VoiceSearchService.isAvailable();
-    if (!mounted || !available) return;
-    setState(() => _voiceSearchAvailable = true);
-    // The field took focus before the answer came; hand it to the mic once
-    // the mic exists, unless the user has typed or moved on.
-    if (_voiceFirst && searchFocusNode.hasFocus && searchController.text.isEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && searchFocusNode.hasFocus) _voiceFocusNode.requestFocus();
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _voiceSearchAvailable = available;
+      _voiceChecked = true;
+    });
+    if (!_focusWhenVoiceChecked) return;
+    _focusWhenVoiceChecked = false;
+    // The mic exists from this frame on; focus it (or the field without one).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _focusSearchBar();
+    });
   }
 
   /// Plezy's own listening card over Android's speech service (Google TV's

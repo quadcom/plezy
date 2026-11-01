@@ -25,6 +25,7 @@ import 'package:plezy/screens/search_screen.dart';
 import 'package:plezy/services/multi_server_manager.dart';
 import 'package:plezy/services/storage_service.dart';
 import 'package:plezy/services/settings_service.dart';
+import 'package:plezy/services/voice_search_service.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
 import 'package:plezy/utils/media_server_http_client.dart';
@@ -187,6 +188,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  // Adrian, 2026-10-31: "The search keyboard should only be displayed when the
+  // input is in focus". Opening Search lands on the mic with no keyboard; the
+  // keyboard opens only once the field itself is highlighted.
+  testWidgets('TV Search with a mic opens on the mic without the keyboard', (tester) async {
+    VoiceSearchService.debugSetAvailable(true);
+    addTearDown(() => VoiceSearchService.debugSetAvailable(null));
+    await _pumpTvSearchScreen(tester);
+    await tester.pumpAndSettle();
+
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchVoice');
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
   });

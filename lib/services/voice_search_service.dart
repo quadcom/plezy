@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../utils/app_logger.dart';
@@ -65,8 +66,16 @@ class VoiceSearchService {
     });
   }
 
+  static bool? _debugAvailable;
+
+  /// Tests: pretend voice search is (or is not) available; null restores.
+  @visibleForTesting
+  static void debugSetAvailable(bool? available) => _debugAvailable = available;
+
   /// Whether this device can do voice search. Resolved once.
   static Future<bool> isAvailable() {
+    final debug = _debugAvailable;
+    if (debug != null) return Future.value(debug);
     if (!Platform.isAndroid) return Future.value(false);
     return _available ??= _queryAvailable();
   }
