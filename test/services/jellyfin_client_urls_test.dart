@@ -2337,6 +2337,94 @@ void main() {
       expect(result.fallbackReason, TranscodeFallbackReason.directPlayOnly);
     });
 
+    /// PLAN_PFN_91: a quality picked in the player always converts, even a file already under the cap.
+    group('forced conversion after an in-player pick', () {
+      Future<(List<Uri>, List<Map<String, dynamic>>, PlaybackInitializationResult)> play({
+        required TranscodeQualityPreset preset,
+        required bool forceConversion,
+        bool serverTranscodes = true,
+      }) async {
+        final uris = <Uri>[];
+        final bodies = <Map<String, dynamic>>[];
+        final scoped = _clientWithPlaybackInfo((request) async {
+          uris.add(request.url);
+          bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+          return jsonResponse({
+            'MediaSources': [
+              {
+                'Id': 'src-1',
+                'SupportsDirectPlay': true,
+                if (serverTranscodes)
+                  'TranscodingUrl':
+                      '/Videos/item-1/master.m3u8?MediaSourceId=src-1&PlaySessionId=ps-1&allowVideoStreamCopy=false',
+              },
+            ],
+          });
+        });
+        addTearDown(scoped.close);
+        final result = await scoped.getPlaybackInitialization(
+          PlaybackInitializationOptions(
+            metadata: testMediaItem(
+              id: 'item-1',
+              backend: MediaBackend.jellyfin,
+              kind: MediaKind.movie,
+              serverId: 'srv-1',
+            ),
+            selectedMediaIndex: 0,
+            qualityPreset: preset,
+            forceConversion: forceConversion,
+          ),
+        );
+        return (uris, bodies, result);
+      }
+
+      test('a forced pick turns off direct play, direct stream and video copy, but not audio copy', () async {
+        final (uris, bodies, result) = await play(preset: TranscodeQualityPreset.p1080_8mbps, forceConversion: true);
+
+        final query = uris.single.queryParameters;
+        expect(query['EnableDirectPlay'], 'false');
+        expect(query['EnableDirectStream'], 'false');
+        expect(query['AllowVideoStreamCopy'], 'false');
+        expect(query.containsKey('AllowAudioStreamCopy'), isFalse);
+        expect(bodies.single['EnableDirectPlay'], false);
+        expect(bodies.single['EnableDirectStream'], false);
+        expect(bodies.single['AllowVideoStreamCopy'], false);
+        expect(bodies.single.containsKey('AllowAudioStreamCopy'), isFalse);
+        expect(result.isTranscoding, isTrue);
+        expect(result.playMethod, 'Transcode');
+      });
+
+      test('a capped start without a pick sends none of the flags', () async {
+        final (uris, bodies, _) = await play(preset: TranscodeQualityPreset.p1080_8mbps, forceConversion: false);
+
+        for (final key in ['EnableDirectPlay', 'EnableDirectStream', 'AllowVideoStreamCopy']) {
+          expect(uris.single.queryParameters.containsKey(key), isFalse, reason: key);
+          expect(bodies.single.containsKey(key), isFalse, reason: key);
+        }
+      });
+
+      test('Original never forces, whatever the flag says', () async {
+        final (uris, _, result) = await play(preset: TranscodeQualityPreset.original, forceConversion: true);
+
+        expect(uris.single.queryParameters.containsKey('EnableDirectPlay'), isFalse);
+        expect(uris.single.queryParameters.containsKey('AllowVideoStreamCopy'), isFalse);
+        expect(result.isTranscoding, isFalse);
+      });
+
+      test('a server that still sends direct play is played, not claimed as converted', () async {
+        final (_, _, result) = await play(
+          preset: TranscodeQualityPreset.p1080_8mbps,
+          forceConversion: true,
+          serverTranscodes: false,
+        );
+
+        expect(result.isTranscoding, isFalse);
+        expect(result.serverConversion, isNull);
+        expect(result.fallbackReason, TranscodeFallbackReason.directPlayOnly);
+        expect(Uri.parse(result.videoUrl!).queryParameters['MediaSourceId'], 'src-1');
+      });
+    });
+
     /// A disc image has no clean original to open: played raw it shows its menus and every title in
     /// disc order. The server refuses direct play for it, and Original must then take the conversion.
     test('Original takes the conversion when the server refuses direct play', () async {

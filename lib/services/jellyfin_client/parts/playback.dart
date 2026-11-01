@@ -318,6 +318,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     final int? transcodeStartTimeTicks = !wantsOriginal && resumeOffsetMs != null && resumeOffsetMs > 0
         ? msToJellyfinTicks(resumeOffsetMs)
         : null;
+    // A quality picked in the player always means "convert it" (PLAN_PFN_91): without these the
+    // server direct-plays a file already under the cap, or copies its picture unchanged. Sound
+    // may still be copied.
+    final forceConversion = options.forceConversion && !wantsOriginal && !isTrack;
+    if (forceConversion) appLogger.i('Quality picked in player: forcing conversion');
     Map<String, dynamic>? negotiation;
     Map<String, dynamic>? chosenSource;
     try {
@@ -329,6 +334,9 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         audioStreamIndex: requestedAudioStreamId,
         subtitleStreamIndex: requestedSubtitleStreamId,
         audioProfile: isTrack,
+        enableDirectPlay: forceConversion ? false : null,
+        enableDirectStream: forceConversion ? false : null,
+        allowVideoStreamCopy: forceConversion ? false : null,
         // A capped preset is the only way a transcode is asked for, and on one the server
         // burns the selected embedded stream in rather than serving it as a file the client
         // would fetch as well. A selected external *file* keeps `External`, so it is still
@@ -388,6 +396,8 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
         );
       } else if (!wantsOriginal) {
         fallbackReason = TranscodeFallbackReason.directPlayOnly;
+        // Play what the server sent; the quality line keeps saying it is the original.
+        if (forceConversion) appLogger.w('PFN_91 mismatch: server sent direct play after a forced pick');
       }
     }
 

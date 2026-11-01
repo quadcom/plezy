@@ -153,9 +153,14 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
         effectiveMediaIndex != _effectiveSelectedMediaIndex ||
         (_requestedMediaSourceId != null && effectiveMediaSourceId != _requestedMediaSourceId);
     final isPresetChange = effectivePreset != _selectedQualityPreset;
+    // A quality picked in the quality menu (anything but Original) always asks
+    // the server to convert, even when it is the preset already playing: the
+    // start-up default may have been played as the original file (PLAN_PFN_91).
+    final pickForcesConversion = newPreset != null && !newPreset.isOriginal;
+    final isForceChange = pickForcesConversion && !_qualityPickedInPlayer;
     final isAudioChange = effectiveAudioStreamId != _selectedAudioStreamId;
     final isSubtitleChange = newSubtitleChoice != null && newSubtitleChoice != currentSubtitleChoice;
-    if (!isVersionChange && !isPresetChange && !isAudioChange && !isSubtitleChange) {
+    if (!isVersionChange && !isPresetChange && !isForceChange && !isAudioChange && !isSubtitleChange) {
       rememberSourceAudioPreference();
       rememberSourceSubtitlePreference();
       return PlaybackSourceChangeOutcome.unchanged;
@@ -201,6 +206,8 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
         selectedMediaIndex: effectiveMediaIndex,
         selectedMediaSourceId: effectiveMediaSourceId,
         qualityPreset: effectivePreset,
+        // Only the quality menu decides; other switches keep what is in force.
+        forceConversion: newPreset == null ? null : pickForcesConversion,
         // A version change selects a different part, and stream ids are
         // per-part — only same-part switches may carry the current id.
         selectedAudioStreamId: isVersionChange ? newAudioStreamId : effectiveAudioStreamId,
@@ -350,6 +357,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     String? selectedMediaSourceId,
     String? preferredVersionSignature,
     TranscodeQualityPreset? qualityPreset,
+    bool? forceConversion,
     int? selectedAudioStreamId,
     Duration? resumePosition,
     bool preserveCurrentTrackSelection = false,
@@ -476,7 +484,15 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       if (!isCurrentReload()) return MediaReloadOutcome.superseded;
 
       final targetMediaIndex = selectedMediaIndex ?? _effectiveSelectedMediaIndex;
-      final targetQualityPreset = qualityPreset ?? _selectedQualityPreset;
+      // An in-player quality pick lasts for its own item only (Adrian,
+      // 2026-10-31): the next episode, programme or room item starts where a
+      // fresh play would, and the forced conversion ends with it.
+      final dropsPlayerPick = isItemChange && _qualityPickedInPlayer;
+      final targetQualityPreset = dropsPlayerPick
+          ? _startupQualityPreset(SettingsService.instance)
+          : qualityPreset ?? _selectedQualityPreset;
+      final targetForcesConversion =
+          !targetQualityPreset.isOriginal && (forceConversion ?? (!isItemChange && _qualityPickedInPlayer));
       final targetAudioStreamId = useCurrentAudioStreamSelection
           ? selectedAudioStreamId ?? _selectedAudioStreamId
           : selectedAudioStreamId;
@@ -556,6 +572,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
             selectedMediaSourceId: selectedMediaSourceId,
             preferredVersionSignature: preferredVersionSignature,
             qualityPreset: targetQualityPreset,
+            forceConversion: targetForcesConversion,
             selectedAudioStreamId: targetAudioStreamId,
             preferredAudioTrack: initializationAudioTrack,
             preferredSubtitleTrack: initializationSubtitleTrack,
@@ -706,6 +723,7 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
             didOpenReplacement = true;
             if (!attempt.isCurrent) return;
             _commitPlaybackSession(session);
+            _qualityPickedInPlayer = targetForcesConversion;
             _commitWatchTogetherSelection(watchTogether, roomLease, metadata, openResumePosition ?? Duration.zero);
           },
         );

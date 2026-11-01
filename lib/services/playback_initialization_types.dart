@@ -33,6 +33,12 @@ class PlaybackInitializationOptions {
   /// server to transcode when supported.
   final TranscodeQualityPreset qualityPreset;
 
+  /// The [qualityPreset] was picked in the player's own quality menu, so the
+  /// server must convert the picture even when the file is already under the
+  /// cap: no direct play, no direct stream, no copying the video unchanged
+  /// (PLAN_PFN_91). Ignored at Original and for music.
+  final bool forceConversion;
+
   /// Music transcode preset, consulted only when [metadata] is a
   /// [MediaKind.track]. `original` (or null) direct-plays; anything else asks
   /// for a bitrate-capped audio transcode. [qualityPreset] is ignored for
@@ -68,6 +74,7 @@ class PlaybackInitializationOptions {
     this.selectedMediaSourceId,
     this.preferredVersionSignature,
     this.qualityPreset = TranscodeQualityPreset.original,
+    this.forceConversion = false,
     this.audioQualityPreset,
     this.selectedAudioStreamId,
     this.preferredAudioTrack,

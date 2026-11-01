@@ -770,6 +770,13 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   // Transcode / quality state
   late TranscodeQualityPreset _selectedQualityPreset;
+
+  /// True while the quality playing was picked in the player's own quality
+  /// menu (not Original). Such a pick asks the server to convert the picture
+  /// even when the file is already under the cap (PLAN_PFN_91), and it lasts
+  /// for this item only: the next item starts at [_startupQualityPreset]
+  /// (Adrian, 2026-10-31; local/plans/force-convert-quality-pick.md).
+  bool _qualityPickedInPlayer = false;
   int? _selectedAudioStreamId;
   AudioTrack? _preferredAudioTrack;
   SubtitlePreference? _preferredSubtitleTrack;
@@ -1075,6 +1082,17 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   bool get _isOfflinePlayback => _offlineLibraryMode || _effectiveIsOffline;
 
+  /// The quality a play starts at without a pick: the saved default, or the
+  /// cellular one on a cellular-only connection. A fresh start and the next
+  /// item after an in-player pick both use it, so they cannot drift apart.
+  TranscodeQualityPreset _startupQualityPreset(SettingsService settingsService) =>
+      TranscodeQualityPreset.resolveStartupDefault(
+        serverSupportsTranscoding: _serverSupportsTranscoding,
+        onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
+        cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
+        generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
+      );
+
   /// Atomically publish a freshly opened [PlaybackSession] and refine the
   /// selection-intent fields from what the backend actually delivered
   /// (clamped version index, active audio stream, post-fallback preset).
@@ -1269,6 +1287,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     newAudioStreamId: newAudioStreamId,
     newSubtitleChoice: newSubtitleChoice,
   );
+
+  @visibleForTesting
+  bool get debugQualityPickedInPlayer => _qualityPickedInPlayer;
 
   @visibleForTesting
   Future<void> debugWirePlayerStreamsForTesting() =>
@@ -1717,14 +1738,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
         // cellular one when set. The connection type piggybacks on the app's
         // single connectivity subscription in OfflineModeProvider.
         _serverSupportsTranscoding = genericClient.capabilities.videoTranscoding;
-        _selectedQualityPreset =
-            widget.selectedQualityPreset ??
-            TranscodeQualityPreset.resolveStartupDefault(
-              serverSupportsTranscoding: _serverSupportsTranscoding,
-              onCellularOnly: context.read<OfflineModeProvider>().isCellularOnly,
-              cellularDefault: settingsService.read(SettingsService.cellularQualityPreset),
-              generalDefault: settingsService.read(SettingsService.defaultQualityPreset),
-            );
+        _selectedQualityPreset = widget.selectedQualityPreset ?? _startupQualityPreset(settingsService);
         final playbackResolver = PlaybackSourceResolver(
           serverManager: context.read<MultiServerProvider>().serverManager,
           database: context.read<AppDatabase>(),
