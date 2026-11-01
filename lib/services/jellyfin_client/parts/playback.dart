@@ -1,5 +1,11 @@
 part of '../../jellyfin_client.dart';
 
+/// The cap an Original play asks for: far above any file, so at home the
+/// server plays the file as is. Leaving the cap out is not the same: the
+/// server then uses its DeviceProfile default of 8 Mbps
+/// (local/plans/original-no-8mbps-cap.md).
+const int _originalMaxStreamingBitrate = 400_000_000;
+
 bool _canUseJellyfinStaticStreamFallback(Object error) {
   if (error is MediaServerAuthException) return false;
   if (error is MediaServerHttpException) {
@@ -308,8 +314,11 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     // the server's answer and the burned-row bookkeeping below in step.
     final videoType = bundle.selectedSource['VideoType'];
     final isDiscImage = !isTrack && videoType is String && videoType.isNotEmpty && videoType != 'VideoFile';
-    final int? maxStreamingBitrate = wantsOriginal
-        ? null
+    // Original still names a cap: a request without one falls back to Jellyfin's DeviceProfile
+    // default of 8 Mbps, which converted every home play of a bigger file (Greatroom TV,
+    // 2026-11-01). The server still lowers it to its outside-viewer limit for remote callers.
+    final int maxStreamingBitrate = wantsOriginal
+        ? _originalMaxStreamingBitrate
         : isTrack
         // Non-original audio presets always carry a bitrate by construction.
         ? audioPreset.bitrateKbps! * 1000

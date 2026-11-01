@@ -1583,7 +1583,7 @@ void main() {
       expect(tracks.singleWhere((track) => track.id == 3).selected, isTrue);
     });
 
-    test('getPlaybackInitialization keeps original playback on the static stream with no bitrate cap', () async {
+    test('getPlaybackInitialization keeps original playback on the static stream with a high bitrate cap', () async {
       final requests = <Uri>[];
       String? playbackInfoBody;
       final scoped = JellyfinClient.forTesting(
@@ -1653,14 +1653,16 @@ void main() {
       );
 
       final playbackInfoRequest = requests.firstWhere((uri) => uri.path == '/Items/item-1/PlaybackInfo');
-      expect(playbackInfoRequest.queryParameters.containsKey('MaxStreamingBitrate'), isFalse);
+      // Original names a cap far above any file: left out, the server falls back to its
+      // DeviceProfile default of 8 Mbps and converts big files even at home.
+      expect(playbackInfoRequest.queryParameters['MaxStreamingBitrate'], '400000000');
       expect(playbackInfoRequest.queryParameters.containsKey('StartTimeTicks'), isFalse);
       expect(playbackInfoRequest.queryParameters['MediaSourceId'], 'src-1');
       final body = jsonDecode(playbackInfoBody!) as Map<String, dynamic>;
-      expect(body.containsKey('MaxStreamingBitrate'), isFalse);
+      expect(body['MaxStreamingBitrate'], 400000000);
       expect(body.containsKey('StartTimeTicks'), isFalse);
       final profile = body['DeviceProfile'] as Map<String, dynamic>;
-      expect(profile.containsKey('MaxStreamingBitrate'), isFalse);
+      expect(profile['MaxStreamingBitrate'], 400000000);
 
       expect(result.isTranscoding, isFalse);
       expect(result.playMethod, 'DirectPlay');
@@ -1878,7 +1880,7 @@ void main() {
       );
 
       final playbackInfoRequest = requests.firstWhere((uri) => uri.path == '/Items/item-1/PlaybackInfo');
-      expect(playbackInfoRequest.queryParameters.containsKey('MaxStreamingBitrate'), isFalse);
+      expect(playbackInfoRequest.queryParameters['MaxStreamingBitrate'], '400000000');
       expect(playbackInfoRequest.queryParameters.containsKey('StartTimeTicks'), isFalse);
       expect(result.isTranscoding, isFalse);
       expect(result.playMethod, 'DirectPlay');
