@@ -328,6 +328,9 @@ class FormatBadgeRow extends StatelessWidget {
   /// draw shorter and stay about as wide as the rest.
   static const _wordmarks = {'assets/format_logos/dolby_vision.svg', 'assets/format_logos/dolby_atmos.svg'};
 
+  /// The solid 4K block sits between the two.
+  static const _short = {'assets/format_logos/uhd_4k.svg'};
+
   @override
   Widget build(BuildContext context) {
     final s = scale;
@@ -341,7 +344,7 @@ class FormatBadgeRow extends StatelessWidget {
           if (badge.logo case final logo?)
             SvgPicture.asset(
               logo,
-              height: (_wordmarks.contains(logo) ? 13 : 22) * s,
+              height: (_wordmarks.contains(logo) ? 13 : (_short.contains(logo) ? 16 : 22)) * s,
               colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
               semanticsLabel: badge.label,
             )

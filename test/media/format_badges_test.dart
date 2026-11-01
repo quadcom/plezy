@@ -30,6 +30,12 @@ void main() {
       expect(_labels(formatBadges(width: 3840, height: 1600)), ['4K']);
     });
 
+    test('4K and DTS:X have logos; 1080p is text', () {
+      expect(formatBadges(width: 3840, height: 2160).single.logo, endsWith('uhd_4k.svg'));
+      expect(formatBadges(width: 1920, height: 1080).single.logo, isNull);
+      expect(formatBadges(audio: _audio('dts', spatial: 'DTSX')).single.logo, endsWith('dts_x.svg'));
+    });
+
     test('nothing known, no badge', () {
       expect(formatBadges(), isEmpty);
     });

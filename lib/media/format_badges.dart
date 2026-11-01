@@ -38,7 +38,7 @@ FormatBadge? _resolution(int? width, int? height) {
   final w = width ?? 0;
   final h = height ?? 0;
   if (w <= 0 && h <= 0) return null;
-  if (w >= 3200 || h >= 1600) return const FormatBadge('4K');
+  if (w >= 3200 || h >= 1600) return const FormatBadge('4K', logo: '$_logos/uhd_4k.svg');
   if (w >= 1700 || h >= 900) return const FormatBadge('1080p');
   if (w >= 1100 || h >= 650) return const FormatBadge('720p');
   return const FormatBadge('SD');
@@ -77,7 +77,10 @@ List<FormatBadge> _audio(MediaAudioTrack? track) {
       'Dolby Atmos',
       logo: '$_logos/dolby_atmos.svg',
     ),
-    _ when spatial.contains('dtsx') || words.contains('dts:x') || words.contains('dts-x') => const FormatBadge('DTS:X'),
+    _ when spatial.contains('dtsx') || words.contains('dts:x') || words.contains('dts-x') => const FormatBadge(
+      'DTS:X',
+      logo: '$_logos/dts_x.svg',
+    ),
     'truehd' || 'mlp' => const FormatBadge('Dolby TrueHD', logo: '$_logos/dolby_truehd.svg'),
     'eac3' || 'e-ac-3' || 'ec-3' => const FormatBadge('Dolby Digital Plus', logo: '$_logos/dolby_digital_plus.svg'),
     'ac3' || 'ac-3' => const FormatBadge('Dolby Digital', logo: '$_logos/dolby_digital.svg'),

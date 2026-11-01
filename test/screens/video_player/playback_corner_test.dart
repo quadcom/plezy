@@ -151,8 +151,10 @@ void main() {
         'dolby_vision',
         'dts',
         'dts_hd_ma',
+        'dts_x',
         'hdr10',
         'hdr10_plus',
+        'uhd_4k',
       ];
       for (final name in names) {
         final info = await tester.runAsync(() => vg.loadPicture(SvgAssetLoader('assets/format_logos/$name.svg'), null));
