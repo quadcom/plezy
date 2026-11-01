@@ -1,12 +1,14 @@
 package com.edde746.plezy
 
 import android.app.Activity
+import android.app.SearchManager
 import android.content.ActivityNotFoundException
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.speech.RecognizerIntent
+import android.util.Log
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -22,6 +24,7 @@ import io.flutter.plugin.common.MethodChannel
 internal class VoiceSearchChannel(private val activity: Activity) {
   companion object {
     private const val CHANNEL = "com.plezy/voice_search"
+    private const val TAG = "PlezyVoiceSearch"
     const val REQUEST_CODE = 7462
 
     // Several apps can answer RECOGNIZE_SPEECH (a Google TV box lists the
@@ -43,15 +46,35 @@ internal class VoiceSearchChannel(private val activity: Activity) {
     if (requestCode != REQUEST_CODE) return false
     val result = pendingResult
     pendingResult = null
-    val text = if (resultCode == Activity.RESULT_OK) {
-      data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
-        ?.firstOrNull { it.isNotBlank() }
-        ?.trim()
-    } else {
-      null
-    }
+    // Read the words whatever the result code says: on the Greatroom Google TV
+    // (2026-10-31) the voice screen recognised speech but Plezy ran no search,
+    // so the reply is logged (keys and length only, never the words) and every
+    // place a voice app may put the text is tried.
+    val text = extractText(data)
+    Log.i(
+      TAG,
+      "result code=$resultCode keys=${data?.extras?.keySet()?.sorted()} " +
+        "text=${text?.let { "${it.length} chars" } ?: "none"} pending=${result != null}"
+    )
     result?.success(text)
     return true
+  }
+
+  private fun extractText(data: Intent?): String? {
+    if (data == null) return null
+    data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+      ?.firstOrNull { it.isNotBlank() }
+      ?.let { return it.trim() }
+    data.getStringExtra(SearchManager.QUERY)?.takeIf(String::isNotBlank)?.let { return it.trim() }
+    val extras = data.extras ?: return null
+    for (key in extras.keySet().sorted()) {
+      @Suppress("DEPRECATION")
+      when (val value = extras.get(key)) {
+        is String -> if (value.isNotBlank() && key.contains("result", ignoreCase = true)) return value.trim()
+        is ArrayList<*> -> value.firstOrNull { it is String && it.isNotBlank() }?.let { return (it as String).trim() }
+      }
+    }
+    return null
   }
 
   fun dispose() {
@@ -81,10 +104,12 @@ internal class VoiceSearchChannel(private val activity: Activity) {
       component = ComponentName(recognizer.activityInfo.packageName, recognizer.activityInfo.name)
       putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
       putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+      putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, activity.packageName)
       prompt?.takeIf(String::isNotBlank)?.let { putExtra(RecognizerIntent.EXTRA_PROMPT, it) }
     }
     try {
       pendingResult = result
+      Log.i(TAG, "listening via ${recognizer.activityInfo.packageName}/${recognizer.activityInfo.name}")
       activity.startActivityForResult(intent, REQUEST_CODE)
     } catch (error: ActivityNotFoundException) {
       pendingResult = null

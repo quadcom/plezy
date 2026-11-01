@@ -79,6 +79,13 @@ class _SearchScreenState extends State<SearchScreen>
   /// A voice input app answers on this device, so the field shows a mic.
   bool _voiceSearchAvailable = false;
   bool _voiceSearchActive = false;
+  final FocusNode _voiceFocusNode = FocusNode(debugLabel: 'SearchVoice');
+
+  /// On TV the mic is the first thing highlighted (Adrian, 2026-10-31).
+  bool get _voiceFirst => _voiceSearchAvailable && PlatformDetector.isTV();
+
+  /// Where focus lands when Search opens or the user comes back up to the bar.
+  void _focusSearchBar() => (_voiceFirst ? _voiceFocusNode : searchFocusNode).requestFocus();
 
   @override
   void initState() {
@@ -92,6 +99,13 @@ class _SearchScreenState extends State<SearchScreen>
     final available = await VoiceSearchService.isAvailable();
     if (!mounted || !available) return;
     setState(() => _voiceSearchAvailable = true);
+    // The field took focus before the answer came; hand it to the mic once
+    // the mic exists, unless the user has typed or moved on.
+    if (_voiceFirst && searchFocusNode.hasFocus && searchController.text.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && searchFocusNode.hasFocus) _voiceFocusNode.requestFocus();
+      });
+    }
   }
 
   /// Gboard's own voice typing is broken on some Google TV boxes; the system
@@ -102,7 +116,12 @@ class _SearchScreenState extends State<SearchScreen>
     try {
       _tvTextInputController.closeTextInput();
       final text = await VoiceSearchService.listen(prompt: t.search.voicePrompt);
-      if (!mounted || text == null) return;
+      if (!mounted) return;
+      if (text == null) {
+        showAppSnackBar(context, t.search.voiceNoMatch);
+        if (_voiceFirst) _voiceFocusNode.requestFocus();
+        return;
+      }
       submitSearchQuery(text);
     } finally {
       _voiceSearchActive = false;
@@ -113,6 +132,7 @@ class _SearchScreenState extends State<SearchScreen>
   void dispose() {
     _hiddenLibraries?.removeListener(_onHiddenLibrariesChanged);
     _allChipFocusNode.dispose();
+    _voiceFocusNode.dispose();
     for (final node in _kindChipFocusNodes.values) {
       node.dispose();
     }
@@ -273,13 +293,13 @@ class _SearchScreenState extends State<SearchScreen>
   @override
   void focusSearchInput() {
     if (!mounted) return;
-    searchFocusNode.requestFocus();
+    _focusSearchBar();
   }
 
   @override
   void focusActiveTabIfReady() {
     if (!mounted) return;
-    searchFocusNode.requestFocus();
+    _focusSearchBar();
   }
 
   /// Apply a complete query submitted from the Plezy companion remote: set the
@@ -552,6 +572,7 @@ class _SearchScreenState extends State<SearchScreen>
                   onEditingComplete: PlatformDetector.isTV() ? handleSearchSubmit : null,
                   onVoiceSearch: _voiceSearchAvailable ? _startVoiceSearch : null,
                   voiceSearchTooltip: t.search.voiceSearch,
+                  voiceFocusNode: _voiceFocusNode,
                   onBack: () {
                     if (searchController.text.isNotEmpty) {
                       searchController.clear();

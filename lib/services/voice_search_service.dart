@@ -35,6 +35,10 @@ class VoiceSearchService {
     try {
       final text = await _channel.invokeMethod<String>('listen', {'prompt': prompt});
       final trimmed = text?.trim();
+      // Length only: what someone says stays out of the log.
+      appLogger.i(
+        'Voice search returned ${trimmed == null || trimmed.isEmpty ? 'nothing' : '${trimmed.length} chars'}',
+      );
       return trimmed == null || trimmed.isEmpty ? null : trimmed;
     } on MissingPluginException {
       return null;

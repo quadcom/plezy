@@ -1491,6 +1491,9 @@ class Translations$search$en {
 
 	/// en: 'Say a title, actor, or keyword'
 	String get voicePrompt => 'Say a title, actor, or keyword';
+
+	/// en: 'Didn't catch that. Press the mic and try again.'
+	String get voiceNoMatch => 'Didn\'t catch that. Press the mic and try again.';
 }
 
 // Path: hotkeys
@@ -8331,6 +8334,7 @@ extension on Translations {
 			'search.enterTitleActorOrKeyword' => 'Enter a title, actor, or keyword',
 			'search.voiceSearch' => 'Voice search',
 			'search.voicePrompt' => 'Say a title, actor, or keyword',
+			'search.voiceNoMatch' => 'Didn\'t catch that. Press the mic and try again.',
 			'hotkeys.setShortcutFor' => ({required Object actionName}) => 'Set Shortcut for ${actionName}',
 			'hotkeys.clearShortcut' => 'Clear shortcut',
 			'hotkeys.noShortcutSet' => 'No shortcut set',
@@ -8376,9 +8380,9 @@ extension on Translations {
 			'fileInfo.versionCounter' => ({required Object index, required Object count}) => 'Version ${index} of ${count}',
 			'fileInfo.fileCounter' => ({required Object index, required Object count}) => 'File ${index} of ${count}',
 			'fileInfo.noStreams' => 'The server reported no streams for this file.',
-			'fileInfo.copyPath' => 'Copy path',
 			_ => null,
 		} ?? switch (path) {
+			'fileInfo.copyPath' => 'Copy path',
 			'fileInfo.pathCopied' => 'File path copied',
 			'fileInfo.codec' => 'Codec',
 			'fileInfo.codecTag' => 'Codec Tag',
@@ -8890,9 +8894,9 @@ extension on Translations {
 			'accountPreferences.mediaReviewsOptions.nobody' => 'Hidden',
 			'discover.title' => 'Discover',
 			'discover.noContentAvailable' => 'No content available',
-			'discover.addMediaToLibraries' => 'Add some media to your libraries',
 			_ => null,
 		} ?? switch (path) {
+			'discover.addMediaToLibraries' => 'Add some media to your libraries',
 			'discover.continueWatching' => 'Continue Watching',
 			'discover.continueWatchingIn' => ({required Object library}) => 'Continue Watching in ${library}',
 			'discover.nextUp' => 'Next Up',
@@ -9404,9 +9408,9 @@ extension on Translations {
 			'music.discNumber' => ({required Object n}) => 'Disc ${n}',
 			'music.trackCount' => ({required num n}) => (_root.$meta.cardinalResolver ?? PluralResolvers.cardinal('en'))(n, one: '${n} track', other: '${n} tracks', ), 
 			'music.nowPlaying' => 'Now Playing',
-			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
 			_ => null,
 		} ?? switch (path) {
+			'music.playingFrom' => ({required Object title}) => 'Playing from ${title}',
 			'music.queue' => 'Queue',
 			'music.clearQueue' => 'Clear queue',
 			'music.lyrics' => 'Lyrics',
@@ -9918,9 +9922,9 @@ extension on Translations {
 			'seerr.qualityProfile' => 'Quality profile',
 			'seerr.rootFolder' => 'Root folder',
 			'seerr.languageProfile' => 'Language profile',
-			'seerr.tags' => 'Tags',
 			_ => null,
 		} ?? switch (path) {
+			'seerr.tags' => 'Tags',
 			'seerr.noTags' => 'No tags',
 			'seerr.defaultOption' => ({required Object name}) => '${name} (Default)',
 			'seerr.animeNote' => 'This series is an anime.',

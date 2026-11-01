@@ -481,7 +481,8 @@
     "searchYourMedia": "Search your media",
     "enterTitleActorOrKeyword": "Enter a title, actor, or keyword",
     "voiceSearch": "Voice search",
-    "voicePrompt": "Say a title, actor, or keyword"
+    "voicePrompt": "Say a title, actor, or keyword",
+    "voiceNoMatch": "Didn't catch that. Press the mic and try again."
   },
   "hotkeys": {
     "setShortcutFor": "Set Shortcut for ${actionName}",
