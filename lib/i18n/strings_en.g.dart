@@ -1500,6 +1500,10 @@ class Translations$search$en {
 
 	/// en: 'Voice search needs the microphone. Allow it for Plezy in the TV's app settings, or type instead.'
 	String get voiceNeedsMic => 'Voice search needs the microphone. Allow it for Plezy in the TV\'s app settings, or type instead.';
+
+	late final Translations$search$searchIn$en searchIn = Translations$search$searchIn$en.internal(_root);
+	late final Translations$search$scopeHint$en scopeHint = Translations$search$scopeHint$en.internal(_root);
+	late final Translations$search$rows$en rows = Translations$search$rows$en.internal(_root);
 }
 
 // Path: hotkeys
@@ -6373,6 +6377,150 @@ class Translations$common$mediaKind$en {
 	String get folder => 'Folder';
 }
 
+// Path: search.searchIn
+class Translations$search$searchIn$en {
+	Translations$search$searchIn$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Search in'
+	String get title => 'Search in';
+
+	/// en: 'Titles'
+	String get titles => 'Titles';
+
+	/// en: 'Films, shows and episodes'
+	String get titlesSubtitle => 'Films, shows and episodes';
+
+	/// en: 'Actors'
+	String get actors => 'Actors';
+
+	/// en: 'Keywords'
+	String get keywords => 'Keywords';
+
+	/// en: 'Whole word only, e.g. "biography"'
+	String get keywordsSubtitle => 'Whole word only, e.g. "biography"';
+
+	/// en: 'Directors & writers'
+	String get crew => 'Directors & writers';
+
+	/// en: 'Genres'
+	String get genres => 'Genres';
+
+	/// en: 'Studios'
+	String get studios => 'Studios';
+
+	/// en: 'Year'
+	String get year => 'Year';
+
+	/// en: 'When you type a 4-digit year'
+	String get yearSubtitle => 'When you type a 4-digit year';
+
+	/// en: 'Saved to your account'
+	String get savedToAccount => 'Saved to your account';
+
+	/// en: 'Saved on this device'
+	String get savedOnDevice => 'Saved on this device';
+
+	/// en: 'Reset'
+	String get reset => 'Reset';
+}
+
+// Path: search.scopeHint
+class Translations$search$scopeHint$en {
+	Translations$search$scopeHint$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Tick at least one thing to search'
+	String get nothingTicked => 'Tick at least one thing to search';
+
+	/// en: 'Search ${kinds}'
+	String search({required Object kinds}) => 'Search ${kinds}';
+
+	/// en: '${first} and ${last}'
+	String listAnd({required Object first, required Object last}) => '${first} and ${last}';
+
+	/// en: 'titles'
+	String get titles => 'titles';
+
+	/// en: 'actors'
+	String get actors => 'actors';
+
+	/// en: 'keywords'
+	String get keywords => 'keywords';
+
+	/// en: 'directors and writers'
+	String get crew => 'directors and writers';
+
+	/// en: 'genres'
+	String get genres => 'genres';
+
+	/// en: 'studios'
+	String get studios => 'studios';
+
+	/// en: 'years'
+	String get year => 'years';
+}
+
+// Path: search.rows
+class Translations$search$rows$en {
+	Translations$search$rows$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'People'
+	String get people => 'People';
+
+	/// en: 'Directors & writers'
+	String get crew => 'Directors & writers';
+
+	/// en: 'Keywords'
+	String get keywords => 'Keywords';
+
+	/// en: 'Genres'
+	String get genres => 'Genres';
+
+	/// en: 'Studios'
+	String get studios => 'Studios';
+
+	/// en: 'Year'
+	String get year => 'Year';
+
+	/// en: 'Actor'
+	String get actorRole => 'Actor';
+
+	/// en: 'Director or writer'
+	String get crewRole => 'Director or writer';
+
+	/// en: 'No ${kind} match "${query}"'
+	String noMatch({required Object kind, required Object query}) => 'No ${kind} match "${query}"';
+
+	/// en: 'people'
+	String get noMatchPeople => 'people';
+
+	/// en: 'directors or writers'
+	String get noMatchCrew => 'directors or writers';
+
+	/// en: 'keywords'
+	String get noMatchKeywords => 'keywords';
+
+	/// en: 'genres'
+	String get noMatchGenres => 'genres';
+
+	/// en: 'studios'
+	String get noMatchStudios => 'studios';
+
+	/// en: 'year'
+	String get noMatchYear => 'year';
+}
+
 // Path: hotkeys.actions
 class Translations$hotkeys$actions$en {
 	Translations$hotkeys$actions$en.internal(this._root);
@@ -8422,10 +8570,51 @@ extension on Translations {
 			'search.voiceNoMatch' => 'Didn\'t catch that. Press the mic and try again.',
 			'search.voiceListening' => 'Listening...',
 			'search.voiceNeedsMic' => 'Voice search needs the microphone. Allow it for Plezy in the TV\'s app settings, or type instead.',
+			'search.searchIn.title' => 'Search in',
+			'search.searchIn.titles' => 'Titles',
+			'search.searchIn.titlesSubtitle' => 'Films, shows and episodes',
+			'search.searchIn.actors' => 'Actors',
+			'search.searchIn.keywords' => 'Keywords',
+			'search.searchIn.keywordsSubtitle' => 'Whole word only, e.g. "biography"',
+			'search.searchIn.crew' => 'Directors & writers',
+			'search.searchIn.genres' => 'Genres',
+			'search.searchIn.studios' => 'Studios',
+			'search.searchIn.year' => 'Year',
+			'search.searchIn.yearSubtitle' => 'When you type a 4-digit year',
+			'search.searchIn.savedToAccount' => 'Saved to your account',
+			'search.searchIn.savedOnDevice' => 'Saved on this device',
+			'search.searchIn.reset' => 'Reset',
+			'search.scopeHint.nothingTicked' => 'Tick at least one thing to search',
+			'search.scopeHint.search' => ({required Object kinds}) => 'Search ${kinds}',
+			'search.scopeHint.listAnd' => ({required Object first, required Object last}) => '${first} and ${last}',
+			'search.scopeHint.titles' => 'titles',
+			'search.scopeHint.actors' => 'actors',
+			'search.scopeHint.keywords' => 'keywords',
+			'search.scopeHint.crew' => 'directors and writers',
+			'search.scopeHint.genres' => 'genres',
+			'search.scopeHint.studios' => 'studios',
+			'search.scopeHint.year' => 'years',
+			'search.rows.people' => 'People',
+			'search.rows.crew' => 'Directors & writers',
+			'search.rows.keywords' => 'Keywords',
+			'search.rows.genres' => 'Genres',
+			'search.rows.studios' => 'Studios',
+			'search.rows.year' => 'Year',
+			'search.rows.actorRole' => 'Actor',
+			'search.rows.crewRole' => 'Director or writer',
+			'search.rows.noMatch' => ({required Object kind, required Object query}) => 'No ${kind} match "${query}"',
+			'search.rows.noMatchPeople' => 'people',
+			'search.rows.noMatchCrew' => 'directors or writers',
+			'search.rows.noMatchKeywords' => 'keywords',
+			'search.rows.noMatchGenres' => 'genres',
+			'search.rows.noMatchStudios' => 'studios',
+			'search.rows.noMatchYear' => 'year',
 			'hotkeys.setShortcutFor' => ({required Object actionName}) => 'Set Shortcut for ${actionName}',
 			'hotkeys.clearShortcut' => 'Clear shortcut',
 			'hotkeys.noShortcutSet' => 'No shortcut set',
 			'hotkeys.currentShortcut' => 'Current shortcut:',
+			_ => null,
+		} ?? switch (path) {
 			'hotkeys.pressToRecord' => 'Select to record a shortcut',
 			'hotkeys.recordingShortcut' => 'Press the shortcut now',
 			'hotkeys.actions.playPause' => 'Play/Pause',
@@ -8465,8 +8654,6 @@ extension on Translations {
 			'fileInfo.attachments' => 'Attachments',
 			'fileInfo.delivery' => 'Delivery',
 			'fileInfo.versionCounter' => ({required Object index, required Object count}) => 'Version ${index} of ${count}',
-			_ => null,
-		} ?? switch (path) {
 			'fileInfo.fileCounter' => ({required Object index, required Object count}) => 'File ${index} of ${count}',
 			'fileInfo.noStreams' => 'The server reported no streams for this file.',
 			'fileInfo.copyPath' => 'Copy path',
@@ -8940,6 +9127,8 @@ extension on Translations {
 			'accountPreferences.autoSelectAudio' => 'Choose audio by language',
 			'accountPreferences.autoSelectAudioDescription' => 'Off keeps whatever audio track the file marks as default.',
 			'accountPreferences.preferredSubtitleLanguage' => 'Preferred subtitle language',
+			_ => null,
+		} ?? switch (path) {
 			'accountPreferences.subtitleMode' => 'Turn subtitles on',
 			'accountPreferences.subtitleModes.none' => 'Manually selected',
 			'accountPreferences.subtitleModes.noneDescription' => 'Never turn subtitles on by itself.',
@@ -8979,8 +9168,6 @@ extension on Translations {
 			'accountPreferences.mediaReviewsOptions.usersOnly' => 'Users only',
 			'accountPreferences.mediaReviewsOptions.criticsOnly' => 'Critics only',
 			'accountPreferences.mediaReviewsOptions.nobody' => 'Hidden',
-			_ => null,
-		} ?? switch (path) {
 			'discover.title' => 'Discover',
 			'discover.noContentAvailable' => 'No content available',
 			'discover.addMediaToLibraries' => 'Add some media to your libraries',
@@ -9454,6 +9641,8 @@ extension on Translations {
 			'liveTv.playbackStartFailed' => ({required Object reason}) => 'Couldn\'t start the channel: ${reason}',
 			'liveTv.channelSwitchFailed' => ({required Object reason}) => 'Couldn\'t switch channel: ${reason}',
 			'collections.title' => 'Collections',
+			_ => null,
+		} ?? switch (path) {
 			'collections.collection' => 'Collection',
 			'collections.empty' => 'Collection is empty',
 			'collections.deleteCollection' => 'Delete Collection',
@@ -9493,8 +9682,6 @@ extension on Translations {
 			'playlists.itemRemoved' => 'Removed from playlist',
 			'playlists.selectPlaylist' => 'Select Playlist',
 			'playlists.searchPlaylists' => 'Search playlists...',
-			_ => null,
-		} ?? switch (path) {
 			'playlists.errorCreating' => 'Failed to create playlist',
 			'playlists.errorDeleting' => 'Failed to delete playlist',
 			'playlists.errorLoading' => 'Failed to load playlists',
@@ -9968,6 +10155,8 @@ extension on Translations {
 			'metadataEdit.tags' => 'Tags',
 			'metadataEdit.addTag' => 'Add tag',
 			'metadataEdit.genre' => 'Genre',
+			_ => null,
+		} ?? switch (path) {
 			'metadataEdit.director' => 'Director',
 			'metadataEdit.writer' => 'Writer',
 			'metadataEdit.producer' => 'Producer',
@@ -10007,8 +10196,6 @@ extension on Translations {
 			'seerr.signInWithJellyfin' => 'Sign in with Jellyfin',
 			'seerr.signInWithEmby' => 'Sign in with Emby',
 			'seerr.signInWithLocal' => 'Use a local account',
-			_ => null,
-		} ?? switch (path) {
 			'seerr.email' => 'Email',
 			'seerr.noSignInMethods' => 'This Seerr instance offers no sign-in method Plezy supports.',
 			'seerr.instance' => 'Instance',

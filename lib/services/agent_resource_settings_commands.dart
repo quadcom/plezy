@@ -7,6 +7,7 @@ import '../media/ids.dart';
 import '../media/live_tv_support.dart';
 import '../media/media_server_client.dart';
 import '../media/media_server_user_profile.dart';
+import '../media/search_scope.dart';
 import '../models/livetv_channel.dart';
 import '../models/media_subscription.dart';
 import '../profiles/active_profile_provider.dart';
@@ -185,6 +186,7 @@ class AgentResourceSettingsCommands {
     'type': switch (key.valueKind) {
       AccountPreferenceValueKind.boolean => 'boolean',
       AccountPreferenceValueKind.languageCode => 'string',
+      AccountPreferenceValueKind.searchScope => 'list',
       _ => 'enum',
     },
     'nullable': key.valueKind == AccountPreferenceValueKind.languageCode,
@@ -212,6 +214,7 @@ class AgentResourceSettingsCommands {
           SubtitleAccessibilityPreference.values.map((value) => value.name).toList(),
         AccountPreferenceValueKind.forcedSubtitles =>
           ForcedSubtitlePreference.values.map((value) => value.name).toList(),
+        AccountPreferenceValueKind.searchScope => SearchScopeKind.values.map((value) => value.name).toList(),
         _ => null,
       };
 
@@ -222,13 +225,28 @@ class AgentResourceSettingsCommands {
     AccountPreferenceValueKind.mediaReviewsVisibility => _enumValue(MediaReviewsVisibility.values, value),
     AccountPreferenceValueKind.subtitleAccessibility => _enumValue(SubtitleAccessibilityPreference.values, value),
     AccountPreferenceValueKind.forcedSubtitles => _enumValue(ForcedSubtitlePreference.values, value),
+    AccountPreferenceValueKind.searchScope => _searchScopeValue(value),
   };
+
+  Set<SearchScopeKind> _searchScopeValue(Object? value) {
+    if (value is! List) {
+      throw const AgentControlException('invalidArguments', 'Expected a list of search kinds.');
+    }
+    return {for (final entry in value) _enumValue(SearchScopeKind.values, entry)};
+  }
 
   T _enumValue<T extends Enum>(List<T> values, Object? value) =>
       values.where((entry) => entry.name == value).firstOrNull ??
       (throw const AgentControlException('invalidArguments', 'Unknown account preference choice.'));
 
-  Object? _jsonValue(Object? value) => value is Enum ? value.name : value;
+  Object? _jsonValue(Object? value) => switch (value) {
+    final Enum choice => choice.name,
+    final Set<SearchScopeKind> kinds => [
+      for (final kind in SearchScopeKind.values)
+        if (kinds.contains(kind)) kind.name,
+    ],
+    _ => value,
+  };
 
   Future<Object?> _readSync(
     Map<String, dynamic> arguments,

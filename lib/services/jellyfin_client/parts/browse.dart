@@ -1710,14 +1710,30 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     int? start,
     int? size,
     AbortController? abort,
+  }) => fetchFacetMediaPage(MediaFacet(MediaFacetKind.person, personId), start: start, size: size, abort: abort);
+
+  @override
+  Future<LibraryPage<MediaItem>> fetchFacetMediaPage(
+    MediaFacet facet, {
+    int? start,
+    int? size,
+    AbortController? abort,
   }) async {
     final offset = start ?? 0;
     final pageSize = size ?? _pagedListPageSize;
+    final filter = switch (facet.kind) {
+      MediaFacetKind.person => 'PersonIds',
+      MediaFacetKind.genre => 'GenreIds',
+      MediaFacetKind.studio => 'StudioIds',
+      // Whole-tag match, any case; the server splits on `|`.
+      MediaFacetKind.tag => 'Tags',
+      MediaFacetKind.year => 'Years',
+    };
     final response = await _http.get(
       '/Items',
       queryParameters: {
         'userId': connection.userId,
-        'PersonIds': personId,
+        filter: facet.value,
         'IncludeItemTypes': 'Movie,Series',
         'Recursive': 'true',
         'StartIndex': offset.toString(),
@@ -1732,6 +1748,142 @@ mixin _JellyfinBrowseMethods on _JellyfinClientInternals {
     );
     throwIfHttpError(response);
     return _pagedItems(response.data, offset: offset, requestedSize: pageSize, map: _mapItems);
+  }
+
+  /// How many people, genres or studios one extra search row asks for.
+  static const _searchFacetLimit = 20;
+
+  @override
+  Future<List<SearchFacetMatch>> searchFacet(SearchScopeKind kind, String query, {AbortController? abort}) async {
+    final term = query.trim();
+    if (term.isEmpty) return const [];
+    switch (kind) {
+      case SearchScopeKind.titles:
+        // Names are [searchItems]' job.
+        return const [];
+      case SearchScopeKind.actors:
+        return _searchPeople(kind, term, personTypes: 'Actor', abort: abort);
+      case SearchScopeKind.crew:
+        return _searchPeople(kind, term, personTypes: 'Director,Writer', abort: abort);
+      case SearchScopeKind.genres:
+        return _searchNamedFacet(kind, '/Genres', MediaFacetKind.genre, term, abort: abort);
+      case SearchScopeKind.studios:
+        return _searchNamedFacet(kind, '/Studios', MediaFacetKind.studio, term, abort: abort);
+      case SearchScopeKind.keywords:
+        return _searchKeyword(term, abort: abort);
+      case SearchScopeKind.year:
+        // No request: the year is the query itself, and a count would cost one.
+        final year = searchYearOf(term);
+        if (year == null) return const [];
+        return [
+          SearchFacetMatch(
+            kind: kind,
+            facet: MediaFacet(MediaFacetKind.year, '$year'),
+            name: '$year',
+            serverId: serverId,
+            serverName: serverName,
+          ),
+        ];
+    }
+  }
+
+  /// `/Persons` matches every role; [personTypes] narrows it. One request.
+  Future<List<SearchFacetMatch>> _searchPeople(
+    SearchScopeKind kind,
+    String term, {
+    required String personTypes,
+    AbortController? abort,
+  }) async {
+    final rows = await _fetchItemsArray('/Persons', {
+      'searchTerm': term,
+      'userId': connection.userId,
+      'personTypes': personTypes,
+      'limit': '$_searchFacetLimit',
+      'enableTotalRecordCount': 'false',
+      'enableImageTypes': 'Primary',
+      'imageTypeLimit': '1',
+      'enableUserData': 'false',
+    }, abort: abort);
+    return [for (final row in rows) ?_facetMatch(kind, MediaFacetKind.person, row, withImage: true)];
+  }
+
+  /// `/Genres` and `/Studios` by name, limited to films and shows (what the
+  /// row's grid opens). One request.
+  Future<List<SearchFacetMatch>> _searchNamedFacet(
+    SearchScopeKind kind,
+    String path,
+    MediaFacetKind facetKind,
+    String term, {
+    AbortController? abort,
+  }) async {
+    final rows = await _fetchItemsArray(path, {
+      'searchTerm': term,
+      'userId': connection.userId,
+      'limit': '$_searchFacetLimit',
+      'IncludeItemTypes': 'Movie,Series',
+      'enableTotalRecordCount': 'false',
+      'enableImages': 'false',
+      'enableUserData': 'false',
+    }, abort: abort);
+    return [for (final row in rows) ?_facetMatch(kind, facetKind, row)];
+  }
+
+  /// Jellyfin has no partial tag search, only an exact (any case) match, so
+  /// the keyword row is one chip for the query itself when any film or show
+  /// carries it. `Limit=0` asks for the count alone. One request.
+  Future<List<SearchFacetMatch>> _searchKeyword(String term, {AbortController? abort}) async {
+    final response = await _http.get(
+      '/Items',
+      queryParameters: {
+        'userId': connection.userId,
+        'Tags': term,
+        'Recursive': 'true',
+        'IncludeItemTypes': 'Movie,Series',
+        'Limit': '0',
+      },
+      abort: abort,
+    );
+    abort?.throwIfAborted();
+    throwIfHttpError(response);
+    final data = response.data;
+    final total = data is Map<String, dynamic> ? data['TotalRecordCount'] : null;
+    if (total is! int || total <= 0) return const [];
+    return [
+      SearchFacetMatch(
+        kind: SearchScopeKind.keywords,
+        facet: MediaFacet(MediaFacetKind.tag, term),
+        name: term,
+        serverId: serverId,
+        serverName: serverName,
+        count: total,
+      ),
+    ];
+  }
+
+  SearchFacetMatch? _facetMatch(
+    SearchScopeKind kind,
+    MediaFacetKind facetKind,
+    Map<String, dynamic> row, {
+    bool withImage = false,
+  }) {
+    final id = row['Id'];
+    final name = row['Name'];
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) return null;
+    String? imagePath;
+    final tags = row['ImageTags'];
+    if (withImage && tags is Map<String, dynamic> && tags['Primary'] is String) {
+      imagePath = _absolutizeImagePath(
+        '/Items/${_segment(id)}/Images/Primary?tag=${Uri.encodeComponent(tags['Primary'] as String)}',
+      );
+    }
+    return SearchFacetMatch(
+      kind: kind,
+      facet: MediaFacet(facetKind, id),
+      name: name,
+      serverId: serverId,
+      serverName: serverName,
+      imagePath: imagePath,
+    );
   }
 
   @override

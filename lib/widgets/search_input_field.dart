@@ -8,8 +8,8 @@ import 'app_icon.dart';
 import 'pill_input_decoration.dart';
 
 /// The pill search field the search screens put above their results, with the
-/// clear affordance that appears once there is text and an optional voice
-/// button after it: RIGHT out of the field walks onto them, LEFT walks back,
+/// clear affordance that appears once there is text, an optional "Search in"
+/// button and an optional voice button after it: RIGHT out of the field walks onto them, LEFT walks back,
 /// and each escapes down into the results.
 ///
 /// On TV the field uses Plezy's own on-screen keyboard rather than the box's
@@ -41,6 +41,13 @@ class SearchInputField extends StatefulWidget {
   /// here when null.
   final FocusNode? voiceFocusNode;
 
+  /// Shows the "Search in" button (sliders icon, a badge with [searchInCount])
+  /// after the clear button and before the mic when set. It is handed the
+  /// button's on-screen rectangle to anchor its pop-up to.
+  final ValueChanged<Rect>? onSearchIn;
+  final int searchInCount;
+  final String? searchInTooltip;
+
   const SearchInputField({
     super.key,
     required this.controller,
@@ -55,6 +62,9 @@ class SearchInputField extends StatefulWidget {
     this.onVoiceSearch,
     this.voiceSearchTooltip,
     this.voiceFocusNode,
+    this.onSearchIn,
+    this.searchInCount = 0,
+    this.searchInTooltip,
   });
 
   @override
@@ -64,13 +74,24 @@ class SearchInputField extends StatefulWidget {
 class _SearchInputFieldState extends State<SearchInputField> {
   late final FocusNode _clearFocusNode = FocusNode(debugLabel: '${widget.debugLabel}.clear');
   late final FocusNode _ownVoiceFocusNode = FocusNode(debugLabel: '${widget.debugLabel}.voice');
+  late final FocusNode _searchInFocusNode = FocusNode(debugLabel: '${widget.debugLabel}.searchIn');
+  final GlobalKey _searchInKey = GlobalKey(debugLabel: 'search_in_button');
   FocusNode get _voiceFocusNode => widget.voiceFocusNode ?? _ownVoiceFocusNode;
 
   @override
   void dispose() {
     _clearFocusNode.dispose();
     _ownVoiceFocusNode.dispose();
+    _searchInFocusNode.dispose();
     super.dispose();
+  }
+
+  void _openSearchIn() {
+    final onSearchIn = widget.onSearchIn;
+    final box = _searchInKey.currentContext?.findRenderObject() as RenderBox?;
+    if (onSearchIn == null || box == null || !box.hasSize) return;
+    final topLeft = box.localToGlobal(Offset.zero);
+    onSearchIn(topLeft & box.size);
   }
 
   void _clearSearch() {
@@ -84,10 +105,28 @@ class _SearchInputFieldState extends State<SearchInputField> {
     final hasText = widget.controller.text.isNotEmpty;
     final onVoiceSearch = widget.onVoiceSearch;
     final hasVoice = onVoiceSearch != null;
+    final hasSearchIn = widget.onSearchIn != null;
     // TV: mic before the field; elsewhere it trails the clear button.
     final voiceFirst = isTV && hasVoice;
     final hasTrailingVoice = hasVoice && !voiceFirst;
-    final trailingCount = (hasText ? 1 : 0) + (hasTrailingVoice ? 1 : 0);
+
+    // The buttons inside the field's right end, in D-pad order.
+    final trailingNodes = [
+      if (hasText) _clearFocusNode,
+      if (hasSearchIn) _searchInFocusNode,
+      if (hasTrailingVoice) _voiceFocusNode,
+    ];
+    VoidCallback leftOf(FocusNode node) {
+      final index = trailingNodes.indexOf(node);
+      return index <= 0 ? widget.focusNode.requestFocus : trailingNodes[index - 1].requestFocus;
+    }
+
+    VoidCallback? rightOf(FocusNode node) {
+      final index = trailingNodes.indexOf(node);
+      return index < 0 || index >= trailingNodes.length - 1 ? null : trailingNodes[index + 1].requestFocus;
+    }
+
+    final trailingCount = trailingNodes.length;
 
     final field = Stack(
       alignment: Alignment.centerRight,
@@ -103,9 +142,7 @@ class _SearchInputFieldState extends State<SearchInputField> {
           tvTextInputAutoOpenBehavior: TvTextInputAutoOpenBehavior.automatic,
           textInputAction: TextInputAction.search,
           onNavigateLeft: voiceFirst ? _voiceFocusNode.requestFocus : widget.onNavigateLeft,
-          onNavigateRight: hasText
-              ? _clearFocusNode.requestFocus
-              : (hasTrailingVoice ? _voiceFocusNode.requestFocus : null),
+          onNavigateRight: trailingNodes.isEmpty ? null : trailingNodes.first.requestFocus,
           onNavigateDown: widget.onNavigateDown,
           onEditingComplete: widget.onEditingComplete,
           onBack: widget.onBack,
@@ -124,14 +161,34 @@ class _SearchInputFieldState extends State<SearchInputField> {
                 FocusableButton(
                   focusNode: _clearFocusNode,
                   onPressed: _clearSearch,
-                  onNavigateLeft: widget.focusNode.requestFocus,
-                  onNavigateRight: hasTrailingVoice ? _voiceFocusNode.requestFocus : null,
+                  onNavigateLeft: leftOf(_clearFocusNode),
+                  onNavigateRight: rightOf(_clearFocusNode),
                   onNavigateDown: widget.onNavigateDown,
                   autoScroll: false,
                   child: IconButton(icon: const AppIcon(Symbols.clear_rounded, fill: 1), onPressed: _clearSearch),
                 ),
-              if (hasTrailingVoice)
-                _voiceButton(onNavigateLeft: hasText ? _clearFocusNode.requestFocus : widget.focusNode.requestFocus),
+              if (hasSearchIn)
+                FocusableButton(
+                  key: _searchInKey,
+                  focusNode: _searchInFocusNode,
+                  onPressed: _openSearchIn,
+                  onNavigateLeft: leftOf(_searchInFocusNode),
+                  onNavigateRight: rightOf(_searchInFocusNode),
+                  onNavigateDown: widget.onNavigateDown,
+                  autoScroll: false,
+                  child: IconButton(
+                    tooltip: widget.searchInTooltip,
+                    onPressed: _openSearchIn,
+                    icon: Badge(
+                      isLabelVisible: widget.searchInCount > 0,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      textColor: Theme.of(context).colorScheme.onPrimary,
+                      label: Text('${widget.searchInCount}'),
+                      child: const AppIcon(Symbols.tune_rounded, fill: 1),
+                    ),
+                  ),
+                ),
+              if (hasTrailingVoice) _voiceButton(onNavigateLeft: leftOf(_voiceFocusNode)),
             ],
           ),
       ],

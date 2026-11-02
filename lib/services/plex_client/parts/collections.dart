@@ -103,6 +103,26 @@ mixin _PlexCollectionMethods on _PlexClientInternals {
     );
   }
 
+  /// Plex keeps only the person filter; the Search screen's genre, studio,
+  /// keyword and year rows are never shown for it
+  /// ([ServerCapabilities.searchFacets] is off).
+  @override
+  Future<LibraryPage<MediaItem>> fetchFacetMediaPage(
+    MediaFacet facet, {
+    int? start,
+    int? size,
+    AbortController? abort,
+  }) async {
+    if (facet.kind == MediaFacetKind.person) {
+      return fetchPersonMediaPage(facet.value, start: start, size: size, abort: abort);
+    }
+    return LibraryPage<MediaItem>(items: const [], totalCount: 0, offset: start ?? 0);
+  }
+
+  @override
+  Future<List<SearchFacetMatch>> searchFacet(SearchScopeKind kind, String query, {AbortController? abort}) async =>
+      const [];
+
   @override
   Future<bool> deleteCollection(MediaItem collection) {
     return deleteCollectionById(collection.libraryId ?? '', collection.id);

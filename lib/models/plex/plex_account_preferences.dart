@@ -74,6 +74,7 @@ class PlexAccountPreferences {
         case AccountPreferenceKey.hidePlayedInLatest:
         case AccountPreferenceKey.displayCollectionsView:
         case AccountPreferenceKey.rewatchingInNextUp:
+        case AccountPreferenceKey.searchScope:
           throw ArgumentError.value(entry.value, entry.key.name, 'is not supported by Plex account preferences');
       }
     }

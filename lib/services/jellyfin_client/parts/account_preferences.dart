@@ -26,10 +26,13 @@ Set<String>? _myMediaExcludes(MediaServerResponse? response) {
   }
 }
 
+/// Keys stored in the account's `DisplayPreferences` row rather than
+/// `UserConfiguration`, which has no field for either on any dialect.
+const _displayPreferenceKeys = {AccountPreferenceKey.rewatchingInNextUp, AccountPreferenceKey.searchScope};
+
 /// Account preferences span two server stores: `UserConfiguration` for the
 /// language, subtitle and library fields, and the account's
-/// `DisplayPreferences` row for [AccountPreferenceKey.rewatchingInNextUp],
-/// which has no `UserConfiguration` field on either dialect.
+/// `DisplayPreferences` row for [_displayPreferenceKeys].
 mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
   Map<String, String> get _displayPreferencesQuery => {
     'userId': connection.userId,
@@ -50,11 +53,13 @@ mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
     }
 
     final rewatching = JellyfinDisplayPreferences.readRewatchingInNextUp(responses[1].data);
+    final searchScope = JellyfinDisplayPreferences.readSearchScope(responses[1].data);
     checkCurrent?.call();
     _rewatchingInNextUp = rewatching ?? false;
     return JellyfinAccountPreferences.fromConfiguration(
       _accountConfiguration(responses.first.data) ?? const {},
       rewatchingInNextUp: rewatching,
+      searchScope: searchScope,
     );
   }
 
@@ -67,17 +72,28 @@ mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
             : AccountPreferencesCapabilities.jellyfin)
         .validate(patch);
     checkCurrent?.call();
-    final rewatchingRequested = patch.contains(AccountPreferenceKey.rewatchingInNextUp);
     final configurationPatch = AccountPreferencesPatch({
       for (final entry in patch.values.entries)
-        if (entry.key != AccountPreferenceKey.rewatchingInNextUp) entry.key: entry.value,
+        if (!_displayPreferenceKeys.contains(entry.key)) entry.key: entry.value,
     });
 
-    if (rewatchingRequested) {
-      await _writeRewatchingInNextUp(
-        patch.boolAt(AccountPreferenceKey.rewatchingInNextUp)!,
-        checkCurrent: checkCurrent,
-      );
+    final customPrefs = <String, String>{
+      if (patch.contains(AccountPreferenceKey.rewatchingInNextUp))
+        // Values are strings on this API; `true`/`false` matches what
+        // jellyfin-web writes for its own boolean prefs.
+        JellyfinDisplayPreferences.rewatchingInNextUpKey: patch
+            .boolAt(AccountPreferenceKey.rewatchingInNextUp)!
+            .toString(),
+      if (patch.contains(AccountPreferenceKey.searchScope))
+        JellyfinDisplayPreferences.searchScopeKey: SearchScopeKind.encode(
+          patch[AccountPreferenceKey.searchScope]! as Set<SearchScopeKind>,
+        ),
+    };
+    if (customPrefs.isNotEmpty) {
+      await _writeDisplayPreferences(customPrefs, checkCurrent: checkCurrent);
+      if (patch.contains(AccountPreferenceKey.rewatchingInNextUp)) {
+        _rewatchingInNextUp = patch.boolAt(AccountPreferenceKey.rewatchingInNextUp)!;
+      }
     }
     if (configurationPatch.isEmpty) {
       // Re-read so the caller still gets the whole account, including the
@@ -128,16 +144,15 @@ mixin _JellyfinAccountPreferencesMethods on _JellyfinClientInternals {
 
   /// Read-modify-write the `DisplayPreferences` row: the `POST` replaces it, so
   /// anything already in `CustomPrefs` has to travel back with the change.
-  Future<void> _writeRewatchingInNextUp(bool value, {void Function()? checkCurrent}) async {
+  Future<void> _writeDisplayPreferences(Map<String, String> values, {void Function()? checkCurrent}) async {
     final path = MediaBrowserPaths.displayPreferences(JellyfinDisplayPreferences.displayPreferencesId);
     final readResponse = await _http.get(path, queryParameters: _displayPreferencesQuery);
     throwIfHttpError(readResponse);
 
-    final merged = JellyfinDisplayPreferences.mergeRewatchingInNextUp(readResponse.data, value);
+    final merged = JellyfinDisplayPreferences.mergeCustomPrefs(readResponse.data, values);
     checkCurrent?.call();
     final writeResponse = await _http.post(path, queryParameters: _displayPreferencesQuery, body: merged);
     throwIfHttpError(writeResponse);
     checkCurrent?.call();
-    _rewatchingInNextUp = value;
   }
 }

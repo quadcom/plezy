@@ -25,6 +25,7 @@ import 'media_kind.dart';
 import 'media_library.dart';
 import 'media_playlist.dart';
 import 'playback_report_metadata.dart';
+import 'search_scope.dart';
 import 'server_capabilities.dart';
 
 /// Default number of items requested for horizontal hub previews.
@@ -407,6 +408,19 @@ abstract class MediaServerClient {
 
   /// Page through media featuring a specific person/actor.
   Future<LibraryPage<MediaItem>> fetchPersonMediaPage(String personId, {int? start, int? size, AbortController? abort});
+
+  /// Page through the films and shows matching one [facet]: a person, genre
+  /// or studio id, a tag, or a year (the Search screen's extra rows open
+  /// these). A person behaves as [fetchPersonMediaPage].
+  Future<LibraryPage<MediaItem>> fetchFacetMediaPage(MediaFacet facet, {int? start, int? size, AbortController? abort});
+
+  /// Matches for [query] in one non-title search [kind], for the Search
+  /// screen's extra rows. At most ONE request per call (none when the kind
+  /// cannot match, e.g. [SearchScopeKind.year] for a query that is not a
+  /// year), so the screen's cost is one request per ticked kind per server.
+  /// Only called on servers whose [ServerCapabilities.searchFacets] is set;
+  /// failures throw and the caller treats each kind as best-effort.
+  Future<List<SearchFacetMatch>> searchFacet(SearchScopeKind kind, String query, {AbortController? abort});
 
   /// Page through items in [hubId] when the hub previewed only the first N
   /// items (`MediaHub.more == true`). Plex hits `/hubs/{key}` (the same

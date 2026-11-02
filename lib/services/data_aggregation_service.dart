@@ -9,6 +9,7 @@ import '../media/media_item_merge.dart';
 import '../media/media_kind.dart';
 import '../media/media_library.dart';
 import '../media/media_server_client.dart';
+import '../media/search_scope.dart';
 import '../exceptions/media_server_exceptions.dart';
 import '../utils/app_logger.dart';
 import '../utils/external_ids.dart';
@@ -813,6 +814,44 @@ class DataAggregationService {
       cancelledServerIds: fetched.cancelledServerIds,
       failedServerIds: fetched.failedServerIds,
     );
+  }
+
+  /// The Search screen's extra rows: for each ticked non-title kind in
+  /// [kinds], one [MediaServerClient.searchFacet] call per online server that
+  /// supports it ([ServerCapabilities.searchFacets]). Unticked kinds and
+  /// servers without the capability are never asked.
+  ///
+  /// Best-effort per call: a failed kind on one server is logged and leaves
+  /// the rest standing, so a title search never fails because of these. A
+  /// cancelled [abort] still throws, after the calls settle, so a superseded
+  /// search cannot land.
+  Future<List<SearchFacetMatch>> searchFacetsAcrossServers(
+    String query,
+    Set<SearchScopeKind> kinds, {
+    AbortController? abort,
+  }) async {
+    final extraKinds = [
+      for (final kind in SearchScopeKind.extraRowOrder)
+        if (kinds.contains(kind)) kind,
+    ];
+    if (query.trim().isEmpty || extraKinds.isEmpty) return const [];
+    abort?.throwIfAborted();
+    final calls = <Future<List<SearchFacetMatch>>>[
+      for (final entry in _serverManager.onlineClients.entries)
+        if (entry.value.capabilities.searchFacets)
+          for (final kind in extraKinds)
+            entry.value.searchFacet(kind, query, abort: abort).catchError((Object e, StackTrace st) {
+              if (_isCancellation(e)) {
+                appLogger.d('Cancelled ${kind.id} search on ${entry.key}');
+              } else {
+                appLogger.w('Search for ${kind.id} failed on ${entry.key}', error: e, stackTrace: st);
+              }
+              return const <SearchFacetMatch>[];
+            }),
+    ];
+    final results = await Future.wait(calls);
+    abort?.throwIfAborted();
+    return [for (final list in results) ...list];
   }
 
   /// Reverse external-id lookup within the explicit active-profile [serverIds]

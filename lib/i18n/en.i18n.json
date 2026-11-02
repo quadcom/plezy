@@ -484,7 +484,52 @@
     "voicePrompt": "Say a title, actor, or keyword",
     "voiceNoMatch": "Didn't catch that. Press the mic and try again.",
     "voiceListening": "Listening...",
-    "voiceNeedsMic": "Voice search needs the microphone. Allow it for Plezy in the TV's app settings, or type instead."
+    "voiceNeedsMic": "Voice search needs the microphone. Allow it for Plezy in the TV's app settings, or type instead.",
+    "searchIn": {
+      "title": "Search in",
+      "titles": "Titles",
+      "titlesSubtitle": "Films, shows and episodes",
+      "actors": "Actors",
+      "keywords": "Keywords",
+      "keywordsSubtitle": "Whole word only, e.g. \"biography\"",
+      "crew": "Directors & writers",
+      "genres": "Genres",
+      "studios": "Studios",
+      "year": "Year",
+      "yearSubtitle": "When you type a 4-digit year",
+      "savedToAccount": "Saved to your account",
+      "savedOnDevice": "Saved on this device",
+      "reset": "Reset"
+    },
+    "scopeHint": {
+      "nothingTicked": "Tick at least one thing to search",
+      "search": "Search ${kinds}",
+      "listAnd": "${first} and ${last}",
+      "titles": "titles",
+      "actors": "actors",
+      "keywords": "keywords",
+      "crew": "directors and writers",
+      "genres": "genres",
+      "studios": "studios",
+      "year": "years"
+    },
+    "rows": {
+      "people": "People",
+      "crew": "Directors & writers",
+      "keywords": "Keywords",
+      "genres": "Genres",
+      "studios": "Studios",
+      "year": "Year",
+      "actorRole": "Actor",
+      "crewRole": "Director or writer",
+      "noMatch": "No ${kind} match \"${query}\"",
+      "noMatchPeople": "people",
+      "noMatchCrew": "directors or writers",
+      "noMatchKeywords": "keywords",
+      "noMatchGenres": "genres",
+      "noMatchStudios": "studios",
+      "noMatchYear": "year"
+    }
   },
   "hotkeys": {
     "setShortcutFor": "Set Shortcut for ${actionName}",

@@ -35,6 +35,7 @@ import '../media/ids.dart';
 import '../media/media_server_client.dart';
 import '../media/playback_report_metadata.dart';
 import '../media/server_capabilities.dart';
+import '../media/search_scope.dart';
 import '../media/server_conversion.dart';
 import '../models/audio_quality_preset.dart';
 import '../models/jellyfin/jellyfin_account_preferences.dart';

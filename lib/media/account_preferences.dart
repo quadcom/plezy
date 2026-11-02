@@ -1,5 +1,6 @@
 import '../utils/language_codes.dart';
 import 'media_server_user_profile.dart';
+import 'search_scope.dart';
 
 /// One account-scoped preference. Every key is stored on the media server or on
 /// plex.tv, never on the device, and each backend supports a subset — see
@@ -73,7 +74,14 @@ enum AccountPreferenceKey {
   /// a deliberate departure from jellyfin-web, which keeps the same switch in
   /// browser local storage and therefore loses it on every new device; the
   /// store Plezy uses is keyed by user, so the choice follows the account.
-  rewatchingInNextUp(AccountPreferenceValueKind.boolean);
+  rewatchingInNextUp(AccountPreferenceValueKind.boolean),
+
+  /// Which kinds the Search screen looks for ([SearchScopeKind]): the ticks in
+  /// its "Search in" pop-up. A user preference, so it follows the account
+  /// (Adrian's rule: user preferences live on the server). Jellyfin only,
+  /// stored beside [rewatchingInNextUp] in the account's `DisplayPreferences`
+  /// custom prefs; unset means [SearchScopeKind.defaults].
+  searchScope(AccountPreferenceValueKind.searchScope);
 
   const AccountPreferenceKey(this.valueKind);
 
@@ -98,7 +106,8 @@ enum AccountPreferenceKey {
     AccountPreferenceKey.mediaReviewsVisibility ||
     AccountPreferenceKey.subtitleAccessibility ||
     AccountPreferenceKey.forcedSubtitles ||
-    AccountPreferenceKey.rewatchingInNextUp => false,
+    AccountPreferenceKey.rewatchingInNextUp ||
+    AccountPreferenceKey.searchScope => false,
   };
 }
 
@@ -114,6 +123,9 @@ enum AccountPreferenceValueKind {
   mediaReviewsVisibility,
   subtitleAccessibility,
   forcedSubtitles,
+
+  /// A `Set<SearchScopeKind>`; empty means nothing ticked.
+  searchScope,
 }
 
 /// Which item types get a watched badge (Plex `watchedIndicator`).
@@ -197,6 +209,7 @@ class AccountPreferences implements MediaServerUserProfile {
     this.subtitleAccessibility,
     this.forcedSubtitles,
     this.rewatchingInNextUp,
+    this.searchScope,
   });
 
   static const empty = AccountPreferences();
@@ -216,6 +229,9 @@ class AccountPreferences implements MediaServerUserProfile {
   final SubtitleAccessibilityPreference? subtitleAccessibility;
   final ForcedSubtitlePreference? forcedSubtitles;
   final bool? rewatchingInNextUp;
+
+  /// The Search screen's ticked kinds, or null when the account never chose.
+  final Set<SearchScopeKind>? searchScope;
 
   /// Preferred audio language narrowed to ISO 639-1 for pickers.
   String? get preferredAudioLanguageCode1 => _code1(preferredAudioLanguage);
@@ -245,6 +261,7 @@ class AccountPreferences implements MediaServerUserProfile {
     AccountPreferenceKey.subtitleAccessibility => subtitleAccessibility,
     AccountPreferenceKey.forcedSubtitles => forcedSubtitles,
     AccountPreferenceKey.rewatchingInNextUp => rewatchingInNextUp,
+    AccountPreferenceKey.searchScope => searchScope,
   };
 
   // --- MediaServerUserProfile ------------------------------------------------
@@ -312,6 +329,7 @@ class AccountPreferencesPatch {
       AccountPreferenceValueKind.mediaReviewsVisibility => value is MediaReviewsVisibility,
       AccountPreferenceValueKind.subtitleAccessibility => value is SubtitleAccessibilityPreference,
       AccountPreferenceValueKind.forcedSubtitles => value is ForcedSubtitlePreference,
+      AccountPreferenceValueKind.searchScope => value is Set<SearchScopeKind>,
     };
     if (!ok) {
       throw ArgumentError('Invalid value for account preference ${key.name}');
@@ -329,7 +347,8 @@ class AccountPreferencesCapabilities {
   const AccountPreferencesCapabilities({required this.supportedKeys, required this.subtitleModes});
 
   /// Jellyfin: `UserConfiguration`, plus [AccountPreferenceKey.rewatchingInNextUp]
-  /// in the account's `DisplayPreferences` custom prefs.
+  /// and [AccountPreferenceKey.searchScope] in the account's
+  /// `DisplayPreferences` custom prefs.
   ///
   /// [AccountPreferenceKey.rememberAudioSelections] and
   /// [AccountPreferenceKey.rememberSubtitleSelections] are storable but have
@@ -360,6 +379,7 @@ class AccountPreferencesCapabilities {
       AccountPreferenceKey.hidePlayedInLatest,
       AccountPreferenceKey.displayCollectionsView,
       AccountPreferenceKey.rewatchingInNextUp,
+      AccountPreferenceKey.searchScope,
     },
     subtitleModes: _mediaBrowserSubtitleModes,
   );
@@ -369,7 +389,9 @@ class AccountPreferencesCapabilities {
   /// ([MediaBrowserDialect.supportsNextUpRewatching]) — and minus the remember
   /// flags, whose effect on Emby playback defaults is unverified
   /// ([MediaBrowserDialect.persistsTrackSelectionsViaAccountFlags]); storing
-  /// either would promise behaviour the server may not deliver.
+  /// either would promise behaviour the server may not deliver. The search
+  /// ticks ([AccountPreferenceKey.searchScope]) stay on the device there: Emby
+  /// has no search-facet routes wired in Plezy.
   static const emby = AccountPreferencesCapabilities(
     supportedKeys: {
       AccountPreferenceKey.preferredAudioLanguage,

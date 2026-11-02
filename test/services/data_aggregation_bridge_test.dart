@@ -17,6 +17,7 @@ import 'package:plezy/media/media_hub.dart';
 import 'package:plezy/media/server_capabilities.dart';
 import 'package:plezy/media/media_server_client.dart';
 import 'package:plezy/media/media_item.dart';
+import 'package:plezy/media/search_scope.dart';
 import 'package:plezy/models/catalog/catalog_item.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/services/catalog/catalog_library_matcher.dart';
@@ -136,6 +137,46 @@ class _GatedHubsClient implements MediaServerClient {
   }) {
     started.add(libraryId);
     return (_gates[libraryId] = Completer<List<MediaHub>>()).future;
+  }
+
+  @override
+  void close() {}
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// A server that answers the Search screen's extra kinds, recording each ask.
+class _FacetClient implements MediaServerClient {
+  _FacetClient(this.serverId, {this.supportsFacets = true, this.failing = const {}});
+
+  @override
+  final ServerId serverId;
+
+  @override
+  final String serverName = 'Server';
+
+  final bool supportsFacets;
+  final Set<SearchScopeKind> failing;
+  final asked = <SearchScopeKind>[];
+
+  @override
+  ServerCapabilities get capabilities => supportsFacets ? ServerCapabilities.jellyfin : ServerCapabilities.plex;
+
+  @override
+  Future<List<SearchFacetMatch>> searchFacet(SearchScopeKind kind, String query, {AbortController? abort}) async {
+    asked.add(kind);
+    if (failing.contains(kind)) {
+      throw MediaServerHttpException(type: MediaServerHttpErrorType.connectionError, message: 'refused');
+    }
+    return [
+      SearchFacetMatch(
+        kind: kind,
+        facet: MediaFacet(MediaFacetKind.genre, '${kind.id}-1'),
+        name: '$query ${kind.id}',
+        serverId: serverId,
+      ),
+    ];
   }
 
   @override
@@ -1428,6 +1469,57 @@ void main() {
       expect(result.failedServerIds, {'plex-1'});
       // The music rows that did arrive are still delivered.
       expect(result.hubs.map((h) => h.identifier), ['music.recent']);
+    });
+  });
+
+  group('searchFacetsAcrossServers', () {
+    test('asks each facet server once per ticked extra kind and never for titles', () async {
+      final jellyfin = _FacetClient(ServerId('jf'));
+      final plex = _FacetClient(ServerId('plex'), supportsFacets: false);
+      manager.debugRegisterClientForTesting(jellyfin);
+      manager.debugRegisterClientForTesting(plex);
+
+      final matches = await service.searchFacetsAcrossServers('amanda', {
+        SearchScopeKind.titles,
+        SearchScopeKind.actors,
+        SearchScopeKind.keywords,
+      });
+
+      expect(jellyfin.asked, unorderedEquals([SearchScopeKind.actors, SearchScopeKind.keywords]));
+      expect(plex.asked, isEmpty, reason: 'a server without search facets is never asked');
+      expect(matches.map((match) => match.kind), unorderedEquals([SearchScopeKind.actors, SearchScopeKind.keywords]));
+    });
+
+    test('unticked kinds and titles-only searches make no request', () async {
+      final jellyfin = _FacetClient(ServerId('jf'));
+      manager.debugRegisterClientForTesting(jellyfin);
+
+      expect(await service.searchFacetsAcrossServers('amanda', {SearchScopeKind.titles}), isEmpty);
+      expect(await service.searchFacetsAcrossServers('amanda', const {}), isEmpty);
+      expect(jellyfin.asked, isEmpty);
+    });
+
+    test('one failing kind leaves the others standing', () async {
+      final jellyfin = _FacetClient(ServerId('jf'), failing: {SearchScopeKind.actors});
+      manager.debugRegisterClientForTesting(jellyfin);
+
+      final matches = await service.searchFacetsAcrossServers('drama', {
+        SearchScopeKind.actors,
+        SearchScopeKind.genres,
+      });
+
+      expect(jellyfin.asked, unorderedEquals([SearchScopeKind.actors, SearchScopeKind.genres]));
+      expect(matches.single.kind, SearchScopeKind.genres);
+    });
+
+    test('a cancelled search throws once the calls settle', () async {
+      manager.debugRegisterClientForTesting(_FacetClient(ServerId('jf')));
+      final abort = AbortController()..abort();
+
+      await expectLater(
+        service.searchFacetsAcrossServers('drama', {SearchScopeKind.genres}, abort: abort),
+        throwsA(isA<MediaServerHttpException>().having((error) => error.isCancellation, 'isCancellation', isTrue)),
+      );
     });
   });
 }

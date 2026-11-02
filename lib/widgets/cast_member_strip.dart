@@ -37,6 +37,10 @@ class CastMemberStrip extends StatefulWidget {
   final VoidCallback? onNavigateDown;
   final String debugLabel;
 
+  /// Round photos at three quarters of the poster width, names centred, and
+  /// initials where a person has no photo (the Search screen's People row).
+  final bool circular;
+
   const CastMemberStrip({
     super.key,
     required this.members,
@@ -45,7 +49,10 @@ class CastMemberStrip extends StatefulWidget {
     this.onNavigateUp,
     this.onNavigateDown,
     this.debugLabel = 'cast_row',
+    this.circular = false,
   });
+
+  static const double _circularScale = 0.75;
 
   /// Card width matching the poster grids' cell width for the user's
   /// density setting.
@@ -108,12 +115,47 @@ class CastMemberStripState extends State<CastMemberStrip> {
     _scrollToFocusedMember();
   }
 
+  double _cardWidth() =>
+      CastMemberStrip.responsiveCardWidth(context) * (widget.circular ? CastMemberStrip._circularScale : 1);
+
   void _scrollToFocusedMember() {
     scrollListToIndex(
       _scrollController,
       _focusedIndex,
-      itemExtent: CastMemberStrip._itemExtentForCardWidth(CastMemberStrip.responsiveCardWidth(context)),
+      itemExtent: CastMemberStrip._itemExtentForCardWidth(_cardWidth()),
       leadingPadding: 0,
+    );
+  }
+
+  static String _initials(String name) {
+    final words = name.trim().split(RegExp(r'\s+')).where((word) => word.isNotEmpty);
+    return words.take(2).map((word) => word.characters.first.toUpperCase()).join();
+  }
+
+  Widget _circularImage(CastStripMember member, double size) {
+    final colorScheme = Theme.of(context).colorScheme;
+    if (member.imagePath == null) {
+      return Container(
+        width: size,
+        height: size,
+        alignment: Alignment.center,
+        color: colorScheme.surfaceContainerHighest,
+        child: Text(
+          _initials(member.name),
+          style: Theme.of(
+            context,
+          ).textTheme.headlineMedium?.copyWith(color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w600),
+        ),
+      );
+    }
+    return OptimizedMediaImage(
+      client: widget.imageClient,
+      imagePath: member.imagePath,
+      width: size,
+      height: size,
+      fit: BoxFit.cover,
+      imageType: ImageType.avatar,
+      fallbackIcon: Symbols.person_rounded,
     );
   }
 
@@ -167,8 +209,12 @@ class CastMemberStripState extends State<CastMemberStrip> {
     final theme = Theme.of(context);
     final nameStyle = theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600);
     final secondaryStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
-    final cardWidth = CastMemberStrip.responsiveCardWidth(context);
+    final cardWidth = _cardWidth();
     final imageSize = cardWidth;
+    final circular = widget.circular;
+    final imageRadius = circular ? imageSize / 2 : tokens(context).radiusSm;
+    final textAlign = circular ? TextAlign.center : TextAlign.start;
+    final columnAlignment = circular ? CrossAxisAlignment.center : CrossAxisAlignment.start;
 
     return Focus(
       focusNode: _focusNode,
@@ -202,29 +248,37 @@ class CastMemberStripState extends State<CastMemberStrip> {
                     child: SizedBox(
                       width: cardWidth,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: columnAlignment,
                         children: [
                           CardFocusBorder(
-                            borderRadius: tokens(context).radiusSm,
+                            borderRadius: imageRadius,
                             child: ClipRRect(
-                              borderRadius: BorderRadius.circular(tokens(context).radiusSm),
-                              child: OptimizedMediaImage(
-                                client: widget.imageClient,
-                                imagePath: member.imagePath,
-                                width: imageSize,
-                                height: imageSize,
-                                fit: BoxFit.cover,
-                                imageType: ImageType.square,
-                                fallbackIcon: Symbols.person_rounded,
-                              ),
+                              borderRadius: BorderRadius.circular(imageRadius),
+                              child: circular
+                                  ? _circularImage(member, imageSize)
+                                  : OptimizedMediaImage(
+                                      client: widget.imageClient,
+                                      imagePath: member.imagePath,
+                                      width: imageSize,
+                                      height: imageSize,
+                                      fit: BoxFit.cover,
+                                      imageType: ImageType.square,
+                                      fallbackIcon: Symbols.person_rounded,
+                                    ),
                             ),
                           ),
                           const SizedBox(height: 8),
                           Expanded(
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment: columnAlignment,
                               children: [
-                                Text(member.name, style: nameStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
+                                Text(
+                                  member.name,
+                                  style: nameStyle,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  textAlign: textAlign,
+                                ),
                                 if (member.secondary != null) ...[
                                   const SizedBox(height: 2),
                                   Text(
@@ -232,6 +286,7 @@ class CastMemberStripState extends State<CastMemberStrip> {
                                     style: secondaryStyle,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
+                                    textAlign: textAlign,
                                   ),
                                 ],
                               ],

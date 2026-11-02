@@ -6,6 +6,7 @@ import '../media/media_backend.dart';
 import '../media/media_item.dart';
 import '../media/media_kind.dart';
 import '../media/media_server_client.dart';
+import '../media/search_scope.dart';
 import '../mixins/paginated_item_loader.dart';
 import '../mixins/standard_paginated_view.dart';
 import '../utils/app_logger.dart';
@@ -20,7 +21,9 @@ import 'focusable_detail_screen_mixin.dart';
 import '../mixins/grid_focus_node_mixin.dart';
 import '../focus/focusable_action_bar.dart';
 
-/// Screen to browse all media featuring a specific actor.
+/// Screen to browse all media featuring a specific actor, or (through
+/// [ActorMediaScreen.filtered]) the films and shows of one genre, studio,
+/// keyword or year, as the Search screen's extra rows open them.
 class ActorMediaScreen extends StatefulWidget {
   final String actorName;
   final String personId;
@@ -29,6 +32,12 @@ class ActorMediaScreen extends StatefulWidget {
   final String serverId;
   final String? serverName;
   final MediaBackend backend;
+
+  /// A non-person filter; null for a person, who keeps the actor page.
+  final MediaFacet? facet;
+
+  /// Stands in for the photo when [facet] is set.
+  final IconData? facetIcon;
 
   const ActorMediaScreen({
     super.key,
@@ -39,7 +48,24 @@ class ActorMediaScreen extends StatefulWidget {
     required this.serverId,
     this.serverName,
     required this.backend,
-  });
+  }) : facet = null,
+       facetIcon = null;
+
+  /// The films and shows matching [facet] (a genre, studio, tag or year),
+  /// headed by [title] and [icon].
+  const ActorMediaScreen.filtered({
+    super.key,
+    required String title,
+    required MediaFacet this.facet,
+    required IconData icon,
+    required this.serverId,
+    this.serverName,
+    required this.backend,
+  }) : actorName = title,
+       personId = '',
+       actorThumb = null,
+       characterName = null,
+       facetIcon = icon;
 
   @override
   State<ActorMediaScreen> createState() => _ActorMediaScreenState();
@@ -83,6 +109,8 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
 
   @override
   Future<LibraryPage<MediaItem>> fetchPage(int start, int size, AbortController? abort) {
+    final facet = widget.facet;
+    if (facet != null) return _mediaClient.fetchFacetMediaPage(facet, start: start, size: size, abort: abort);
     return _mediaClient.fetchPersonMediaPage(widget.personId, start: start, size: size, abort: abort);
   }
 
@@ -95,7 +123,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
         return t.messages.errorLoading(error: error.toString());
       },
       onLoaded: (loadedCount, totalCount) {
-        appLogger.d('Loaded $loadedCount of $totalCount items for actor: ${widget.actorName}');
+        appLogger.d('Loaded $loadedCount of $totalCount items for ${widget.facet ?? 'actor'}: ${widget.actorName}');
         autoFocusFirstItemAfterLoad();
       },
     );
@@ -113,18 +141,25 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(40),
-              child: OptimizedMediaImage(
-                client: _mediaClient,
-                imagePath: widget.actorThumb,
-                width: 80,
-                height: 80,
-                fit: BoxFit.cover,
-                imageType: ImageType.avatar,
-                fallbackIcon: Symbols.person_rounded,
+            if (widget.facetIcon case final icon?)
+              CircleAvatar(
+                radius: 40,
+                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                child: Icon(icon, size: 36, color: theme.colorScheme.onSurfaceVariant),
+              )
+            else
+              ClipRRect(
+                borderRadius: BorderRadius.circular(40),
+                child: OptimizedMediaImage(
+                  client: _mediaClient,
+                  imagePath: widget.actorThumb,
+                  width: 80,
+                  height: 80,
+                  fit: BoxFit.cover,
+                  imageType: ImageType.avatar,
+                  fallbackIcon: Symbols.person_rounded,
+                ),
               ),
-            ),
             const SizedBox(width: 16),
             Expanded(
               child: Column(

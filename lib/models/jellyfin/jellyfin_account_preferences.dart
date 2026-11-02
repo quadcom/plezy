@@ -1,6 +1,7 @@
 import '../../data/iso_639_data.dart';
 import '../../media/account_preferences.dart';
 import '../../media/media_server_user_profile.dart';
+import '../../media/search_scope.dart';
 import '../../utils/json_utils.dart';
 
 /// Maps MediaBrowser `UserConfiguration` values to the neutral account model
@@ -8,10 +9,14 @@ import '../../utils/json_utils.dart';
 class JellyfinAccountPreferences {
   const JellyfinAccountPreferences._();
 
-  /// Build from the `Configuration` block, optionally carrying the one value
-  /// that lives outside it ([AccountPreferenceKey.rewatchingInNextUp], stored
-  /// in `DisplayPreferences`).
-  static AccountPreferences fromConfiguration(Map<String, dynamic> configuration, {bool? rewatchingInNextUp}) {
+  /// Build from the `Configuration` block, optionally carrying the values that
+  /// live outside it ([AccountPreferenceKey.rewatchingInNextUp] and
+  /// [AccountPreferenceKey.searchScope], stored in `DisplayPreferences`).
+  static AccountPreferences fromConfiguration(
+    Map<String, dynamic> configuration, {
+    bool? rewatchingInNextUp,
+    Set<SearchScopeKind>? searchScope,
+  }) {
     return AccountPreferences(
       preferredAudioLanguage: _language(configuration['AudioLanguagePreference']),
       playDefaultAudioTrack: flexibleBoolNullable(configuration['PlayDefaultAudioTrack']),
@@ -24,6 +29,7 @@ class JellyfinAccountPreferences {
       hidePlayedInLatest: flexibleBoolNullable(configuration['HidePlayedInLatest']),
       displayCollectionsView: flexibleBoolNullable(configuration['DisplayCollectionsView']),
       rewatchingInNextUp: rewatchingInNextUp,
+      searchScope: searchScope,
     );
   }
 
@@ -61,7 +67,7 @@ class JellyfinAccountPreferences {
         case AccountPreferenceKey.displayCollectionsView:
           merged['DisplayCollectionsView'] = entry.value as bool?;
           break;
-        case AccountPreferenceKey.rewatchingInNextUp:
+        case AccountPreferenceKey.rewatchingInNextUp || AccountPreferenceKey.searchScope:
           // Lives in DisplayPreferences, not UserConfiguration — the client
           // splits the patch before it gets here.
           throw ArgumentError.value(entry.key, 'key', 'Not a UserConfiguration field');

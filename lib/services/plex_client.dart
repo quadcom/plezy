@@ -23,6 +23,7 @@ import '../media/media_playlist.dart';
 import '../media/ids.dart';
 import '../media/media_server_client.dart';
 import '../media/playback_report_metadata.dart';
+import '../media/search_scope.dart';
 import '../media/server_capabilities.dart';
 import '../media/library_change_event.dart';
 import 'library_events/plex_library_event_socket.dart';

@@ -10,14 +10,17 @@ import 'package:plezy/focus/dpad_navigator.dart';
 import 'package:plezy/focus/focusable_text_field.dart';
 import 'package:plezy/focus/key_event_utils.dart';
 import 'package:plezy/i18n/strings.g.dart';
+import 'package:plezy/media/account_preferences.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/media_backend.dart';
 import 'package:plezy/media/media_item.dart';
 import 'package:plezy/media/media_kind.dart';
 import 'package:plezy/media/media_library.dart';
 import 'package:plezy/media/media_server_client.dart';
+import 'package:plezy/media/search_scope.dart';
 import 'package:plezy/media/server_capabilities.dart';
 import 'package:plezy/mixins/refreshable.dart';
+import 'package:plezy/providers/account_preferences_controller.dart';
 import 'package:plezy/providers/hidden_libraries_provider.dart';
 import 'package:plezy/providers/libraries_provider.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
@@ -29,10 +32,12 @@ import 'package:plezy/services/voice_search_service.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/platform_detector.dart';
 import 'package:plezy/utils/media_server_http_client.dart';
+import 'package:plezy/widgets/app_menu.dart';
 import 'package:plezy/widgets/backend_badge.dart';
 import 'package:plezy/widgets/focusable_media_card.dart';
 import 'package:plezy/widgets/focusable_tab_chip.dart';
 import 'package:plezy/widgets/loading_indicator_box.dart';
+import 'package:plezy/widgets/search_scope_panel.dart';
 import 'package:provider/provider.dart';
 
 import '../test_helpers/prefs.dart';
@@ -686,6 +691,188 @@ void main() {
     await tester.pumpAndSettle();
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchKindChip_movie');
   });
+  // local/plans/search-actors.md: the "Search in" ticks.
+  group('Search in', () {
+    test('the hint names the ticked kinds', () {
+      expect(searchScopeHint(SearchScopeKind.defaults), 'Search titles, actors and keywords');
+      expect(searchScopeHint({SearchScopeKind.titles}), 'Search titles');
+      expect(searchScopeHint({SearchScopeKind.titles, SearchScopeKind.year}), 'Search titles and years');
+      expect(searchScopeHint(const {}), 'Tick at least one thing to search');
+    });
+
+    testWidgets('the field and the empty screen say what is searched, and the badge counts the ticks', (tester) async {
+      await _pumpTvSearchScreen(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.text(_defaultHint()), findsWidgets);
+      expect(_badge('3'), findsOneWidget);
+    });
+
+    testWidgets('a Plex-only server is asked for titles alone', (tester) async {
+      final (client, key) = await _pumpTvSearchScreen(tester);
+      await tester.pumpAndSettle();
+
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
+      await tester.pumpAndSettle();
+
+      expect(client.queries, ['movie']);
+      expect(client.facetQueries, isEmpty);
+    });
+
+    testWidgets('ticked kinds add one ask each; unticked kinds are never asked', (tester) async {
+      final (client, key) = await _pumpTvSearchScreen(
+        tester,
+        items: const [],
+        facets: {
+          SearchScopeKind.actors: [_person('p1', 'Amanda Seyfried'), _person('p2', 'Amanda Peet')],
+        },
+      );
+      await tester.pumpAndSettle();
+
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('amanda');
+      await tester.pumpAndSettle();
+
+      expect(client.queries, ['amanda']);
+      expect(client.facetQueries, unorderedEquals([SearchScopeKind.actors, SearchScopeKind.keywords]));
+      // No titles matched, but people did: the rows show instead of "No results".
+      expect(find.text(t.messages.noResultsFound), findsNothing);
+      expect(find.text(t.search.rows.people), findsOneWidget);
+      expect(find.text('Amanda Seyfried'), findsOneWidget);
+      expect(find.text('AS'), findsOneWidget, reason: 'initials stand in for a missing photo');
+      expect(find.text(t.search.rows.noMatch(kind: t.search.rows.noMatchKeywords, query: 'amanda')), findsOneWidget);
+      expect(find.text(t.search.rows.genres), findsNothing, reason: 'genres are not ticked');
+    });
+
+    testWidgets('nothing at all matched keeps the No results screen', (tester) async {
+      final (_, key) = await _pumpTvSearchScreen(tester, items: const [], facets: const {});
+      await tester.pumpAndSettle();
+
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('zzz');
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.messages.noResultsFound), findsOneWidget);
+    });
+
+    testWidgets('unticking Titles skips the title search and re-runs the query', (tester) async {
+      final (client, key) = await _pumpTvSearchScreen(tester, facets: const {});
+      await tester.pumpAndSettle();
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
+      await tester.pumpAndSettle();
+      expect(client.queries, ['movie']);
+
+      await _openSearchIn(tester);
+      await tester.tap(find.text(t.search.searchIn.titles));
+      await tester.pumpAndSettle();
+
+      // The tick re-ran the query, without a title search this time.
+      expect(client.queries, ['movie']);
+      expect(client.facetQueries.where((kind) => kind == SearchScopeKind.actors), hasLength(2));
+      await _closeSearchIn(tester);
+      expect(find.text('Movie 1'), findsNothing);
+      expect(_badge('2'), findsOneWidget, reason: 'the badge counts two ticks');
+    });
+
+    testWidgets('with nothing ticked no search runs and the screen asks for a tick', (tester) async {
+      final (client, key) = await _pumpTvSearchScreen(tester, facets: const {});
+      await tester.pumpAndSettle();
+      // Close Plezy's TV keyboard, which opens over the page with the field.
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('');
+      await tester.pumpAndSettle();
+
+      await _openSearchIn(tester);
+      for (final label in [t.search.searchIn.titles, t.search.searchIn.actors, t.search.searchIn.keywords]) {
+        await tester.tap(find.text(label));
+        await tester.pumpAndSettle();
+      }
+      await _closeSearchIn(tester);
+
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
+      await tester.pumpAndSettle();
+
+      expect(client.queries, isEmpty);
+      expect(client.facetQueries, isEmpty);
+      expect(find.text(t.search.scopeHint.nothingTicked), findsWidgets);
+
+      // Reset brings the defaults back and searches again.
+      await _openSearchIn(tester);
+      await tester.tap(find.text(t.search.searchIn.reset));
+      await tester.pumpAndSettle();
+      expect(client.queries, ['movie']);
+    });
+
+    testWidgets("the account's ticks apply, and a change is written to it once, on close", (tester) async {
+      final accounts = _FakeAccounts(const AccountPreferences(searchScope: {SearchScopeKind.titles}));
+      addTearDown(accounts.dispose);
+      final (client, key) = await _pumpTvSearchScreen(tester, facets: const {}, accounts: accounts);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Search titles'), findsWidgets);
+      (key.currentState! as SearchInputFocusable).submitSearchQuery('movie');
+      await tester.pumpAndSettle();
+      expect(client.queries, ['movie']);
+      expect(client.facetQueries, isEmpty, reason: 'only Titles is ticked on this account');
+
+      await _openSearchIn(tester);
+      expect(find.text(t.search.searchIn.savedToAccount), findsOneWidget);
+      await tester.tap(find.text(t.search.searchIn.genres));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.search.searchIn.studios));
+      await tester.pumpAndSettle();
+      expect(accounts.writes, isEmpty, reason: 'ticking does not write; closing does');
+      await _closeSearchIn(tester);
+
+      expect(accounts.writes, hasLength(1));
+      expect(accounts.writes.single[AccountPreferenceKey.searchScope], {
+        SearchScopeKind.titles,
+        SearchScopeKind.genres,
+        SearchScopeKind.studios,
+      });
+    });
+
+    testWidgets('D-pad walks the pop-up rows, Select ticks and Back closes it', (tester) async {
+      final changes = <Set<SearchScopeKind>>[];
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            theme: monoTheme(dark: true),
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: Center(
+                  child: TextButton(
+                    onPressed: () => showAnchoredPanel<void>(
+                      context,
+                      anchorRect: const Rect.fromLTWH(600, 40, 48, 48),
+                      builder: (_) => SearchScopePanel(
+                        initial: SearchScopeKind.defaults,
+                        savedToAccount: true,
+                        focusFirstRow: true,
+                        onChanged: changes.add,
+                      ),
+                    ),
+                    child: const Text('open'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchInFirstRow');
+
+      // Down from Titles to Actors, Select unticks it.
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.select);
+      await tester.pumpAndSettle();
+      expect(changes.single, {SearchScopeKind.titles, SearchScopeKind.keywords});
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(SearchScopePanel), findsNothing);
+    });
+  });
 }
 
 Future<(_FakeMediaServerClient, GlobalKey<State<SearchScreen>>)> _pumpTvSearchScreen(
@@ -698,6 +885,8 @@ Future<(_FakeMediaServerClient, GlobalKey<State<SearchScreen>>)> _pumpTvSearchSc
   List<_FakeMediaServerClient> additionalClients = const [],
   HiddenLibrariesProvider? hiddenLibraries,
   List<MediaLibrary> libraries = const [],
+  Map<SearchScopeKind, List<SearchFacetMatch>>? facets,
+  AccountPreferencesController? accounts,
 }) async {
   TvDetectionService.debugSetAppleTVOverride(true);
   tester.view.devicePixelRatio = 1.0;
@@ -721,6 +910,7 @@ Future<(_FakeMediaServerClient, GlobalKey<State<SearchScreen>>)> _pumpTvSearchSc
           ),
         ],
     searchError: searchError,
+    facets: facets,
   );
   final manager = MultiServerManager();
   if (registerClient) manager.debugRegisterClientForTesting(client);
@@ -745,6 +935,7 @@ Future<(_FakeMediaServerClient, GlobalKey<State<SearchScreen>>)> _pumpTvSearchSc
           ChangeNotifierProvider<MultiServerProvider>.value(value: provider),
           ChangeNotifierProvider<HiddenLibrariesProvider>.value(value: hidden),
           ChangeNotifierProvider<LibrariesProvider>.value(value: librariesProvider),
+          if (accounts != null) ChangeNotifierProvider<AccountPreferencesController>.value(value: accounts),
         ],
         child: MaterialApp(
           theme: monoTheme(dark: true),
@@ -824,6 +1015,7 @@ TextEditingController _searchController(WidgetTester tester) {
 }
 
 void _resetGlobalTestState() {
+  SearchScreen.resetDeviceScopeForTesting();
   FocusManager.instance.primaryFocus?.unfocus();
   HardwareKeyboard.instance.clearState();
   SelectKeyUpSuppressor.clearSuppression();
@@ -832,6 +1024,55 @@ void _resetGlobalTestState() {
   TvDetectionService.debugSetAppleTVOverride(null);
   TvDetectionService.setForceTVSync(false);
   SettingsService.resetForTesting();
+}
+
+/// An account whose server keeps the "Search in" ticks, recording each write.
+class _FakeAccounts extends AccountPreferencesController {
+  _FakeAccounts(this.preferences);
+
+  AccountPreferences preferences;
+  final writes = <AccountPreferencesPatch>[];
+
+  @override
+  bool activeSupports(AccountPreferenceKey key) => key == AccountPreferenceKey.searchScope;
+
+  @override
+  AccountPreferences? get activePreferences => preferences;
+
+  @override
+  Future<AccountPreferences> updateActive(AccountPreferencesPatch patch) async {
+    writes.add(patch);
+    preferences = AccountPreferences(searchScope: patch[AccountPreferenceKey.searchScope] as Set<SearchScopeKind>?);
+    return preferences;
+  }
+}
+
+SearchFacetMatch _person(String id, String name) => SearchFacetMatch(
+  kind: SearchScopeKind.actors,
+  facet: MediaFacet(MediaFacetKind.person, id),
+  name: name,
+  serverId: 'server_1',
+);
+
+String _defaultHint() => t.search.scopeHint.search(
+  kinds: t.search.scopeHint.listAnd(
+    first: '${t.search.scopeHint.titles}, ${t.search.scopeHint.actors}',
+    last: t.search.scopeHint.keywords,
+  ),
+);
+
+Finder _badge(String count) => find.descendant(of: find.byType(Badge), matching: find.text(count));
+
+Future<void> _openSearchIn(WidgetTester tester) async {
+  await tester.tap(find.byTooltip(t.search.searchIn.title));
+  await tester.pumpAndSettle();
+  expect(find.byType(SearchScopePanel), findsOneWidget);
+}
+
+Future<void> _closeSearchIn(WidgetTester tester) async {
+  await tester.tapAt(const Offset(4, 700));
+  await tester.pumpAndSettle();
+  expect(find.byType(SearchScopePanel), findsNothing);
 }
 
 class _FakeMediaServerClient implements MediaServerClient {
@@ -846,11 +1087,16 @@ class _FakeMediaServerClient implements MediaServerClient {
   Completer<void>? searchGate;
   AbortController? lastSearchAbort;
 
+  /// Set: a Jellyfin-like server that answers the extra search kinds.
+  final Map<SearchScopeKind, List<SearchFacetMatch>>? facets;
+  final List<SearchScopeKind> facetQueries = [];
+
   _FakeMediaServerClient({
     required this.items,
     this.serverIdValue = 'server_1',
     this.serverNameValue = 'Server',
     this.searchError,
+    this.facets,
   });
 
   @override
@@ -863,7 +1109,13 @@ class _FakeMediaServerClient implements MediaServerClient {
   MediaBackend get backend => MediaBackend.plex;
 
   @override
-  ServerCapabilities get capabilities => ServerCapabilities.plex;
+  ServerCapabilities get capabilities => facets == null ? ServerCapabilities.plex : ServerCapabilities.jellyfin;
+
+  @override
+  Future<List<SearchFacetMatch>> searchFacet(SearchScopeKind kind, String query, {AbortController? abort}) async {
+    facetQueries.add(kind);
+    return facets?[kind] ?? const [];
+  }
 
   @override
   Future<List<MediaItem>> searchItems(

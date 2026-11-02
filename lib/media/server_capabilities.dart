@@ -69,6 +69,12 @@ class ServerCapabilities {
   /// silent degradation.
   final bool libraryChangeEvents;
 
+  /// Search can find people, genres, studios, keywords and years as well as
+  /// names, through [MediaServerClient.searchFacet] (Jellyfin `/Persons`,
+  /// `/Genres`, `/Studios`, `/Items?Tags=`). Search asks nothing of a server
+  /// without it, so an unticked or unsupported kind costs no request.
+  final bool searchFacets;
+
   const ServerCapabilities({
     this.liveTv = false,
     this.liveTvDvr = false,
@@ -83,6 +89,7 @@ class ServerCapabilities {
     this.folderGrouping = false,
     this.instantMix = false,
     this.libraryChangeEvents = false,
+    this.searchFacets = false,
   });
 
   /// Defaults for a fully-featured Plex server.
@@ -124,6 +131,7 @@ class ServerCapabilities {
     folderGrouping: true,
     instantMix: true,
     libraryChangeEvents: true,
+    searchFacets: true,
   );
 
   /// Defaults for an Emby server.
@@ -175,6 +183,7 @@ class ServerCapabilities {
       folderGrouping: folderGrouping,
       instantMix: instantMix,
       libraryChangeEvents: libraryChangeEvents,
+      searchFacets: searchFacets,
     );
   }
 }

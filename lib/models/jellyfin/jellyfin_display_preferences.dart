@@ -1,3 +1,4 @@
+import '../../media/search_scope.dart';
 import '../../utils/json_utils.dart';
 
 /// The MediaBrowser `DisplayPreferences` row Plezy owns.
@@ -38,20 +39,34 @@ class JellyfinDisplayPreferences {
     return flexibleBoolNullable(raw);
   }
 
-  /// Copy [dto] with the switch set, ready to be posted back verbatim.
+  /// Plezy's own key for the Search screen's "Search in" ticks: a comma list
+  /// of [SearchScopeKind.id]s. No other client has such a setting, so the
+  /// name says whose it is.
+  static const searchScopeKey = 'plezySearchIn';
+
+  /// Read the search ticks out of a `DisplayPreferences` DTO. Null when the
+  /// account has never chosen, which means [SearchScopeKind.defaults]; an
+  /// empty string is a choice (nothing ticked).
+  static Set<SearchScopeKind>? readSearchScope(Object? dto) {
+    final raw = _customPrefs(dto)?[searchScopeKey];
+    if (raw is! String) return null;
+    return SearchScopeKind.decode(raw);
+  }
+
+  /// Copy [dto] with [values] written into its `CustomPrefs`, ready to be
+  /// posted back verbatim.
   ///
   /// The whole DTO round-trips because the write replaces the row: dropping
   /// any other key Plezy stores there, or any scalar the server round-trips,
-  /// would silently reset it.
-  static Map<String, dynamic> mergeRewatchingInNextUp(Object? dto, bool value) {
+  /// would silently reset it. Values are strings on this API; booleans go as
+  /// `true`/`false`, as jellyfin-web writes its own (`value.toString()`).
+  static Map<String, dynamic> mergeCustomPrefs(Object? dto, Map<String, String> values) {
     if (dto is! Map<String, dynamic>) {
       throw const FormatException('MediaBrowser DisplayPreferences response is not an object');
     }
     final merged = Map<String, dynamic>.from(dto);
     final customPrefs = Map<String, dynamic>.from(_customPrefs(dto) ?? const {});
-    // Values are strings on this API; `true`/`false` matches what jellyfin-web
-    // writes for its own boolean prefs (`value.toString()`).
-    customPrefs[rewatchingInNextUpKey] = value.toString();
+    customPrefs.addAll(values);
     merged['CustomPrefs'] = customPrefs;
     return merged;
   }

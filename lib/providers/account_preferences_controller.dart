@@ -109,6 +109,22 @@ class AccountPreferencesController extends ChangeNotifier with DisposableChangeN
     return ref == null ? null : repository.cached(ref);
   }
 
+  /// Whether the active profile's own account can store [key] on its server.
+  /// False while no account is resolved, so a caller keeps its value locally.
+  bool activeSupports(AccountPreferenceKey key) {
+    final ref = _activeRef;
+    return ref != null && repository.capabilitiesFor(ref).supports(key);
+  }
+
+  /// Write [patch] to the active profile's own account and return the
+  /// account's values afterwards. Fails with a [StateError] when there is no
+  /// active account, and as [AccountPreferencesRepository.update] does after.
+  Future<AccountPreferences> updateActive(AccountPreferencesPatch patch) {
+    final ref = _activeRef;
+    if (ref == null) return Future.error(StateError('No active account to write ${patch.keys.map((k) => k.name)} to'));
+    return repository.update(ref, patch);
+  }
+
   /// Wait for the active profile's bind to settle and any in-flight account
   /// resolution to finish, then make sure its preferences are loaded. Startup
   /// awaits this before entering the session so the first playback does not

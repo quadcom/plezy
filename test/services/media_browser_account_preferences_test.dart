@@ -7,6 +7,7 @@ import 'package:plezy/exceptions/media_server_exceptions.dart';
 import 'package:plezy/media/account_preferences.dart';
 import 'package:plezy/media/media_browser_dialect.dart';
 import 'package:plezy/media/media_server_user_profile.dart';
+import 'package:plezy/media/search_scope.dart';
 import 'package:plezy/services/jellyfin_client.dart';
 import 'package:plezy/services/media_browser_account_preferences_source.dart';
 
@@ -303,6 +304,57 @@ void main() {
       );
 
       expect(posts.map((post) => post.url.path), ['/DisplayPreferences/usersettings', '/Users/user-1/Configuration']);
+    });
+
+    test('the Search in ticks round-trip through DisplayPreferences, keeping the other keys', () async {
+      final posts = <http.Request>[];
+      final source = _source(
+        _accountHandler(
+          customPrefs: {'enableRewatchingInNextUp': 'true', 'someOtherClientKey': 'keep-me'},
+          onPost: posts.add,
+        ),
+      );
+
+      // Never chosen: unset, which the Search screen reads as the defaults.
+      expect((await source.read()).searchScope, isNull);
+
+      final result = await source.write(
+        AccountPreferencesPatch.of(AccountPreferenceKey.searchScope, {SearchScopeKind.titles, SearchScopeKind.genres}),
+      );
+
+      expect(posts, hasLength(1));
+      expect(posts.single.url.path, '/DisplayPreferences/usersettings');
+      expect(posts.single.url.queryParameters['client'], 'Plezy');
+      final customPrefs =
+          (jsonDecode(posts.single.body) as Map<String, dynamic>)['CustomPrefs'] as Map<String, dynamic>;
+      expect(customPrefs['plezySearchIn'], 'titles,genres');
+      expect(customPrefs['enableRewatchingInNextUp'], 'true');
+      expect(customPrefs['someOtherClientKey'], 'keep-me');
+      expect(result.searchScope, {SearchScopeKind.titles, SearchScopeKind.genres});
+      expect(result.rewatchingInNextUp, isTrue);
+      expect((await source.read()).searchScope, {SearchScopeKind.titles, SearchScopeKind.genres});
+    });
+
+    test('nothing ticked is stored as a choice, not as unset', () async {
+      final source = _source(_accountHandler());
+
+      final result = await source.write(
+        AccountPreferencesPatch.of(AccountPreferenceKey.searchScope, <SearchScopeKind>{}),
+      );
+
+      expect(result.searchScope, isEmpty);
+      expect(result.searchScope, isNotNull);
+    });
+
+    test('the Search in ticks are Jellyfin-only and never a UserConfiguration field', () async {
+      expect(AccountPreferencesCapabilities.jellyfin.supports(AccountPreferenceKey.searchScope), isTrue);
+      expect(AccountPreferencesCapabilities.emby.supports(AccountPreferenceKey.searchScope), isFalse);
+      expect(AccountPreferencesCapabilities.plex.supports(AccountPreferenceKey.searchScope), isFalse);
+      expect(
+        () => AccountPreferencesPatch.of(AccountPreferenceKey.searchScope, 'titles'),
+        throwsArgumentError,
+        reason: 'the value must be a set of kinds',
+      );
     });
 
     test('Emby cannot store rewatching at all', () async {
