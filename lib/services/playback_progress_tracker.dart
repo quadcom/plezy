@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import '../exceptions/media_server_exceptions.dart';
 import '../media/ids.dart';
 
@@ -284,6 +286,10 @@ class PlaybackProgressTracker {
 
     appLogger.d('Started progress tracking (interval: ${updateInterval.inSeconds}s, offline: $isOffline)');
   }
+
+  /// Whether the periodic report timer is running.
+  @visibleForTesting
+  bool get isTracking => _progressTimer != null;
 
   void stopTracking() {
     _progressTimer?.cancel();

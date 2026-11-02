@@ -465,6 +465,22 @@ extension _VideoPlayerPlaybackServiceMethods on VideoPlayerScreenState {
 
     if (currentPlayer == null) return;
 
+    // Retire any tracker still wired. Overwriting the field alone orphaned its
+    // periodic timer, which kept reporting its old item with the live player's
+    // position: Greatroom showed an Old School channel's previous programme as
+    // now playing long after the channel changed (2026-11-01). No stopped
+    // report — the same item may carry on, as in the reload's beforeArm.
+    final previousTracker = _progressTracker;
+    if (previousTracker != null) {
+      appLogger.w(
+        'Replacing a progress tracker still wired for ${previousTracker.metadata.id} '
+        '(new item ${metadata.id})',
+      );
+      _progressTracker = null;
+      previousTracker.stopTracking();
+      previousTracker.dispose();
+    }
+
     // Local media still reports live when its server is online; only queue
     // locally when no reporting client is reachable.
     if (mediaClient != null) {

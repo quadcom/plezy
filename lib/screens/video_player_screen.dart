@@ -1313,6 +1313,16 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   @visibleForTesting
   Future<void> debugInitializeServicesForTesting() => _initializeServices();
 
+  /// The progress tracker wired now, if any.
+  @visibleForTesting
+  PlaybackProgressTracker? get debugProgressTracker => _progressTracker;
+
+  /// Binds a progress tracker for [metadata] the way every first open and
+  /// in-place reload does (local/plans/orphan-progress-tracker.md).
+  @visibleForTesting
+  void debugRebindProgressTrackerForTesting({required MediaItem metadata, required MediaServerClient mediaClient}) =>
+      _rebindProgressTracker(metadata: metadata, mediaClient: mediaClient, offlineWatchService: null);
+
   /// The playback start otherwise runs only at the end of player
   /// initialization, which no widget test finishes without a live native core.
   @visibleForTesting
