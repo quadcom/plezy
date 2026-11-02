@@ -213,11 +213,11 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
       ratingKey: widget.metadata.id,
       mediaTitle: widget.metadata.title,
       onSubtitleDownloaded: _onSubtitleDownloaded,
-      // Plex proxies OpenSubtitles via its server-side plugin; Jellyfin
-      // doesn't expose an equivalent so the Search Subtitles tile is hidden
-      // for Jellyfin items. The check uses the registered client type for
-      // this metadata's serverId.
-      subtitleSearchSupported: _isPlexBackedMetadata(),
+      // Plex proxies OpenSubtitles via its server-side plugin; a PlezyFin
+      // server searches Bazarr when its status route allows this user. The
+      // check uses the registered client for this metadata's serverId.
+      subtitleSearchSupported: _subtitleSearchSupported(),
+      mediaSourceId: _playingMediaSourceId(),
       matchSourceActive: widget.oldSchool?.matchSourceActive?.call(),
       matchSourceOnBar: SettingsService.instanceOrNull?.read(SettingsService.oldSchoolMatchSourceOnBar) ?? false,
       onToggleMatchSource: widget.oldSchool?.onToggleMatchSource,
@@ -226,19 +226,45 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
     );
   }
 
-  /// True when the active server supports external subtitle search (Plex
-  /// today). Requires a server id because the download callback needs the
-  /// Plex client/token for that server.
-  bool _isPlexBackedMetadata() {
+  /// True when the active server supports external subtitle search: Plex by
+  /// capability, a PlezyFin server when `PlezyFin/Subtitles/Status` says
+  /// Enabled and Allowed (local/plans/subtitle-search-plezyfin.md). That
+  /// status is read once per connection and kept by the client; until it
+  /// answers the row stays hidden, and the answer rebuilds the controls.
+  /// Requires a server id because the download needs that server's client.
+  bool _subtitleSearchSupported() {
     try {
       final serverId = widget.metadata.serverId;
       if (serverId == null) return false;
       final manager = context.read<MultiServerProvider>().serverManager;
-      final c = manager.getClient(ServerId(serverId));
-      return c?.capabilities.externalSubtitleSearch ?? false;
+      return subtitleSearchOffered(
+        manager.getClient(ServerId(serverId)),
+        offlineOrLive: widget.isOfflinePlayback || widget.isLive,
+        loadStatus: _loadSubtitleSearchStatus,
+      );
     } catch (_) {
       return false;
     }
+  }
+
+  void _loadSubtitleSearchStatus(JellyfinClient client) {
+    // The client shares one request between callers and keeps the answer,
+    // so a rebuild before it lands asks nothing new.
+    unawaited(
+      client.subtitleSearchStatus().then((_) {
+        if (mounted) _setControlsState(() {});
+      }),
+    );
+  }
+
+  /// The version playing, so a PlezyFin search matches that file.
+  String? _playingMediaSourceId() {
+    if (widget.metadata.backend != MediaBackend.jellyfin) return null;
+    final versions = widget.availableVersions;
+    final index = widget.selectedMediaIndex;
+    if (index < 0 || index >= versions.length) return null;
+    final id = versions[index].id;
+    return id.isEmpty ? null : id;
   }
 
   Widget _buildTrackChapterControlsWidget({bool hideChaptersAndQueue = false}) {

@@ -78,13 +78,14 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
   Future<SubtitleDownloadApplyOutcome> _onSubtitleDownloaded({
     required String serverId,
     required String ratingKey,
+    DownloadedSubtitleHint? hint,
   }) async {
     if (!mounted) return SubtitleDownloadApplyOutcome.unavailable;
 
-    // Plex-only: the OpenSubtitles polling flow uses [getVideoPlaybackData]
-    // and the Plex token. Jellyfin has no analogue and the entry point
-    // (`subtitleSearchSupported`) is already gated on backend, but guard
-    // here too in case a future caller wires the same handler elsewhere.
+    if (widget.metadata.backend == MediaBackend.jellyfin) {
+      return _applyDownloadedPlezyFinSubtitle(serverId: serverId, ratingKey: ratingKey, hint: hint);
+    }
+    // The Plex flow below uses [getVideoPlaybackData] and the Plex token.
     if (widget.metadata.backend != MediaBackend.plex) return SubtitleDownloadApplyOutcome.unavailable;
     if (widget.metadata.serverId != serverId || widget.metadata.id != ratingKey) {
       return SubtitleDownloadApplyOutcome.superseded;
@@ -139,6 +140,51 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
       return subtitleDownloadApplyOutcomeFor(outcome);
     } catch (e) {
       appLogger.w('Failed to refresh subtitles after download', error: e);
+      return SubtitleDownloadApplyOutcome.failed;
+    }
+  }
+
+  /// PlezyFin's download returns once the file is saved and the server then
+  /// refreshes the item, so the new file shows up in the item's streams a
+  /// moment later. Poll for it (2 s, up to about 15 s, one read at a time)
+  /// and switch to it the same way Plex does.
+  Future<SubtitleDownloadApplyOutcome> _applyDownloadedPlezyFinSubtitle({
+    required String serverId,
+    required String ratingKey,
+    required DownloadedSubtitleHint? hint,
+  }) async {
+    if (hint == null) return SubtitleDownloadApplyOutcome.unavailable;
+    if (widget.metadata.serverId != serverId || widget.metadata.id != ratingKey) {
+      return SubtitleDownloadApplyOutcome.superseded;
+    }
+    final switchSource = widget.onPlaybackSourceChanged;
+    if (switchSource == null) return SubtitleDownloadApplyOutcome.unavailable;
+    final client = context.tryGetMediaClientForServer(ServerId(serverId));
+    if (client is! JellyfinClient) return SubtitleDownloadApplyOutcome.unavailable;
+
+    final itemKey = widget.metadata.globalKey;
+    final mediaSourceId = _playingMediaSourceId();
+    bool targetIsCurrent() =>
+        mounted &&
+        widget.metadata.globalKey == itemKey &&
+        widget.metadata.serverId == serverId &&
+        widget.metadata.id == ratingKey;
+
+    try {
+      final found = await pollForDownloadedPlezyFinSubtitle(
+        // A network read every time; it also leaves the fresh row in the
+        // cache, so the reload below sees the new stream.
+        fetch: () => client.fetchExternalSubtitleFiles(ratingKey, mediaSourceId: mediaSourceId),
+        hint: hint,
+        isCurrent: targetIsCurrent,
+      );
+      if (found.superseded || !targetIsCurrent()) return SubtitleDownloadApplyOutcome.superseded;
+      final index = found.index;
+      if (index == null) return SubtitleDownloadApplyOutcome.timedOut;
+      final outcome = await switchSource(newSubtitleChoice: PlaybackSourceSubtitleChoice.source(index));
+      return subtitleDownloadApplyOutcomeFor(outcome);
+    } catch (e) {
+      appLogger.w('Failed to switch to the downloaded PlezyFin subtitle', error: e);
       return SubtitleDownloadApplyOutcome.failed;
     }
   }

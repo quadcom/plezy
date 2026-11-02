@@ -20,6 +20,8 @@ import 'package:rate_limiter/rate_limiter.dart';
 import 'package:flutter/services.dart'
     show LogicalKeyboardKey, PhysicalKeyboardKey, KeyEvent, KeyDownEvent, KeyUpEvent, KeyRepeatEvent, HardwareKeyboard;
 import '../../services/fullscreen_state_manager.dart';
+import '../../media/media_server_client.dart';
+import '../../services/jellyfin_client.dart';
 import '../../services/macos_window_service.dart';
 import '../../services/pip_service.dart';
 import '../../services/playback_initialization_types.dart';
@@ -73,6 +75,7 @@ import '../../focus/input_mode_tracker.dart';
 import 'models/track_controls_state.dart';
 import 'widgets/double_tap_feedback.dart';
 import 'helpers/mobile_edge_adjustment_tracker.dart';
+import 'helpers/plezyfin_subtitle_finder.dart';
 import 'helpers/render_geometry.dart';
 import 'helpers/two_finger_tap_tracker.dart';
 import 'widgets/linux_keep_alive.dart';
@@ -144,6 +147,27 @@ List<MediaSubtitleTrack> selectableSourceSubtitleTracks(
         return CodecUtils.isTranscodableSubtitleCodec(track.codec);
       })
       .toList(growable: false);
+}
+
+/// Whether the player offers "Search subtitles" for [client]'s items: Plex
+/// by capability; a PlezyFin server when its `PlezyFin/Subtitles/Status`
+/// route exists and says Enabled and Allowed for this user
+/// (local/plans/subtitle-search-plezyfin.md). Until that status is known the
+/// row stays hidden and [loadStatus] is asked to read it; the client keeps
+/// the answer for the connection, so this never sends a request per frame.
+@visibleForTesting
+bool subtitleSearchOffered(
+  MediaServerClient? client, {
+  bool offlineOrLive = false,
+  void Function(JellyfinClient client)? loadStatus,
+}) {
+  if (client is JellyfinClient) {
+    if (offlineOrLive) return false;
+    final known = client.cachedSubtitleSearchAvailable;
+    if (known == null && !client.subtitleSearchStatusPending) loadStatus?.call(client);
+    return known ?? false;
+  }
+  return client?.capabilities.externalSubtitleSearch ?? false;
 }
 
 @visibleForTesting

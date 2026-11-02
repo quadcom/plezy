@@ -677,6 +677,21 @@ mixin _JellyfinPlaybackMethods on _JellyfinClientInternals {
     );
   }
 
+  /// The external subtitle files the server lists now on [itemId]'s version
+  /// [mediaSourceId] (the first version when absent). Always a network read:
+  /// it is how the player sees a just-downloaded file, and it leaves the fresh
+  /// row in the cache so the reload that switches to it sees the same streams.
+  /// Null when the item or the version is gone.
+  Future<List<PlezyFinExternalSubtitle>?> fetchExternalSubtitleFiles(String itemId, {String? mediaSourceId}) async {
+    final item = await fetchItem(itemId);
+    final raw = item?.raw;
+    if (raw is! Map<String, dynamic>) return null;
+    final bundle = _playbackBundleFromRaw(raw, sourceId: mediaSourceId);
+    if (bundle == null) return null;
+    if (mediaSourceId != null && mediaSourceId.isNotEmpty && bundle.selectedSourceId != mediaSourceId) return null;
+    return PlezyFinExternalSubtitle.listFromMediaSource(bundle.selectedSource);
+  }
+
   JellyfinPlaybackBundle? _playbackBundleFromRaw(
     Map<String, dynamic> raw, {
     int sourceIndex = 0,

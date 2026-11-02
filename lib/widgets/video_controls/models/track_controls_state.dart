@@ -4,6 +4,7 @@ import '../../../media/media_item.dart';
 import '../../../media/media_version.dart';
 import '../../../media/media_source_info.dart';
 import '../../../media/server_conversion.dart';
+import '../../../models/plezyfin_subtitles.dart';
 import '../../../models/transcode_quality_preset.dart';
 import '../../../mpv/mpv.dart';
 import '../../../services/playback_initialization_types.dart';
@@ -12,6 +13,41 @@ import '../../../services/shader_service.dart';
 import '../helpers/track_filter_helper.dart';
 
 enum SubtitleDownloadApplyOutcome { applied, timedOut, busy, superseded, unavailable, failed }
+
+/// What a subtitle download saved (language, forced, hearing impaired,
+/// format), so a backend whose stream ids shift when a file is added
+/// (Jellyfin lists external files first) can still find the new one.
+class DownloadedSubtitleHint {
+  /// Two-letter code, as searched.
+  final String? languageCode;
+  final bool forced;
+  final bool hearingImpaired;
+
+  /// File extension the server saves ("srt").
+  final String? format;
+
+  /// The item's external subtitle files just before the download (PlezyFin),
+  /// so a file that wasn't there is known as the new one. Null when that
+  /// read failed.
+  final List<PlezyFinExternalSubtitle>? filesBefore;
+
+  const DownloadedSubtitleHint({
+    this.languageCode,
+    this.forced = false,
+    this.hearingImpaired = false,
+    this.format,
+    this.filesBefore,
+  });
+}
+
+/// Called by the subtitle search sheet once a download is saved: find the
+/// new track and switch to it.
+typedef SubtitleDownloadedCallback =
+    Future<SubtitleDownloadApplyOutcome> Function({
+      required String serverId,
+      required String ratingKey,
+      DownloadedSubtitleHint? hint,
+    });
 
 /// Immutable configuration for track/chapter control widgets.
 class TrackControlsState {
@@ -80,14 +116,17 @@ class TrackControlsState {
   /// Item currently playing, used to key scope-persisted player settings
   /// ([ScopedPlayerPrefs]). Null only for embedders without item identity.
   final MediaItem? metadata;
-  final Future<SubtitleDownloadApplyOutcome> Function({required String serverId, required String ratingKey})?
-  onSubtitleDownloaded;
+  final SubtitleDownloadedCallback? onSubtitleDownloaded;
 
-  /// Whether OpenSubtitles search is reachable for this server. The Plex
-  /// server proxies the OpenSubtitles plugin; Jellyfin doesn't expose an
-  /// equivalent. The track sheet hides the "Search subtitles" tile when
-  /// this is false.
+  /// Whether subtitle search is reachable for this server: the Plex server
+  /// proxies OpenSubtitles; a PlezyFin server offers it when its
+  /// `PlezyFin/Subtitles/Status` says Enabled and Allowed. The track sheet
+  /// hides the "Search subtitles" tile when this is false.
   final bool subtitleSearchSupported;
+
+  /// The version playing (Jellyfin `MediaSourceId`), so a PlezyFin search
+  /// matches that file. Null on Plex.
+  final String? mediaSourceId;
 
   /// Old School's "Match source" (local/plans/old-school-match-source.md):
   /// on or off for the programme playing, or null when it isn't offered.
@@ -161,6 +200,7 @@ class TrackControlsState {
     this.mediaTitle,
     this.onSubtitleDownloaded,
     this.subtitleSearchSupported = true,
+    this.mediaSourceId,
     this.matchSourceActive,
     this.matchSourceOnBar = false,
     this.onToggleMatchSource,
@@ -203,7 +243,7 @@ class TrackControlsState {
       : const <MediaSubtitleTrack>[];
 
   /// External subtitle search needs both a searchable media item and a server
-  /// that can proxy the OpenSubtitles request.
+  /// that can run the search (Plex's OpenSubtitles proxy, PlezyFin's Bazarr).
   bool get canSearchSubtitles =>
       ratingKey.isNotEmpty && serverId != null && serverId!.isNotEmpty && subtitleSearchSupported;
 

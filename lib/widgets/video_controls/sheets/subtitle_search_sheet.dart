@@ -9,7 +9,8 @@ import '../../../focus/focusable_text_field.dart';
 import '../../../focus/input_mode_tracker.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../mixins/controller_disposer_mixin.dart';
-import '../../../models/plex/plex_subtitle_search_result.dart';
+import '../../../services/jellyfin_client.dart';
+import '../../../services/plex_client.dart';
 import '../../../services/settings_service.dart';
 import '../../../utils/language_codes.dart';
 import '../../../utils/provider_extensions.dart';
@@ -20,6 +21,7 @@ import '../../../widgets/overlay_sheet.dart';
 import '../../../widgets/pill_input_decoration.dart';
 import 'base_video_control_sheet.dart';
 import '../../loading_indicator_box.dart';
+import '../models/subtitle_search_source.dart';
 import '../models/track_controls_state.dart';
 
 @visibleForTesting
@@ -33,15 +35,23 @@ class SubtitleSearchSheet extends StatefulWidget {
   final String ratingKey;
   final String serverId;
   final String? mediaTitle;
-  final Future<SubtitleDownloadApplyOutcome> Function({required String serverId, required String ratingKey})?
-  onSubtitleDownloaded;
+
+  /// The version playing, for a PlezyFin search. Null on Plex.
+  final String? mediaSourceId;
+  final SubtitleDownloadedCallback? onSubtitleDownloaded;
+
+  /// Search and download behind the sheet. Null picks it from [serverId]'s
+  /// client: Plex's own search, or PlezyFin's.
+  final SubtitleSearchSource? source;
 
   const SubtitleSearchSheet({
     super.key,
     required this.ratingKey,
     required this.serverId,
     this.mediaTitle,
+    this.mediaSourceId,
     this.onSubtitleDownloaded,
+    this.source,
   });
 
   @override
@@ -54,10 +64,17 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
   late final _titleController = createTextEditingController();
   final _languageFocusNode = FocusNode(debugLabel: 'SubtitleSearch_language');
   final _titleFocusNode = FocusNode(debugLabel: 'SubtitleSearch_title');
+  final _forcedFocusNode = FocusNode(debugLabel: 'SubtitleSearch_forced');
   final _firstResultFocusNode = FocusNode(debugLabel: 'SubtitleSearch_firstResult');
   Timer? _debounceTimer;
 
-  List<PlexSubtitleSearchResult>? _results;
+  SubtitleSearchSource? _source;
+  bool _sourceResolved = false;
+  bool _forcedOnly = false;
+
+  List<SubtitleSearchHit>? _results;
+  String? _message;
+  List<String> _notes = const [];
   bool _isSearching = false;
   String? _error;
   String? _downloadingKey;
@@ -84,11 +101,33 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_sourceResolved) return;
+    _sourceResolved = true;
+    _source = widget.source ?? _sourceFromClient();
+  }
+
+  SubtitleSearchSource? _sourceFromClient() {
+    final client = context.tryGetMediaClientForServer(ServerId(widget.serverId));
+    return switch (client) {
+      PlexClient() => PlexSubtitleSearchSource(client, widget.ratingKey),
+      JellyfinClient() => PlezyFinSubtitleSearchSource(client, widget.ratingKey, mediaSourceId: widget.mediaSourceId),
+      _ => null,
+    };
+  }
+
+  /// No source yet (no client) keeps Plex's layout, title box included.
+  bool get _showsTitle => _source?.supportsTitle ?? true;
+  bool get _showsForcedFilter => _source?.supportsForcedFilter ?? false;
+
+  @override
   void dispose() {
     ++_searchGeneration;
     _debounceTimer?.cancel();
     _languageFocusNode.dispose();
     _titleFocusNode.dispose();
+    _forcedFocusNode.dispose();
     _firstResultFocusNode.dispose();
     super.dispose();
   }
@@ -102,22 +141,23 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
     });
 
     try {
-      final client = context.tryGetPlexClientForServer(ServerId(widget.serverId));
-      if (client == null) {
+      final source = _source;
+      if (source == null) {
         if (!mounted || generation != _searchGeneration) return;
         setState(() => _isSearching = false);
         return;
       }
       final title = _titleController.text.trim();
-      final language = _languageCode;
-      final results = await client.searchSubtitles(
-        widget.ratingKey,
-        language: language,
-        title: title.isEmpty ? null : title,
+      final page = await source.search(
+        language: _languageCode,
+        title: source.supportsTitle && title.isNotEmpty ? title : null,
+        forcedOnly: source.supportsForcedFilter && _forcedOnly,
       );
       if (!mounted || generation != _searchGeneration) return;
       setState(() {
-        _results = results;
+        _results = page.hits;
+        _message = page.message;
+        _notes = page.notes;
         _isSearching = false;
       });
     } catch (e) {
@@ -132,6 +172,12 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
   void _onTitleChanged(String _) {
     _debounceTimer?.cancel();
     _debounceTimer = Timer(const Duration(milliseconds: 500), _search);
+  }
+
+  void _toggleForcedOnly() {
+    _debounceTimer?.cancel();
+    setState(() => _forcedOnly = !_forcedOnly);
+    _search();
   }
 
   void _showLanguagePickerView() {
@@ -178,32 +224,28 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
     _search();
   }
 
-  Future<void> _downloadSubtitle(PlexSubtitleSearchResult result) async {
+  Future<void> _downloadSubtitle(SubtitleSearchHit hit) async {
     if (_downloadingKey != null) return;
-    setState(() => _downloadingKey = result.key);
+    setState(() => _downloadingKey = hit.key);
 
     try {
-      final client = context.tryGetPlexClientForServer(ServerId(widget.serverId));
-      if (client == null) {
+      final source = _source;
+      if (source == null) {
         if (!mounted) return;
         setState(() => _downloadingKey = null);
         return;
       }
-      final success = await client.downloadSubtitle(
-        widget.ratingKey,
-        key: result.key,
-        codec: result.codec ?? 'srt',
-        language: result.languageCode ?? _languageCode,
-        hearingImpaired: result.hearingImpaired,
-        forced: result.forced,
-        providerTitle: result.providerTitle ?? '',
-      );
+      final download = await source.download(hit, language: _languageCode);
 
       if (!mounted) return;
 
-      if (success) {
+      if (download.ok) {
         final outcome =
-            await widget.onSubtitleDownloaded?.call(serverId: widget.serverId, ratingKey: widget.ratingKey) ??
+            await widget.onSubtitleDownloaded?.call(
+              serverId: widget.serverId,
+              ratingKey: widget.ratingKey,
+              hint: download.hint,
+            ) ??
             SubtitleDownloadApplyOutcome.unavailable;
         if (!mounted) return;
         if (outcome == SubtitleDownloadApplyOutcome.applied) {
@@ -214,7 +256,9 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
           setState(() => _downloadingKey = null);
         }
       } else {
-        showErrorSnackBar(context, t.videoControls.subtitleDownloadFailed);
+        // The server's own sentence when it gave one (daily limit, an id
+        // older than 30 minutes, not allowed).
+        showErrorSnackBar(context, download.message ?? t.videoControls.subtitleDownloadFailed);
         setState(() => _downloadingKey = null);
       }
     } catch (e) {
@@ -255,7 +299,9 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
                 FocusableButton(
                   focusNode: _languageFocusNode,
                   onPressed: _showLanguagePickerView,
-                  onNavigateRight: _titleFocusNode.requestFocus,
+                  onNavigateRight: _showsTitle
+                      ? _titleFocusNode.requestFocus
+                      : (_showsForcedFilter ? _forcedFocusNode.requestFocus : null),
                   onNavigateDown: hasResults ? _focusFirstResult : null,
                   autoScroll: false,
                   child: Material(
@@ -280,29 +326,84 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
                   ),
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: FocusableTextField(
-                    controller: _titleController,
-                    focusNode: _titleFocusNode,
-                    tvTextInputPresentation: TvTextInputPresentation.flutterOverlay,
-                    decoration: pillInputDecoration(
-                      context,
-                      hintText: widget.mediaTitle ?? t.metadataEdit.title,
-                      prefixIcon: const AppIcon(Symbols.search_rounded, size: 20),
+                if (_showsForcedFilter) _buildForcedToggle(fillColor, hasResults),
+                if (_showsTitle)
+                  Expanded(
+                    child: FocusableTextField(
+                      controller: _titleController,
+                      focusNode: _titleFocusNode,
+                      tvTextInputPresentation: TvTextInputPresentation.flutterOverlay,
+                      decoration: pillInputDecoration(
+                        context,
+                        hintText: widget.mediaTitle ?? t.metadataEdit.title,
+                        prefixIcon: const AppIcon(Symbols.search_rounded, size: 20),
+                      ),
+                      onChanged: _onTitleChanged,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => unawaited(_submitSearchAndFocusFirstResult()),
+                      onSelect: () => unawaited(_submitSearchAndFocusFirstResult()),
+                      onNavigateLeft: _languageFocusNode.requestFocus,
+                      onNavigateDown: hasResults ? _focusFirstResult : null,
                     ),
-                    onChanged: _onTitleChanged,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => unawaited(_submitSearchAndFocusFirstResult()),
-                    onSelect: () => unawaited(_submitSearchAndFocusFirstResult()),
-                    onNavigateLeft: _languageFocusNode.requestFocus,
-                    onNavigateDown: hasResults ? _focusFirstResult : null,
                   ),
-                ),
               ],
             ),
           ),
           Expanded(child: _buildResults()),
+          if (_notes.isNotEmpty && !_isSearching && _error == null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: Column(
+                crossAxisAlignment: .start,
+                children: [
+                  for (final note in _notes)
+                    Text(note, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  /// PlezyFin's "Forced only" filter: subtitles for just the foreign-language
+  /// parts. Off searches everything.
+  Widget _buildForcedToggle(Color fillColor, bool hasResults) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final color = _forcedOnly ? colorScheme.primary : null;
+    return Semantics(
+      toggled: _forcedOnly,
+      child: FocusableButton(
+        focusNode: _forcedFocusNode,
+        onPressed: _toggleForcedOnly,
+        onNavigateLeft: _languageFocusNode.requestFocus,
+        onNavigateDown: hasResults ? _focusFirstResult : null,
+        autoScroll: false,
+        child: Material(
+          color: fillColor,
+          borderRadius: pillInputRadius,
+          child: InkWell(
+            borderRadius: pillInputRadius,
+            canRequestFocus: false,
+            onTap: _toggleForcedOnly,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(
+                mainAxisSize: .min,
+                children: [
+                  AppIcon(
+                    _forcedOnly ? Symbols.check_box_rounded : Symbols.check_box_outline_blank_rounded,
+                    fill: _forcedOnly ? 1 : 0,
+                    size: 20,
+                    color: color,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(t.videoControls.forcedOnly, style: TextStyle(color: color)),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -327,12 +428,18 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
 
     if (_results!.isEmpty) {
       return Center(
-        child: Text(
-          t.videoControls.noSubtitlesFound,
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Text(
+            _message ?? t.videoControls.noSubtitlesFound,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
+          ),
         ),
       );
     }
+
+    final showsTags = _source?.showsTags ?? false;
 
     return ListView.builder(
       itemCount: _results!.length,
@@ -345,16 +452,16 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
         if (isDownloading) {
           trailing = const LoadingIndicatorBox(size: 20);
         } else {
-          final trailingChildren = <Widget>[];
+          final trailingChildren = <Widget>[
+            if (showsTags && result.forced) _ResultTag(t.videoControls.subtitleTagForced),
+            if (showsTags && result.hearingImpaired) _ResultTag(t.videoControls.subtitleTagHearingImpaired),
+          ];
           if (result.perfectMatch) {
             trailingChildren.add(const AppIcon(Symbols.star_rounded, fill: 1, color: Color(0xFFCC7B19), size: 16));
           }
           if (result.score != null) {
             trailingChildren.add(
-              Text(
-                result.score!.toInt().toString(),
-                style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
-              ),
+              Text(result.score!.toString(), style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant)),
             );
           }
           if (trailingChildren.isNotEmpty) {
@@ -364,9 +471,9 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
 
         return FocusableListTile(
           focusNode: index == 0 ? _firstResultFocusNode : null,
-          title: Text(result.title ?? result.displayTitle ?? t.common.unknown, maxLines: 1, overflow: .ellipsis),
+          title: Text(result.title ?? t.common.unknown, maxLines: 1, overflow: .ellipsis),
           subtitle: Text(
-            result.displayTitle ?? '',
+            result.subtitle ?? '',
             maxLines: 1,
             overflow: .ellipsis,
             style: TextStyle(color: colorScheme.onSurfaceVariant),
@@ -375,6 +482,26 @@ class _SubtitleSearchSheetState extends State<SubtitleSearchSheet> with Controll
           onTap: isDownloading ? null : () => _downloadSubtitle(result),
         );
       },
+    );
+  }
+}
+
+/// A small "Forced" / "HI" label beside a result's score.
+class _ResultTag extends StatelessWidget {
+  final String label;
+
+  const _ResultTag(this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        border: Border.all(color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant)),
     );
   }
 }

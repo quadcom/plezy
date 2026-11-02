@@ -48,6 +48,7 @@ import '../models/media_grab_operation.dart';
 import '../models/media_subscription.dart';
 import '../models/iptv.dart';
 import '../models/old_school.dart';
+import '../models/plezyfin_subtitles.dart';
 import '../models/transcode_quality_preset.dart';
 import '../media/media_source_info.dart';
 import '../media/media_sort.dart';
@@ -105,6 +106,7 @@ part 'jellyfin_client/parts/images_downloads.dart';
 part 'jellyfin_client/parts/metadata_edit.dart';
 part 'jellyfin_client/parts/old_school.dart';
 part 'jellyfin_client/parts/iptv.dart';
+part 'jellyfin_client/parts/subtitles.dart';
 
 /// Canonical declarations of the [JellyfinClient] internals that the `part`
 /// mixins call into.
@@ -274,7 +276,8 @@ class JellyfinClient
         _JellyfinMetadataEditMethods,
         _JellyfinLibraryLayoutMethods,
         _JellyfinOldSchoolMethods,
-        _JellyfinIptvMethods
+        _JellyfinIptvMethods,
+        _JellyfinSubtitleMethods
     implements
         MediaServerClient,
         SeasonEpisodePagingClient,

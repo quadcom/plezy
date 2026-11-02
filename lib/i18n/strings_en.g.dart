@@ -2412,6 +2412,18 @@ class Translations$videoControls$en {
 	/// en: 'Failed to download subtitle'
 	String get subtitleDownloadFailed => 'Failed to download subtitle';
 
+	/// en: 'This account isn't allowed to download subtitles'
+	String get subtitleDownloadNotAllowed => 'This account isn\'t allowed to download subtitles';
+
+	/// en: 'Forced only'
+	String get forcedOnly => 'Forced only';
+
+	/// en: 'Forced'
+	String get subtitleTagForced => 'Forced';
+
+	/// en: 'HI'
+	String get subtitleTagHearingImpaired => 'HI';
+
 	/// en: 'Search languages...'
 	String get searchLanguages => 'Search languages...';
 
@@ -8918,6 +8930,10 @@ extension on Translations {
 			'videoControls.subtitleDownloaded' => 'Subtitle downloaded',
 			'videoControls.subtitleDownloadedNotApplied' => 'Subtitle downloaded, but it could not be selected',
 			'videoControls.subtitleDownloadFailed' => 'Failed to download subtitle',
+			'videoControls.subtitleDownloadNotAllowed' => 'This account isn\'t allowed to download subtitles',
+			'videoControls.forcedOnly' => 'Forced only',
+			'videoControls.subtitleTagForced' => 'Forced',
+			'videoControls.subtitleTagHearingImpaired' => 'HI',
 			'videoControls.searchLanguages' => 'Search languages...',
 			'videoControls.skipIntro' => 'Skip Intro',
 			'videoControls.skipCredits' => 'Skip Credits',
@@ -9123,12 +9139,12 @@ extension on Translations {
 			'accountPreferences.groups.audioAndSubtitles' => 'Audio & subtitles',
 			'accountPreferences.groups.libraryDisplay' => 'Library',
 			'accountPreferences.groups.personalMedia' => 'Personal media',
+			_ => null,
+		} ?? switch (path) {
 			'accountPreferences.preferredAudioLanguage' => 'Preferred audio language',
 			'accountPreferences.autoSelectAudio' => 'Choose audio by language',
 			'accountPreferences.autoSelectAudioDescription' => 'Off keeps whatever audio track the file marks as default.',
 			'accountPreferences.preferredSubtitleLanguage' => 'Preferred subtitle language',
-			_ => null,
-		} ?? switch (path) {
 			'accountPreferences.subtitleMode' => 'Turn subtitles on',
 			'accountPreferences.subtitleModes.none' => 'Manually selected',
 			'accountPreferences.subtitleModes.noneDescription' => 'Never turn subtitles on by itself.',
@@ -9637,12 +9653,12 @@ extension on Translations {
 			'liveTv.dayAtTime' => ({required Object day, required Object time}) => '${day} at ${time}',
 			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
 			'liveTv.failedToStartChannel' => 'Could not start the live channel',
+			_ => null,
+		} ?? switch (path) {
 			'liveTv.failedToBuildStreamUrl' => 'Could not build the stream URL',
 			'liveTv.playbackStartFailed' => ({required Object reason}) => 'Couldn\'t start the channel: ${reason}',
 			'liveTv.channelSwitchFailed' => ({required Object reason}) => 'Couldn\'t switch channel: ${reason}',
 			'collections.title' => 'Collections',
-			_ => null,
-		} ?? switch (path) {
 			'collections.collection' => 'Collection',
 			'collections.empty' => 'Collection is empty',
 			'collections.deleteCollection' => 'Delete Collection',
@@ -10151,12 +10167,12 @@ extension on Translations {
 			'metadataEdit.subtitleMode' => 'Auto-Select Subtitle Mode',
 			'metadataEdit.manuallySelected' => 'Manually selected',
 			'metadataEdit.shownWithForeignAudio' => 'Shown with foreign audio',
+			_ => null,
+		} ?? switch (path) {
 			'metadataEdit.alwaysEnabled' => 'Always enabled',
 			'metadataEdit.tags' => 'Tags',
 			'metadataEdit.addTag' => 'Add tag',
 			'metadataEdit.genre' => 'Genre',
-			_ => null,
-		} ?? switch (path) {
 			'metadataEdit.director' => 'Director',
 			'metadataEdit.writer' => 'Writer',
 			'metadataEdit.producer' => 'Producer',

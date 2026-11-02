@@ -39,7 +39,9 @@ class ServerCapabilities {
   final bool continueWatchingRemoval;
 
   /// External subtitle search/marketplace (Plex `/library/metadata/{id}/subtitles`).
-  /// Hides the "Search subtitles" affordance when false.
+  /// Hides the "Search subtitles" affordance when false. A PlezyFin server
+  /// is asked at run time instead (`PlezyFin/Subtitles/Status`, see
+  /// `subtitleSearchOffered`), so this stays false for Jellyfin.
   final bool externalSubtitleSearch;
 
   /// Server exposes metadata edit endpoints. Hides edit affordances when false.
