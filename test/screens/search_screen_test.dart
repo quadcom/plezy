@@ -186,7 +186,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(client.queries, isEmpty);
-    expect(find.byIcon(Symbols.error_rounded), findsOneWidget);
+    // The screen's own error state; the error message bar carries the same
+    // icon, so leave that one out.
+    expect(
+      find
+          .byIcon(Symbols.error_rounded)
+          .evaluate()
+          .where((element) => element.findAncestorWidgetOfExactType<SnackBar>() == null),
+      hasLength(1),
+    );
     expect(find.byKey(const Key('tv_virtual_keyboard_panel')), findsNothing);
     expect(FocusManager.instance.primaryFocus?.debugLabel, 'SearchInput');
 

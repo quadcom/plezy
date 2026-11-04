@@ -136,7 +136,7 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
 
       if (!targetIsCurrent()) return SubtitleDownloadApplyOutcome.superseded;
       if (newTrack == null) return SubtitleDownloadApplyOutcome.timedOut;
-      final outcome = await switchSource(newSubtitleChoice: PlaybackSourceSubtitleChoice.source(newTrack.id));
+      final outcome = await switchSource(newSubtitleChoice: PlaybackSourceSubtitleChoice.downloaded(newTrack.id));
       return subtitleDownloadApplyOutcomeFor(outcome);
     } catch (e) {
       appLogger.w('Failed to refresh subtitles after download', error: e);
@@ -181,7 +181,7 @@ extension _PlexVideoControlsNavigationMethods on _PlexVideoControlsState {
       if (found.superseded || !targetIsCurrent()) return SubtitleDownloadApplyOutcome.superseded;
       final index = found.index;
       if (index == null) return SubtitleDownloadApplyOutcome.timedOut;
-      final outcome = await switchSource(newSubtitleChoice: PlaybackSourceSubtitleChoice.source(index));
+      final outcome = await switchSource(newSubtitleChoice: PlaybackSourceSubtitleChoice.downloaded(index));
       return subtitleDownloadApplyOutcomeFor(outcome);
     } catch (e) {
       appLogger.w('Failed to switch to the downloaded PlezyFin subtitle', error: e);

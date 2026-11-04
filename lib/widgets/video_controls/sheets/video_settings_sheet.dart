@@ -21,7 +21,6 @@ import '../../../services/scoped_player_prefs.dart';
 import '../../../services/settings_service.dart';
 import '../../../services/sleep_timer_service.dart';
 import '../../../services/video_filter_manager.dart';
-import '../../../focus/focusable_wrapper.dart';
 import '../../../utils/dialogs.dart';
 import '../../../utils/app_logger.dart';
 import '../../../utils/formatters.dart';
@@ -521,7 +520,6 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     if (controller == null) return;
 
     final title = isSubtitle ? t.videoSettings.subtitleSync : t.videoSettings.audioSync;
-    final icon = isSubtitle ? Symbols.subtitles_rounded : Symbols.sync_rounded;
     final propertyName = isSubtitle ? 'sub-delay' : 'audio-delay';
     final initialOffset = isSubtitle ? _subtitleSyncOffset : _audioSyncOffset;
 
@@ -529,36 +527,49 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
     // The creator disposes it after the overlay's lifecycle completes.
     final sliderFocusNode = FocusNode(debugLabel: 'SyncSlider');
 
-    // show() with new alignment replaces the current sheet (completing the
-    // settings sheet future, which restarts the auto-hide timer via
-    // whenComplete in track_chapter_controls). Cancel it again here.
+    // The bar sits bare at the top of the picture: no dimming, no panel, and
+    // the player controls hidden while it is open, so the viewer judges sync
+    // on the clear picture (local/plans/subtitle-download-fixes.md part 4).
+    final state = _state;
     controller
         .show(
           alignment: .topCenter,
-          constraints: const BoxConstraints(maxHeight: 80, maxWidth: 900),
+          bare: true,
+          constraints: const BoxConstraints(maxHeight: 64, maxWidth: 640),
           initialFocusNode: sliderFocusNode,
           builder: (_) => _CompactSyncBar(
             title: title,
-            icon: icon,
             player: widget.player,
             propertyName: propertyName,
             initialOffset: initialOffset,
             sliderFocusNode: sliderFocusNode,
             onOffsetChanged: (offset) async {
               final pref = isSubtitle ? ScopedPlayerPrefs.subtitleSyncOffset : ScopedPlayerPrefs.audioSyncOffset;
-              await ScopedPlayerPrefs.write(pref, _state.metadata, offset);
+              await ScopedPlayerPrefs.write(pref, state.metadata, offset);
             },
           ),
         )
         .whenComplete(() {
           sliderFocusNode.dispose();
-          _state.onStartAutoHide?.call();
+          final showControls = state.onShowControls;
+          if (showControls != null) {
+            showControls();
+          } else {
+            state.onStartAutoHide?.call();
+          }
         });
 
-    // Cancel auto-hide after show() — the previous sheet's whenComplete
-    // fires as a microtask and restarts the timer, so schedule our cancel
-    // to run after that microtask.
-    Future.microtask(() => _state.onCancelAutoHide?.call());
+    // show() replaced the settings sheet, whose whenComplete (in
+    // track_chapter_controls) restarts the auto-hide timer as a microtask.
+    // Schedule ours after it so the controls end up hidden.
+    Future.microtask(() {
+      final hideControls = state.onHideControls;
+      if (hideControls != null) {
+        hideControls();
+      } else {
+        state.onCancelAutoHide?.call();
+      }
+    });
   }
 
   void _navigateBack() {
@@ -1463,10 +1474,14 @@ class _VideoSettingsSheetState extends State<VideoSettingsSheet> {
   }
 }
 
-/// Compact sync bar shown at the top of the screen so subtitles remain visible.
+/// Sync bar shown bare at the top of the picture: a short title, the slider
+/// and the value, nothing behind it (local/plans/subtitle-download-fixes.md
+/// part 4). Left/right moves the value; OK or Back closes; holding OK resets
+/// to 0. A tap outside closes it on touch. Mouse and touch get a small reset
+/// button, phones the -/+ steps for fine moves; a TV gets neither, since the
+/// remote can't reach them.
 class _CompactSyncBar extends StatefulWidget {
   final String title;
-  final IconData icon;
   final Player player;
   final String propertyName;
   final int initialOffset;
@@ -1475,7 +1490,6 @@ class _CompactSyncBar extends StatefulWidget {
 
   const _CompactSyncBar({
     required this.title,
-    required this.icon,
     required this.player,
     required this.propertyName,
     required this.initialOffset,
@@ -1489,23 +1503,29 @@ class _CompactSyncBar extends StatefulWidget {
 
 class _CompactSyncBarState extends State<_CompactSyncBar> {
   final _resetFocusNode = FocusNode(debugLabel: 'SyncResetButton');
-  final _closeFocusNode = FocusNode(debugLabel: 'SyncCloseButton');
 
   @override
   void dispose() {
     _resetFocusNode.dispose();
-    _closeFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final isTV = PlatformDetector.isTV();
+    final isPhone = PlatformDetector.isMobile(context) && !isTV;
     return Row(
       children: [
-        const SizedBox(width: 16),
-        AppIcon(widget.icon, fill: 1, color: tokens(context).textMuted, size: 20),
-        const SizedBox(width: 8),
-        Text(widget.title, style: const TextStyle(fontWeight: .w600, fontSize: 14)),
+        const SizedBox(width: 12),
+        Text(
+          widget.title,
+          style: const TextStyle(
+            fontWeight: .w600,
+            fontSize: 14,
+            color: Colors.white,
+            shadows: SyncOffsetControl.overVideoShadows,
+          ),
+        ),
         Expanded(
           child: SyncOffsetControl(
             player: widget.player,
@@ -1514,28 +1534,13 @@ class _CompactSyncBarState extends State<_CompactSyncBar> {
             onOffsetChanged: widget.onOffsetChanged,
             sliderFocusNode: widget.sliderFocusNode,
             resetFocusNode: _resetFocusNode,
-            closeFocusNode: _closeFocusNode,
+            overVideo: true,
+            showStepButtons: isPhone,
+            showReset: !isTV,
+            resetOnLongSelect: true,
+            onDone: () => OverlaySheetController.of(context).close(),
           ),
         ),
-        const SizedBox(width: 8),
-        FocusableWrapper(
-          focusNode: _closeFocusNode,
-          onSelect: () => OverlaySheetController.of(context).close(),
-          onNavigateLeft: () => _resetFocusNode.requestFocus(),
-          borderRadius: 18,
-          autoScroll: false,
-          useBackgroundFocus: true,
-          child: GestureDetector(
-            onTap: () => OverlaySheetController.of(context).close(),
-            child: Container(
-              width: 36,
-              height: 36,
-              alignment: .center,
-              child: AppIcon(Symbols.close_rounded, fill: 1, color: tokens(context).textMuted, size: 22),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
       ],
     );
   }

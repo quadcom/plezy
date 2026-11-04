@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:material_symbols_icons/symbols.dart';
 
 import '../navigation/profile_navigation_scope.dart';
+import '../widgets/app_icon.dart';
 import 'layout_constants.dart';
 import 'platform_detector.dart';
 
@@ -60,11 +62,33 @@ double _desktopSnackBarWidth(BuildContext context) {
   return width < _kDesktopSnackBarMaxWidth ? width : _kDesktopSnackBarMaxWidth;
 }
 
-(Color?, Duration) _snackBarStyle(SnackBarType type) => switch (type) {
-  SnackBarType.info => (null, AppDurations.snackBarDefault),
-  SnackBarType.success => (Colors.green, AppDurations.snackBarDefault),
-  SnackBarType.error => (Colors.red, AppDurations.snackBarLong),
+/// Every bar keeps the app's own dark background and readable text colour;
+/// success and error are told apart by a small coloured icon instead of a
+/// green or red fill, whose light text was hard to read
+/// (local/plans/subtitle-download-fixes.md, part 1).
+Duration _snackBarDuration(SnackBarType type) => switch (type) {
+  SnackBarType.info || SnackBarType.success => AppDurations.snackBarDefault,
+  SnackBarType.error => AppDurations.snackBarLong,
 };
+
+const _successIconColor = Color(0xFF4CAF50);
+const _errorIconColor = Color(0xFFEF5350);
+
+Widget _snackBarContent(String message, SnackBarType type) {
+  final (icon, color) = switch (type) {
+    SnackBarType.info => (null, null),
+    SnackBarType.success => (Symbols.check_circle_rounded, _successIconColor),
+    SnackBarType.error => (Symbols.error_rounded, _errorIconColor),
+  };
+  if (icon == null) return Text(message);
+  return Row(
+    children: [
+      AppIcon(icon, fill: 1, size: 20, color: color),
+      const SizedBox(width: 12),
+      Flexible(child: Text(message)),
+    ],
+  );
+}
 
 void showSnackBar(
   BuildContext context,
@@ -75,15 +99,14 @@ void showSnackBar(
 }) {
   if (!context.mounted) return;
 
-  final (backgroundColor, defaultDuration) = _snackBarStyle(type);
   final messenger = ScaffoldMessenger.of(context);
   messenger.showSnackBar(
     _buildSnackBar(
       context,
       messenger,
-      content: Text(message),
-      backgroundColor: backgroundColor,
-      duration: duration ?? defaultDuration,
+      content: _snackBarContent(message, type),
+      backgroundColor: null,
+      duration: duration ?? _snackBarDuration(type),
       dismissible: dismissible,
     ),
   );
@@ -105,8 +128,8 @@ void showGlobalErrorSnackBar(String message) {
     _buildSnackBar(
       messenger.context,
       messenger,
-      content: Text(message),
-      backgroundColor: Colors.red,
+      content: _snackBarContent(message, SnackBarType.error),
+      backgroundColor: null,
       duration: AppDurations.snackBarLong,
     ),
   );

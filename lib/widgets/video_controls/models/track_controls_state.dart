@@ -100,6 +100,11 @@ class TrackControlsState {
   final Future<void> Function(double rate)? onRateRequested;
   final VoidCallback? onCancelAutoHide;
   final VoidCallback? onStartAutoHide;
+
+  /// Take the player controls off screen, and bring them back. The sync bar
+  /// hides them while it is open so only the picture and the bar show.
+  final VoidCallback? onHideControls;
+  final VoidCallback? onShowControls;
   final String? serverId;
   final ShaderService? shaderService;
   final VoidCallback? onShaderChanged;
@@ -185,6 +190,8 @@ class TrackControlsState {
     this.onRateRequested,
     this.onCancelAutoHide,
     this.onStartAutoHide,
+    this.onHideControls,
+    this.onShowControls,
     this.serverId,
     this.metadata,
     this.shaderService,

@@ -114,7 +114,18 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       } catch (_) {}
     }
 
-    if (newSubtitleChoice != null && newMediaIndex == null && newPreset == null && newAudioStreamId == null) {
+    // A just-downloaded file is missing from (or shifted in) the catalog this
+    // session opened with, so it can only arrive through a reload that picks
+    // it by id from the fresh catalog.
+    final downloadedSubtitleId = newSubtitleChoice != null && newSubtitleChoice.fromNewerListing
+        ? newSubtitleChoice.sourceStreamId
+        : null;
+
+    if (newSubtitleChoice != null &&
+        downloadedSubtitleId == null &&
+        newMediaIndex == null &&
+        newPreset == null &&
+        newAudioStreamId == null) {
       try {
         final selected = await _selectSourceSubtitleLocally(
           currentPlayer,
@@ -142,6 +153,11 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
         ? SubtitlePreference.trackOrNull(_playbackSession?.subtitleSelection.primaryTrack)
         : newSubtitleChoice.isOff
         ? const SubtitlePreference.off()
+        : downloadedSubtitleId != null
+        // The id alone, no language: the open then matches the fresh row by
+        // id instead of re-deriving it by language, which could land on an
+        // older file of the same language.
+        ? SubtitlePreference.track(SubtitleTrack(id: 'source:$downloadedSubtitleId'))
         : SubtitlePreference.trackOrNull(
             PlaybackSubtitleResolver.preferredTrackForSource(_currentMediaInfo, newSubtitleChoice.sourceStreamId!),
           );
@@ -159,7 +175,9 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
     final pickForcesConversion = newPreset != null && !newPreset.isOriginal;
     final isForceChange = pickForcesConversion && !_qualityPickedInPlayer;
     final isAudioChange = effectiveAudioStreamId != _selectedAudioStreamId;
-    final isSubtitleChange = newSubtitleChoice != null && newSubtitleChoice != currentSubtitleChoice;
+    // A download always reloads: its id may equal a different, older row's.
+    final isSubtitleChange =
+        newSubtitleChoice != null && (downloadedSubtitleId != null || newSubtitleChoice != currentSubtitleChoice);
     if (!isVersionChange && !isPresetChange && !isForceChange && !isAudioChange && !isSubtitleChange) {
       rememberSourceAudioPreference();
       rememberSourceSubtitlePreference();
@@ -221,6 +239,16 @@ extension _VideoPlayerReloadMethods on VideoPlayerScreenState {
       if (outcome == MediaReloadOutcome.opened) {
         rememberSourceAudioPreference();
         rememberSourceSubtitlePreference();
+        // Only claim success when the downloaded file is the one now on, so
+        // the sheet never says "downloaded" over a player with subtitles off.
+        if (downloadedSubtitleId != null &&
+            _playbackSession?.subtitleSelection.primarySourceStreamId != downloadedSubtitleId) {
+          appLogger.w(
+            'Downloaded subtitle $downloadedSubtitleId not selected after reload '
+            '(selected: ${_playbackSession?.subtitleSelection.primarySourceStreamId})',
+          );
+          return PlaybackSourceChangeOutcome.failed;
+        }
       }
       return switch (outcome) {
         MediaReloadOutcome.opened => PlaybackSourceChangeOutcome.applied,

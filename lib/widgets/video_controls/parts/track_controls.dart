@@ -199,6 +199,12 @@ extension _PlexVideoControlsTrackMethods on _PlexVideoControlsState {
       onRateRequested: widget.onRateRequested,
       onCancelAutoHide: widget.chromeController.cancelAutoHide,
       onStartAutoHide: _startHideTimer,
+      onHideControls: () {
+        if (mounted) widget.chromeController.hide(ignoreHolds: true);
+      },
+      onShowControls: () {
+        if (mounted) widget.chromeController.show();
+      },
       serverId: widget.metadata.serverId,
       metadata: widget.metadata,
       shaderService: widget.shaderService,

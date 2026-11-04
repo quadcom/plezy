@@ -87,4 +87,74 @@ void main() {
 
     expect(selected, 1);
   });
+
+  group('with a long select', () {
+    late FocusNode focusNode;
+    late int selected;
+    late int longSelected;
+
+    Future<void> pumpSlider(WidgetTester tester) async {
+      focusNode = FocusNode(debugLabel: 'slider');
+      addTearDown(focusNode.dispose);
+      selected = 0;
+      longSelected = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: FocusableSlider(
+              focusNode: focusNode,
+              value: 0,
+              onChanged: (_) {},
+              onSelect: () => selected++,
+              onLongSelect: () => longSelected++,
+            ),
+          ),
+        ),
+      );
+      focusNode.requestFocus();
+      await tester.pump();
+    }
+
+    testWidgets('a short press runs the select action on release', (tester) async {
+      await pumpSlider(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(selected, 0, reason: 'nothing happens until the key is released');
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(selected, 1);
+      expect(longSelected, 0);
+    });
+
+    testWidgets('holding select runs the long action only', (tester) async {
+      await pumpSlider(tester);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(longSelected, 1);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      await tester.pump();
+
+      expect(selected, 0);
+      expect(longSelected, 1);
+    });
+
+    testWidgets('a release with no press seen here does nothing', (tester) async {
+      // The OK press that opened the sync bar ends on the newly focused slider.
+      await pumpSlider(tester);
+      focusNode.unfocus();
+      await tester.pump();
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.select);
+      focusNode.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.select);
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(selected, 0);
+      expect(longSelected, 0);
+    });
+  });
 }

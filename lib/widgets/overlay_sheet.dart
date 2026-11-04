@@ -61,6 +61,10 @@ class OverlaySheetController {
   ///
   /// [alignment] controls where the sheet appears. Defaults to
   /// [Alignment.bottomCenter]. Use [Alignment.topCenter] to anchor at the top.
+  ///
+  /// [bare] draws no dimming over the screen and no sheet panel, only the
+  /// content (a tap outside still closes it when [barrierDismissible]). For
+  /// controls that must leave the picture untouched, like the sync bar.
   Future<T?> show<T>({
     required WidgetBuilder builder,
     BoxConstraints? constraints,
@@ -69,6 +73,7 @@ class OverlaySheetController {
     FocusNode? initialFocusNode,
     Alignment alignment = Alignment.bottomCenter,
     bool showDragHandle = false,
+    bool bare = false,
   }) {
     return _state._show<T>(
       builder: builder,
@@ -78,6 +83,7 @@ class OverlaySheetController {
       initialFocusNode: initialFocusNode,
       alignment: alignment,
       showDragHandle: showDragHandle,
+      bare: bare,
     );
   }
 
@@ -303,6 +309,7 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
   BoxConstraints? _constraints;
   Color? _explicitBackgroundColor;
   Alignment _alignment = Alignment.bottomCenter;
+  bool _bare = false;
   Offset? _lastPointerPosition;
   double? _sheetHorizontalAnchor;
 
@@ -363,6 +370,7 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
     FocusNode? initialFocusNode,
     Alignment alignment = Alignment.bottomCenter,
     bool showDragHandle = false,
+    bool bare = false,
   }) {
     BackKeyCoordinator.clear();
     // If already open, close first (instant)
@@ -391,6 +399,7 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
       _constraints = constraints;
       _explicitBackgroundColor = backgroundColor;
       _alignment = alignment;
+      _bare = bare;
       _sheetHorizontalAnchor = horizontalAnchor;
       _dragOffset = 0;
       _isDragging = false;
@@ -580,7 +589,9 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
                   builder: (context, child) {
                     return GestureDetector(
                       onTap: _barrierDismissible ? () => _close() : null,
-                      child: ColoredBox(color: Colors.black.withValues(alpha: _barrierAnimation.value)),
+                      child: ColoredBox(
+                        color: _bare ? Colors.transparent : Colors.black.withValues(alpha: _barrierAnimation.value),
+                      ),
                     );
                   },
                 ),
@@ -767,7 +778,7 @@ class _OverlaySheetHostState extends State<OverlaySheetHost> with SingleTickerPr
                 bottom: false,
                 child: Material(
                   key: _sheetKey,
-                  color: _explicitBackgroundColor ?? colorScheme.surface,
+                  color: _bare ? Colors.transparent : (_explicitBackgroundColor ?? colorScheme.surface),
                   borderRadius: borderRadius,
                   clipBehavior: Clip.antiAlias,
                   child: SafeArea(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -14,6 +16,13 @@ class FocusableSlider extends StatefulWidget {
   final ValueChanged<double>? onChangeStart;
   final ValueChanged<double>? onChangeEnd;
   final VoidCallback? onSelect;
+
+  /// Holding select for [longSelectDuration]. When set, a short press runs
+  /// [onSelect] on key-up instead of key-down, so the two can be told apart;
+  /// a key-up with no key-down seen here (the press that opened this
+  /// slider) does nothing.
+  final VoidCallback? onLongSelect;
+  final Duration longSelectDuration;
   final FocusNode? focusNode;
   final bool autofocus;
 
@@ -29,6 +38,8 @@ class FocusableSlider extends StatefulWidget {
     this.onChangeStart,
     this.onChangeEnd,
     this.onSelect,
+    this.onLongSelect,
+    this.longSelectDuration = const Duration(milliseconds: 700),
     this.focusNode,
     this.autofocus = false,
     this.activeColor,
@@ -41,6 +52,44 @@ class FocusableSlider extends StatefulWidget {
 
 class _FocusableSliderState extends State<FocusableSlider> {
   bool _isFocused = false;
+
+  /// Running while select is held and the long press hasn't fired yet.
+  Timer? _longSelectTimer;
+
+  /// Select went down here; cleared when its key-up is handled.
+  bool _selectDown = false;
+
+  @override
+  void dispose() {
+    _longSelectTimer?.cancel();
+    super.dispose();
+  }
+
+  KeyEventResult _handleSelectWithLongPress(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      _selectDown = true;
+      _longSelectTimer?.cancel();
+      _longSelectTimer = Timer(widget.longSelectDuration, () {
+        _longSelectTimer = null;
+        if (mounted) widget.onLongSelect?.call();
+      });
+      return KeyEventResult.handled;
+    }
+    if (event is KeyUpEvent) {
+      if (!_selectDown) return KeyEventResult.handled;
+      _selectDown = false;
+      final timer = _longSelectTimer;
+      _longSelectTimer = null;
+      if (timer != null) {
+        // Released before the long press fired: a short press.
+        timer.cancel();
+        widget.onSelect?.call();
+      }
+      return KeyEventResult.handled;
+    }
+    // Key repeats while held.
+    return KeyEventResult.handled;
+  }
 
   double get _step {
     if (widget.divisions != null && widget.divisions! > 0) {
@@ -60,6 +109,9 @@ class _FocusableSliderState extends State<FocusableSlider> {
         widget.onChangeEnd?.call(newValue);
       }
       return KeyEventResult.handled;
+    }
+    if (key.isSelectKey && widget.onLongSelect != null) {
+      return _handleSelectWithLongPress(event);
     }
     if (key.isSelectKey && event is KeyDownEvent && widget.onSelect != null) {
       widget.onSelect!();

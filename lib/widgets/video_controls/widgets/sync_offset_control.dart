@@ -32,6 +32,24 @@ class SyncOffsetControl extends StatefulWidget {
   /// auto-focus the slider when the bar opens.
   final FocusNode? sliderFocusNode;
 
+  /// The -/+ buttons either side of the slider.
+  final bool showStepButtons;
+
+  /// The reset button after the value.
+  final bool showReset;
+
+  /// No button backgrounds, and a shadow on the value so it reads straight
+  /// over the picture (the bare sync bar, local/plans/subtitle-download-fixes.md part 4).
+  final bool overVideo;
+
+  /// A short select press on the slider. Falls back to focusing
+  /// [closeFocusNode].
+  final VoidCallback? onDone;
+
+  /// Holding select on the slider resets the offset to 0 (the TV's reset,
+  /// where a reset button can't be reached).
+  final bool resetOnLongSelect;
+
   const SyncOffsetControl({
     super.key,
     required this.player,
@@ -41,7 +59,18 @@ class SyncOffsetControl extends StatefulWidget {
     this.resetFocusNode,
     this.closeFocusNode,
     this.sliderFocusNode,
+    this.showStepButtons = true,
+    this.showReset = true,
+    this.overVideo = false,
+    this.onDone,
+    this.resetOnLongSelect = false,
   });
+
+  /// Keeps light text and icons readable on bright video without a panel.
+  static const overVideoShadows = [
+    Shadow(color: Color(0xCC000000), blurRadius: 6),
+    Shadow(color: Color(0x99000000), blurRadius: 2, offset: Offset(0, 1)),
+  ];
 
   @override
   State<SyncOffsetControl> createState() => _SyncOffsetControlState();
@@ -210,11 +239,18 @@ class _SyncOffsetControlState extends State<SyncOffsetControl> {
         child: Container(
           width: 36,
           height: 36,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
+          decoration: widget.overVideo
+              ? null
+              : BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: const BorderRadius.all(Radius.circular(8)),
+                ),
+          child: AppIcon(
+            icon,
+            color: tokens(context).text,
+            size: 22,
+            shadows: widget.overVideo ? SyncOffsetControl.overVideoShadows : null,
           ),
-          child: AppIcon(icon, color: tokens(context).text, size: 22),
         ),
       ),
     );
@@ -224,69 +260,85 @@ class _SyncOffsetControlState extends State<SyncOffsetControl> {
   Widget build(BuildContext context) {
     final sliderValue = _currentOffset.clamp(_sliderMin, _sliderMax);
 
+    final overVideo = widget.overVideo;
+    final colorScheme = Theme.of(context).colorScheme;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: overVideo ? 8 : 16, vertical: 8),
       child: Row(
         children: [
-          _buildStepButton(
-            icon: Symbols.remove_rounded,
-            onTap: _decrementOffset,
-            onLongPressStart: _startLongPressDecrement,
-          ),
+          if (widget.showStepButtons)
+            _buildStepButton(
+              icon: Symbols.remove_rounded,
+              onTap: _decrementOffset,
+              onLongPressStart: _startLongPressDecrement,
+            ),
           Expanded(
             child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(tickMarkShape: SliderTickMarkShape.noTickMark),
+              data: SliderTheme.of(
+                context,
+              ).copyWith(tickMarkShape: SliderTickMarkShape.noTickMark, trackHeight: overVideo ? 4 : null),
               child: FocusableSlider(
                 focusNode: widget.sliderFocusNode,
                 value: sliderValue,
                 min: _sliderMin,
                 max: _sliderMax,
                 divisions: _sliderDivisions,
-                activeColor: Theme.of(context).colorScheme.primary,
-                inactiveColor: Theme.of(context).colorScheme.outlineVariant,
-                onSelect: widget.closeFocusNode?.requestFocus,
+                activeColor: colorScheme.primary,
+                inactiveColor: overVideo ? Colors.white.withValues(alpha: 0.45) : colorScheme.outlineVariant,
+                onSelect: widget.onDone ?? widget.closeFocusNode?.requestFocus,
+                onLongSelect: widget.resetOnLongSelect ? _resetOffset : null,
                 onChanged: (value) => setState(() => _currentOffset = value),
                 onChangeEnd: _applyOffset,
               ),
             ),
           ),
-          _buildStepButton(
-            icon: Symbols.add_rounded,
-            onTap: _incrementOffset,
-            onLongPressStart: _startLongPressIncrement,
-          ),
+          if (widget.showStepButtons)
+            _buildStepButton(
+              icon: Symbols.add_rounded,
+              onTap: _incrementOffset,
+              onLongPressStart: _startLongPressIncrement,
+            ),
           const SizedBox(width: 12),
           SizedBox(
             width: 80,
             child: Text(
               formatSyncOffset(_currentOffset),
-              style: const TextStyle(fontSize: 16, fontWeight: .bold),
+              style: TextStyle(
+                fontSize: overVideo ? 15 : 16,
+                fontWeight: .bold,
+                color: overVideo ? Colors.white : null,
+                shadows: overVideo ? SyncOffsetControl.overVideoShadows : null,
+              ),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(width: 8),
-          FocusableWrapper(
-            focusNode: widget.resetFocusNode,
-            onSelect: _currentOffset != 0 ? _resetOffset : null,
-            borderRadius: 18,
-            autoScroll: false,
-            useBackgroundFocus: true,
-            child: GestureDetector(
-              onTap: _currentOffset != 0 ? _resetOffset : null,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: .center,
-                child: AppIcon(
-                  Symbols.restart_alt_rounded,
-                  fill: 1,
-                  color: _currentOffset != 0 ? tokens(context).text : tokens(context).textMuted,
-                  size: 22,
-                ),
-              ),
-            ),
-          ),
+          if (widget.showReset) ...[const SizedBox(width: 8), _buildResetButton(context)],
         ],
+      ),
+    );
+  }
+
+  Widget _buildResetButton(BuildContext context) {
+    return FocusableWrapper(
+      focusNode: widget.resetFocusNode,
+      onSelect: _currentOffset != 0 ? _resetOffset : null,
+      borderRadius: 18,
+      autoScroll: false,
+      useBackgroundFocus: true,
+      child: GestureDetector(
+        onTap: _currentOffset != 0 ? _resetOffset : null,
+        child: Container(
+          width: 36,
+          height: 36,
+          alignment: .center,
+          child: AppIcon(
+            Symbols.restart_alt_rounded,
+            fill: 1,
+            color: _currentOffset != 0 ? tokens(context).text : tokens(context).textMuted,
+            size: 22,
+            shadows: widget.overVideo ? SyncOffsetControl.overVideoShadows : null,
+          ),
+        ),
       ),
     );
   }

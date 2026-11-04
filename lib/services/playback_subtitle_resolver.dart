@@ -19,9 +19,21 @@ final class PlaybackSourceSubtitleChoice {
 
   const PlaybackSourceSubtitleChoice.off() : this._(isOff: true);
 
+  /// True for [PlaybackSourceSubtitleChoice.downloaded]: the id belongs to a
+  /// newer catalog than the one the player opened with.
+  final bool fromNewerListing;
+
   const PlaybackSourceSubtitleChoice.source(int sourceStreamId) : this._(isOff: false, sourceStreamId: sourceStreamId);
 
-  const PlaybackSourceSubtitleChoice._({required this.isOff, this.sourceStreamId});
+  /// A subtitle file that was just downloaded: [sourceStreamId] comes from a
+  /// fresher listing than the one the player opened with, where it is missing
+  /// (or, on Jellyfin, where every index has shifted by the new external
+  /// file). The switch must reload and pick it by id from the new catalog,
+  /// never look it up in the stale one (local/plans/subtitle-download-fixes.md).
+  const PlaybackSourceSubtitleChoice.downloaded(int sourceStreamId)
+    : this._(isOff: false, sourceStreamId: sourceStreamId, fromNewerListing: true);
+
+  const PlaybackSourceSubtitleChoice._({required this.isOff, this.sourceStreamId, this.fromNewerListing = false});
 
   @override
   bool operator ==(Object other) =>

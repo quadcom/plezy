@@ -2278,6 +2278,37 @@ void main() {
       expect(find.text('+45.0s'), findsOneWidget);
       expect(tester.widget<Slider>(find.byType(Slider)).value, 10000);
     });
+
+    testWidgets('the TV bar shows only the slider and the value', (tester) async {
+      LocaleSettings.setLocaleSync(AppLocale.en);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(extensions: const [testMonoTokens]),
+          home: Scaffold(
+            body: SizedBox(
+              width: 700,
+              child: SyncOffsetControl(
+                player: _FakeSyncPlayer(),
+                propertyName: 'audio-delay',
+                initialOffset: 100,
+                onOffsetChanged: (_) async {},
+                overVideo: true,
+                showStepButtons: false,
+                showReset: false,
+                resetOnLongSelect: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.byType(Slider), findsOneWidget);
+      expect(find.text('+100ms'), findsOneWidget);
+      expect(find.byIcon(Symbols.add_rounded), findsNothing);
+      expect(find.byIcon(Symbols.remove_rounded), findsNothing);
+      expect(find.byIcon(Symbols.restart_alt_rounded), findsNothing);
+    });
   });
 
   group('VideoControlButton semantics', () {
