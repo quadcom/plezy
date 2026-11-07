@@ -103,11 +103,11 @@ void main() {
       expect((picked?.trailer.id, picked?.isShowTrailer), ('plain', true));
     });
 
-    test("never a show trailer named for another season", () {
-      expect(
-        pickSeasonPageTrailer(seasonNumber: 1, seasonExtras: const [], showExtras: [_trailer('s5', 'Show S05')]),
-        isNull,
-      );
+    test("last, the show trailer named for the highest season (the show copy)", () {
+      final showExtras = [_trailer('s2', 'Scrubs S02'), _trailer('s1', 'Scrubs S01-x')];
+      final picked = pickSeasonPageTrailer(seasonNumber: 3, seasonExtras: const [], showExtras: showExtras);
+      expect((picked?.trailer.id, picked?.isShowTrailer), ('s2', true));
+      expect(pickSeasonPageTrailer(seasonNumber: 1, seasonExtras: const [], showExtras: const []), isNull);
     });
   });
 

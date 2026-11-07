@@ -95,10 +95,11 @@ MediaItem? pickSeasonTrailer({
 
 /// The trailer a season page's button plays, and whether it is the show's
 /// rather than the season's. The season's own, then the show trailer named
-/// for this season, then the show's first trailer that names no season
-/// (Adrian, 2026-11-07: "every season missing its trailer will play the
-/// show's trailer"). A show trailer named for another season is never used.
-/// Same order as the web fork (PLAN_PFN_109).
+/// for this season, then the show's first trailer that names no season,
+/// then, as a last resort, the show trailer named for the highest season,
+/// which is MediaBridge's show copy (Adrian, 2026-11-07: "every season
+/// missing its trailer will play the show's trailer"; asked again, "play the
+/// show copy"). Same order as the web fork (PLAN_PFN_109).
 ({MediaItem trailer, bool isShowTrailer})? pickSeasonPageTrailer({
   required int? seasonNumber,
   required List<MediaItem> seasonExtras,
@@ -109,7 +110,17 @@ MediaItem? pickSeasonTrailer({
   for (final extra in showExtras) {
     if (isTrailerExtra(extra) && trailerSeasonNumber(extra) == null) return (trailer: extra, isShowTrailer: true);
   }
-  return null;
+  MediaItem? newest;
+  var newestSeason = 0;
+  for (final extra in showExtras) {
+    if (!isTrailerExtra(extra)) continue;
+    final season = trailerSeasonNumber(extra);
+    if (season != null && season > newestSeason) {
+      newest = extra;
+      newestSeason = season;
+    }
+  }
+  return newest == null ? null : (trailer: newest, isShowTrailer: true);
 }
 
 /// A season page's Trailers & Extras row: the season's trailers, then its

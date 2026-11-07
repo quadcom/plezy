@@ -362,7 +362,7 @@ void main() {
       expect(find.text('Watch trailer'), findsOneWidget);
     });
 
-    testWidgets("a season never plays another season's trailer", (tester) async {
+    testWidgets("with nothing else, a season plays the show copy as the show's trailer", (tester) async {
       await pump(
         tester,
         const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1'),
@@ -372,6 +372,7 @@ void main() {
         },
       );
       expect(find.text('Watch trailer'), findsNothing);
+      expect(find.text('Show trailer'), findsOneWidget);
     });
 
     testWidgets("a season without one plays the show's trailer (Adrian, 2026-11-07)", (tester) async {
