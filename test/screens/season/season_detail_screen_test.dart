@@ -11,11 +11,13 @@ import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/screens/media_detail_screen.dart';
 import 'package:plezy/screens/season/season_detail_screen.dart';
 import 'package:plezy/screens/season/season_poster_row.dart';
+import 'package:plezy/services/settings_service.dart';
 import 'package:plezy/theme/mono_theme.dart';
 import 'package:plezy/utils/media_server_http_client.dart';
 import 'package:provider/provider.dart';
 
 import '../../test_helpers/multi_server_fixtures.dart';
+import '../../test_helpers/prefs.dart';
 
 const _serverId = 'srv-season';
 
@@ -146,6 +148,13 @@ void main() {
   setUpAll(() async {
     LocaleSettings.setLocaleSync(AppLocale.en);
     await initializeDateFormatting('en');
+  });
+
+  // The Trailers & Extras row reads app settings.
+  setUp(() async {
+    resetSharedPreferencesForTest();
+    SettingsService.resetForTesting();
+    await SettingsService.getInstance();
   });
 
   final seasons = [_season(1), _season(2)];
@@ -363,6 +372,35 @@ void main() {
         },
       );
       expect(find.text('Watch trailer'), findsNothing);
+    });
+
+    testWidgets("a season without one plays the show's trailer (Adrian, 2026-11-07)", (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1'),
+        extras: {
+          'show': [trailer('t2', 'The Expanse S02'), trailer('plain', 'The Expanse -')],
+        },
+      );
+      expect(find.text('Show trailer'), findsOneWidget);
+      expect(find.text('Watch trailer'), findsNothing);
+    });
+
+    testWidgets('the season page lists trailers and extras under the episodes', (tester) async {
+      await pump(
+        tester,
+        const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+        extras: {
+          's2': [trailer('own2', 'The Expanse S02')],
+          'show': [trailer('plain', 'The Expanse -')],
+        },
+      );
+      expect(find.text('Trailers & Extras'), findsOneWidget);
+    });
+
+    testWidgets('no row when there are no extras', (tester) async {
+      await pump(tester, const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'));
+      expect(find.text('Trailers & Extras'), findsNothing);
     });
   });
 

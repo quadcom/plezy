@@ -5,10 +5,12 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../../focus/focusable_button.dart';
 import '../../focus/input_mode_tracker.dart';
+import '../../focus/locked_hub_controller.dart';
 import '../../i18n/strings.g.dart';
 import '../../media/episode_collection.dart';
 import '../../media/ids.dart';
 import '../../media/library_query.dart';
+import '../../media/media_hub.dart';
 import '../../media/media_item.dart';
 import '../../media/media_item_types.dart';
 import '../../media/media_server_client.dart';
@@ -22,6 +24,7 @@ import '../../utils/video_player_navigation.dart';
 import '../../widgets/app_bar_back_button.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/cycling_media_backdrop.dart';
+import '../../widgets/hub_section.dart';
 import '../../widgets/media_context_menu.dart';
 import '../../widgets/media_rail/rail_parts.dart';
 import '../../widgets/optimized_media_image.dart';
@@ -91,6 +94,14 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
   int _total = 0;
   MediaItem? _onDeck;
   MediaItem? _trailer;
+
+  /// [_trailer] is the show's, played because the season has none of its own.
+  bool _trailerIsShows = false;
+
+  /// The Trailers & Extras row under the episodes.
+  List<MediaItem> _extras = const [];
+  final _extrasKey = GlobalKey<HubSectionState>();
+  final _hubFocusMemory = HubFocusMemory();
   bool _loading = true;
   bool _failed = false;
   bool _loadingMore = false;
@@ -250,14 +261,28 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       final seasonExtras = await seasonExtrasFuture;
       if (!mounted) return;
 
-      // A season page plays that season's trailer only, never another
-      // season's (Adrian, 2026-10-15); the whole-show page keeps the show's.
-      final trailer = show == null
+      // A season page plays its own trailer, else the show trailer named
+      // for it, else the show's trailer (Adrian, 2026-11-07); never one named
+      // for another season. The whole-show page keeps the show's.
+      final picked = show == null
           ? null
           : (seasonExtras == null
-                    ? pickShowTrailer(show, extras)
-                    : pickSeasonTrailer(seasonNumber: season?.index, seasonExtras: seasonExtras, showExtras: extras))
-                ?.copyWith(serverId: show.serverId, serverName: show.serverName);
+                ? switch (pickShowTrailer(show, extras)) {
+                    final trailer? => (trailer: trailer, isShowTrailer: false),
+                    null => null,
+                  }
+                : pickSeasonPageTrailer(seasonNumber: season?.index, seasonExtras: seasonExtras, showExtras: extras));
+      final trailer = picked?.trailer.copyWith(serverId: show?.serverId, serverName: show?.serverName);
+      final rowExtras = show == null
+          ? const <MediaItem>[]
+          : [
+              for (final extra in seasonPageExtras(
+                seasonNumber: seasonExtras == null ? null : season?.index,
+                seasonExtras: seasonExtras ?? const [],
+                showExtras: extras,
+              ))
+                extra.copyWith(serverId: show.serverId, serverName: show.serverName),
+            ];
       setState(() {
         _show = show;
         _season = season;
@@ -265,6 +290,8 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         _total = total < episodes.length ? episodes.length : total;
         _onDeck = onDeck;
         _trailer = trailer;
+        _trailerIsShows = picked?.isShowTrailer ?? false;
+        _extras = rowExtras;
         _selected = _firstLoad
             ? _initialSelection(episodes, onDeck)
             : _selected.clamp(0, episodes.isEmpty ? 0 : episodes.length - 1);
@@ -367,6 +394,11 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       isLaunchCurrent: () => mounted,
     );
   }
+
+  void _playExtra(MediaItem extra) =>
+      unawaited(navigateToVideoPlayer(context, metadata: extra, isLaunchCurrent: () => mounted));
+
+  void _focusExtras() => _extrasKey.currentState?.requestFocusFromMemory();
 
   void _openMoreMenu() => _moreMenuKey.currentState?.showContextMenu(context);
 
@@ -477,6 +509,27 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
           const SizedBox(height: 10),
           _buildRail(context, client, size, wide, hideSpoilers),
           if (_episodes.isNotEmpty) ...[const SizedBox(height: 16), _buildNotes(context, hideSpoilers)],
+          if (_extras.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            HubSection(
+              key: _extrasKey,
+              hub: MediaHub(
+                id: 'season_extras',
+                title: t.discover.extras,
+                type: 'clip',
+                items: _extras,
+                size: _extras.length,
+              ),
+              focusMemory: _hubFocusMemory,
+              icon: Symbols.theaters_rounded,
+              inset: true,
+              onItemTap: _playExtra,
+              onVerticalNavigation: (isUp) {
+                if (isUp) _focusSelectedEpisode();
+                return true;
+              },
+            ),
+          ],
         ],
       ),
     );
@@ -627,7 +680,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             child: OutlinedButton.icon(
               onPressed: playTrailer,
               icon: const AppIcon(Symbols.theaters_rounded, fill: 1),
-              label: Text(t.seasonPage.watchTrailer),
+              label: Text(_trailerIsShows ? t.seasonPage.showTrailer : t.seasonPage.watchTrailer),
             ),
           ),
         if (menuItem != null)
@@ -679,6 +732,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
               _select(i);
             },
             onNavigateUp: () => _primaryFocus.requestFocus(),
+            onNavigateDown: _extras.isEmpty ? null : _focusExtras,
             onSelect: () {
               // An upcoming episode has nothing to play: OK or a tap only
               // picks it, so its notes show.

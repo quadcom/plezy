@@ -78,6 +78,7 @@ class RailItemCard extends StatefulWidget {
     required this.onFocused,
     required this.onSelect,
     required this.onNavigateUp,
+    this.onNavigateDown,
     required this.semanticLabel,
     this.blurStill = false,
     this.onRefresh,
@@ -93,6 +94,10 @@ class RailItemCard extends StatefulWidget {
   final VoidCallback onFocused;
   final VoidCallback onSelect;
   final VoidCallback onNavigateUp;
+
+  /// Down from the rail, e.g. to a row below it. Null leaves it to the
+  /// default focus traversal.
+  final VoidCallback? onNavigateDown;
   final String semanticLabel;
 
   /// Blurs the still (spoiler hiding for unwatched episodes).
@@ -126,6 +131,7 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
             enableLongPress: true,
             onLongPress: showContextMenu,
             onNavigateUp: widget.onNavigateUp,
+            onNavigateDown: widget.onNavigateDown,
             onFocusChange: (focused) {
               if (focused) widget.onFocused();
             },
@@ -236,6 +242,7 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
             borderRadius: 10,
             onSelect: widget.onSelect,
             onNavigateUp: widget.onNavigateUp,
+            onNavigateDown: widget.onNavigateDown,
             onFocusChange: (focused) {
               if (focused) widget.onFocused();
             },

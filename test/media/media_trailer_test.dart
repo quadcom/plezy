@@ -6,6 +6,10 @@ import 'package:plezy/media/media_trailer.dart';
 PlexMediaItem _trailer(String id, String title) =>
     PlexMediaItem(id: id, kind: MediaKind.clip, subtype: 'trailer', title: title);
 
+/// A Jellyfin trailer whose title and file name can differ.
+JellyfinMediaItem _jfTrailer(String id, String title, {String? path}) =>
+    JellyfinMediaItem(id: id, kind: MediaKind.clip, title: title, raw: {'ExtraType': 'Trailer', 'Path': ?path});
+
 void main() {
   const show = PlexMediaItem(id: 'show', kind: MediaKind.show, title: 'Monster');
 
@@ -17,10 +21,38 @@ void main() {
       expect(trailerSeasonNumber(_trailer('a', 'Show S123')), 123);
     });
 
+    test('reads "Season N" and a season anywhere in the name (PMB season_of)', () {
+      expect(trailerSeasonNumber(_trailer('a', 'Black Doves - Season 2')), 2);
+      expect(trailerSeasonNumber(_trailer('a', 'Black Doves - Season 2 Trailer')), 2);
+      expect(trailerSeasonNumber(_trailer('a', 'Show Season02')), 2);
+      expect(trailerSeasonNumber(_trailer('a', 'Monster S02 Behind the scenes')), 2);
+    });
+
+    test('reads the file name before the title', () {
+      // Both of WAR's trailers are titled "WAR" (MediaBridge, 2026-11-07).
+      final war = _jfTrailer('w', 'WAR', path: '/knoxx/TV/WAR (2026)/trailers/WAR S01-trailer.mkv');
+      expect(trailerSeasonNumber(war), 1);
+      final titled = _jfTrailer('t', 'Show S03', path: '/knoxx/TV/Show/trailers/Show - Trailer.mkv');
+      expect(trailerSeasonNumber(titled), 3);
+    });
+
+    test('a YouTube id on the end never reads as a season', () {
+      final tagged = _jfTrailer(
+        'a',
+        'Monster',
+        path: '/tv/Monster/trailers/Monster (2022) S01-trailer [1PgKjIosF50].mkv',
+      );
+      expect(trailerSeasonNumber(tagged), 1);
+      final untagged = _jfTrailer('b', 'Monster -', path: '/tv/Monster/trailers/Monster - Trailer [ab_s12cdefg].mkv');
+      expect(trailerSeasonNumber(untagged), isNull);
+    });
+
     test('ignores names without a season', () {
       expect(trailerSeasonNumber(_trailer('a', 'Monster')), isNull);
-      expect(trailerSeasonNumber(_trailer('a', 'Monster S02 Behind the scenes')), isNull);
+      expect(trailerSeasonNumber(_trailer('a', 'Monster -')), isNull);
       expect(trailerSeasonNumber(_trailer('a', 'Monsters')), isNull);
+      expect(trailerSeasonNumber(_trailer('a', 'Mrs Davis 2')), isNull);
+      expect(trailerSeasonNumber(_trailer('a', 'S.W.A.T.')), isNull);
       expect(trailerSeasonNumber(const PlexMediaItem(id: 'a', kind: MediaKind.clip)), isNull);
     });
   });
@@ -52,6 +84,53 @@ void main() {
         pickSeasonTrailer(seasonNumber: 1, seasonExtras: const [featurette], showExtras: const [featurette]),
         isNull,
       );
+    });
+  });
+
+  group('pickSeasonPageTrailer', () {
+    test("the season's own, then the show's named for it", () {
+      final own = _trailer('own', 'Monster S02');
+      final named = [_trailer('s2', 'Monster S02'), _trailer('plain', 'Monster -')];
+      final a = pickSeasonPageTrailer(seasonNumber: 2, seasonExtras: [own], showExtras: named);
+      expect((a?.trailer.id, a?.isShowTrailer), ('own', false));
+      final b = pickSeasonPageTrailer(seasonNumber: 2, seasonExtras: const [], showExtras: named);
+      expect((b?.trailer.id, b?.isShowTrailer), ('s2', false));
+    });
+
+    test("else the show's trailer that names no season (Adrian, 2026-11-07)", () {
+      final showExtras = [_trailer('s5', 'Show S05'), _trailer('plain', 'Show -')];
+      final picked = pickSeasonPageTrailer(seasonNumber: 1, seasonExtras: const [], showExtras: showExtras);
+      expect((picked?.trailer.id, picked?.isShowTrailer), ('plain', true));
+    });
+
+    test("never a show trailer named for another season", () {
+      expect(
+        pickSeasonPageTrailer(seasonNumber: 1, seasonExtras: const [], showExtras: [_trailer('s5', 'Show S05')]),
+        isNull,
+      );
+    });
+  });
+
+  group('seasonPageExtras', () {
+    test("season trailers, season extras, then the show's, each once", () {
+      const featurette = PlexMediaItem(id: 'f', kind: MediaKind.clip, subtype: 'featurette', title: 'Making of');
+      final seasonTrailer = _trailer('st', 'Show S01');
+      final showTrailer = _trailer('sh', 'Show -');
+      final ids = seasonPageExtras(
+        seasonNumber: 1,
+        seasonExtras: [featurette, seasonTrailer],
+        showExtras: [showTrailer, seasonTrailer],
+      ).map((e) => e.id);
+      expect(ids, ['st', 'f', 'sh']);
+    });
+
+    test("leaves out show trailers named for another season", () {
+      final ids = seasonPageExtras(
+        seasonNumber: 1,
+        seasonExtras: const [],
+        showExtras: [_trailer('s2', 'Black Doves - Season 2'), _trailer('plain', 'Black Doves -')],
+      ).map((e) => e.id);
+      expect(ids, ['plain']);
     });
   });
 
