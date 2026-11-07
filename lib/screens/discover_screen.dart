@@ -88,6 +88,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
   /// or tablet (Adrian, 2026-10-16: too small to read).
   static const double _phoneBannerMetaSize = 14;
   static const double _phoneBannerSynopsisSize = 16;
+
+  /// The banner's text (title, meta line, synopsis, coming-soon heading) on
+  /// every device is a quarter larger than it was drawn; logos, poster and
+  /// button keep their size (Adrian, 2026-11-06).
+  static const double _bannerTextScale = 1.25;
   static const Duration _indicatorUpdateInterval = Duration(milliseconds: 200);
 
   /// Data + refresh policy live in [DiscoverProvider]; this state keeps only
@@ -1268,10 +1273,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final isLandscape = MediaQuery.orientationOf(context) == Orientation.landscape;
     // Mobile keeps its fixed hero, except that a landscape phone is shorter
     // than the hero itself; fill the viewport there and let the item compact.
+    // On a desktop the banner's poster and text stop growing at 1080p, so a
+    // taller window only added empty art; cap it at the poster's 450 plus the
+    // top bar, the dots and some room, and let the rows below move up
+    // (Adrian, 2026-11-06).
     final heroHeight = isTv
         ? viewportHeight * 0.82
         : useSideNav
-        ? viewportHeight * 0.75
+        ? (PlatformDetector.isDesktopOS() ? math.min(viewportHeight * 0.75, 660.0) : viewportHeight * 0.75)
         : isLandscape
         ? math.min(500 + statusBarHeight, viewportHeight)
         : 500 + statusBarHeight;
@@ -1449,7 +1458,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final heroTitleStyle = theme.textTheme.displaySmall?.copyWith(
       color: colorScheme.onSurface,
       fontWeight: .bold,
-      fontSize: isTv ? 52 : null,
+      fontSize: (isTv ? 52 : theme.textTheme.displaySmall?.fontSize ?? 36) * _bannerTextScale,
       shadows: [Shadow(color: colorScheme.surface.withValues(alpha: 0.8), blurRadius: 8)],
     );
 
@@ -1554,9 +1563,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 ].join(' • '),
                                 style: TextStyle(
                                   color: colorScheme.onSurface,
-                                  fontSize: isTv
-                                      ? 18
-                                      : (PlatformDetector.isMobile(context) ? _phoneBannerMetaSize : 14),
+                                  fontSize:
+                                      (isTv ? 18 : (PlatformDetector.isMobile(context) ? _phoneBannerMetaSize : 14)) *
+                                      _bannerTextScale,
                                   fontWeight: .w600,
                                 ),
                                 textAlign: alignLeft ? TextAlign.left : TextAlign.center,
@@ -1574,9 +1583,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 text: TextSpan(
                                   style: TextStyle(
                                     color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                    fontSize: isTv
-                                        ? 18
-                                        : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14),
+                                    fontSize:
+                                        (isTv
+                                            ? 18
+                                            : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14)) *
+                                        _bannerTextScale,
                                     height: isTv ? 1.45 : 1.4,
                                   ),
                                   children: [
@@ -1605,9 +1616,11 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                                 textAlign: alignLeft ? TextAlign.left : TextAlign.center,
                                 style: TextStyle(
                                   color: colorScheme.onSurface.withValues(alpha: 0.7),
-                                  fontSize: isTv
-                                      ? 18
-                                      : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14),
+                                  fontSize:
+                                      (isTv
+                                          ? 18
+                                          : (PlatformDetector.isMobile(context) ? _phoneBannerSynopsisSize : 14)) *
+                                      _bannerTextScale,
                                   height: isTv ? 1.45 : 1.4,
                                 ),
                               ),
@@ -1837,8 +1850,10 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     // Scaled down from 1920x1080, a phone's meta line came out about 8 and
     // its synopsis about 13: too small to read (Adrian, 2026-10-16).
     final phone = PlatformDetector.isMobile(context);
-    final metaSize = math.max((narrow ? 14 : 15) * scale, phone ? _phoneBannerMetaSize : 0.0);
-    final synopsisSize = math.max(23 * scale, phone ? _phoneBannerSynopsisSize : 0.0);
+    final metaSize = math.max((narrow ? 14 : 15) * scale, phone ? _phoneBannerMetaSize : 0.0) * _bannerTextScale;
+    final synopsisSize = math.max(23 * scale, phone ? _phoneBannerSynopsisSize : 0.0) * _bannerTextScale;
+    // The text column widens with its text, so lines break about where they did.
+    final textMaxWidth = 900 * scale * _bannerTextScale;
     final topClear = kToolbarHeight + MediaQuery.paddingOf(context).top;
     // A new episode raises only its text, never the poster.
     final textLift = slide.kind == BannerKind.newEpisode ? 60.0 * scale : 0.0;
@@ -1856,7 +1871,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               t.discover.bannerComingSoon,
               style: TextStyle(
                 color: Colors.white,
-                fontSize: (narrow ? 24 : 34) * scale,
+                fontSize: (narrow ? 24 : 34) * scale * _bannerTextScale,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 3,
                 shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
@@ -1867,7 +1882,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 DateFormat('EEEE d MMMM').format(date),
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: (narrow ? 16 : 22) * scale,
+                  fontSize: (narrow ? 16 : 22) * scale * _bannerTextScale,
                   fontWeight: FontWeight.w700,
                   shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
                 ),
@@ -1935,7 +1950,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       final logoWidth = 480 * scale;
       final logoHeight = 130 * scale;
       final textBlock = ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: 900 * scale),
+        constraints: BoxConstraints(maxWidth: textMaxWidth),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -1954,7 +1969,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   item.grandparentTitle ?? item.displayTitle,
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 52 * scale,
+                    fontSize: 52 * scale * _bannerTextScale,
                     fontWeight: FontWeight.w700,
                     shadows: const [Shadow(color: Colors.black54, blurRadius: 8)],
                   ),
@@ -2008,7 +2023,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 // Closer together, as on the web: text 900, gap 3.5% of the
                 // width within 32..64 (Adrian, 2026-10-10).
                 final gap = (screenWidth * 0.035).clamp(32.0, 64.0);
-                final textWidth = math.max(0.0, math.min(900 * scale, constraints.maxWidth - gap - posterWidth));
+                final textWidth = math.max(0.0, math.min(textMaxWidth, constraints.maxWidth - gap - posterWidth));
                 return Center(
                   child: SizedBox(
                     height: posterWidth * 1.5,
