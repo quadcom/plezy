@@ -231,6 +231,18 @@ OldSchoolTrailerTitle oldSchoolTrailerTitle(OldSchoolEntry entry) {
   return OldSchoolTrailerTitle(title: _promoTitle(entry), line: parts.join(' · '));
 }
 
+/// The header over a film's own trailer (local/plans/old-school-preroll-mouse.md):
+/// the film's name and "Trailer · 2003 · PG-13", its own year and rating.
+OldSchoolTrailerTitle oldSchoolPreRollTitle(OldSchoolEntry film) {
+  final parts = <String>[t.oldSchool.trailer];
+  if (film.year != null) parts.add('${film.year}');
+  if (film.rating?.isNotEmpty ?? false) parts.add(film.rating!);
+  final name = film.kind == OldSchoolEntryKind.episode && (film.seriesName?.isNotEmpty ?? false)
+      ? film.seriesName!
+      : film.name;
+  return OldSchoolTrailerTitle(title: name, line: parts.join(' · '));
+}
+
 /// "2 h 7 min", or "47 min" under an hour.
 String oldSchoolRunLength(Duration length) {
   final minutes = length.inMinutes % 60;
@@ -597,7 +609,8 @@ class _PulseGlowState extends State<_PulseGlow> with SingleTickerProviderStateMi
 /// 1:22" counting down to the film, its poster breaking out above, and the
 /// channel's logo in the top-right corner instead of the watermark. Shows
 /// for the whole trailer and arrives step by step (PLAN_SHA_47 Amendment
-/// 6); nothing else shows meanwhile (the player keeps its controls down).
+/// 6); it fades while the player's controls are up ([hidden]), which carry
+/// the film's name and one timeline over trailer and film.
 class OldSchoolPreRollCard extends StatefulWidget {
   final OldSchoolController controller;
   final OldSchoolChannel channel;
@@ -611,12 +624,17 @@ class OldSchoolPreRollCard extends StatefulWidget {
   /// (local/plans/old-school-episode-banner.md).
   final Duration? Function()? trailerLeft;
 
+  /// Faded out without leaving: the player's controls are up over its
+  /// corner. It comes back as it was, without its entrance again.
+  final bool hidden;
+
   const OldSchoolPreRollCard({
     super.key,
     required this.controller,
     required this.channel,
     required this.film,
     this.trailerLeft,
+    this.hidden = false,
   });
 
   @override
@@ -667,7 +685,7 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
     return Positioned.fill(
       child: IgnorePointer(
         child: AnimatedOpacity(
-          opacity: widget.film == null ? 0 : 1,
+          opacity: widget.film == null || widget.hidden ? 0 : 1,
           duration: const Duration(milliseconds: 350),
           child: _card(context, film),
         ),

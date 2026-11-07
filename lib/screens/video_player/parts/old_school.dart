@@ -23,13 +23,51 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     },
     promoTrailer: () {
       if (!_os.fullScreen) return null;
+      // A film's own trailer names its film (local/plans/old-school-preroll-mouse.md).
+      final preRollFilm = _oldSchoolPreRollFilm;
+      if (preRollFilm != null) return oldSchoolPreRollTitle(preRollFilm);
       final promo = _oldSchoolPromoPlaying;
       return promo == null ? null : oldSchoolTrailerTitle(promo);
     },
     matchSourceActive: () => _oldSchoolMatchSourceOffered ? _os.matchSourceEntry != null : null,
     onToggleMatchSource: () => unawaited(_oldSchoolToggleMatchSource()),
     behindText: () => oldSchoolBehindText(_oldSchoolBehind()),
+    timelineBlock: _oldSchoolTimelineBlock,
   );
+
+  /// The film whose own trailer is the open file, or null.
+  OldSchoolEntry? get _oldSchoolPreRollFilm {
+    final tune = _os.slotTune;
+    if (tune == null || !_os.playingPreRoll || _os.standbyTune != null) return null;
+    if (tune.channelId != _osController.tunedChannelId) return null;
+    final entry = tune.now;
+    return entry.hasPreRoll && _currentMetadata.id == entry.preItemId ? entry : null;
+  }
+
+  /// A film and its own trailer share their guide block, so the timeline
+  /// runs over both: trailer, a gap, then the film (Adrian, 2026-11-06,
+  /// local/plans/old-school-preroll-mouse.md). Null for anything else, which
+  /// keeps the open file's own bar. Lengths are file time: the open file's
+  /// from the player, the other's from the schedule.
+  TimelineBlock? _oldSchoolTimelineBlock() {
+    final tune = _os.slotTune;
+    if (tune == null || _os.standbyTune != null || tune.channelId != _osController.tunedChannelId) return null;
+    final entry = tune.now;
+    final filmTime = entry.runTime;
+    if (!entry.hasPreRoll || filmTime == null || filmTime <= Duration.zero) return null;
+    final openLength = player?.state.duration ?? Duration.zero;
+    final known = openLength > Duration.zero;
+    if (_os.playingPreRoll && _currentMetadata.id == entry.preItemId) {
+      final trailer = known ? openLength : entry.preRollTime;
+      return TimelineBlock(offset: Duration.zero, total: trailer + filmTime, split: trailer);
+    }
+    if (!_os.playingPreRoll && _currentMetadata.id == entry.itemId) {
+      final trailer = entry.preRollTime;
+      final film = known ? openLength : filmTime;
+      return TimelineBlock(offset: trailer, total: trailer + film, split: trailer);
+    }
+    return null;
+  }
 
   /// The break trailer with an item behind it when it is the open file, or
   /// null. Its corner block, header title and OK follow the open file, not
@@ -203,10 +241,12 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     await _playWithPlaybackIntent(currentPlayer);
   }
 
-  /// A film's own trailer starts or stops playing (PLAN_SHA_46): while it
-  /// plays, its "Up next" card is all that shows and the controls stay down.
+  /// A film's own trailer starts or stops playing (PLAN_SHA_46). Its "Up
+  /// next" card shows while the controls are down; the controls come up as
+  /// on any programme, with one timeline over trailer and film (Adrian,
+  /// 2026-11-06: the pointer vanished and the mouse did nothing while the
+  /// controls were kept down).
   void _oldSchoolSetPreRoll(bool on) {
-    _chromeController.setSuppressed(on);
     if (on && !_os.playingPreRoll) _os.preRollStartedAt = DateTime.now();
     if (_os.playingPreRoll != on) _setPlayerState(() => _os.playingPreRoll = on);
   }
@@ -835,12 +875,17 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
               ),
             // The main feature's poster corner (local/plans/playback-corner.md).
             if (full && channel != null && _posterCornerShows(context)) _posterCorner(),
+            // Steps aside while the controls are up, over the same corner.
             if (full && channel != null)
-              OldSchoolPreRollCard(
-                controller: controller,
-                channel: channel,
-                film: _os.playingPreRoll ? _os.slotTune?.now : null,
-                trailerLeft: _oldSchoolTrailerLeft,
+              ValueListenableBuilder<bool>(
+                valueListenable: _chromeController,
+                builder: (context, controlsVisible, _) => OldSchoolPreRollCard(
+                  controller: controller,
+                  channel: channel,
+                  film: _os.playingPreRoll ? _os.slotTune?.now : null,
+                  trailerLeft: _oldSchoolTrailerLeft,
+                  hidden: controlsVisible,
+                ),
               ),
             // The same card as "Now playing", no countdown, as a programme
             // starts (local/plans/old-school-episode-banner.md).

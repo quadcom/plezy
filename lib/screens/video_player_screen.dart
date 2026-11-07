@@ -140,6 +140,7 @@ import '../widgets/overlay_sheet.dart';
 import '../widgets/video_controls/player_chrome_controller.dart';
 import '../widgets/video_controls/video_controls.dart';
 import '../widgets/video_controls/widgets/player_toast_indicator.dart';
+import '../widgets/video_controls/widgets/video_timeline_bar.dart';
 import '../focus/focusable_button.dart';
 import '../focus/input_mode_tracker.dart';
 import '../focus/dpad_navigator.dart';
@@ -1349,8 +1350,6 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       _os.slotTune = oldSchool.tune;
       _os.playingPreRoll = oldSchool.startsInPreRoll;
       _os.fullScreen = !oldSchool.startInGuide;
-      // The film's own trailer shows its card alone (PLAN_SHA_47).
-      _chromeController.setSuppressed(oldSchool.startsInPreRoll);
       OldSchoolReminderService.instance.tuneInPlace = _oldSchoolReminderTune;
     }
     PlaybackCoordinator.instance.registerVideoSession(shutdown: _shutdownVideo, stopAndExit: _stopVideoAndExit);

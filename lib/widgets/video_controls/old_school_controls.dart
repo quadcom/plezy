@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../i18n/strings.g.dart';
+import 'widgets/video_timeline_bar.dart';
 
 /// The channel logo's place in the bottom-right corner of the full-screen
 /// picture, as fractions of the screen: [oldSchoolLogoRight] in from the right
@@ -69,6 +70,11 @@ class OldSchoolControls {
   /// second.
   final String? Function()? behindText;
 
+  /// A film and its own trailer as one bar over their guide block
+  /// (local/plans/old-school-preroll-mouse.md); null for anything else.
+  /// Read on every position update.
+  final TimelineBlock? Function()? timelineBlock;
+
   const OldSchoolControls({
     required this.onRestart,
     required this.onBackToLive,
@@ -80,6 +86,7 @@ class OldSchoolControls {
     this.matchSourceActive,
     this.onToggleMatchSource,
     this.behindText,
+    this.timelineBlock,
   });
 }
 

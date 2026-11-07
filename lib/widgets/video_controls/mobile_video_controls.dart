@@ -522,6 +522,7 @@ class _MobileVideoControlsState extends State<MobileVideoControls> with SingleTi
                 // Shows where the programme is; Old School can't be scrubbed ahead.
                 enabled: false,
                 showFinishTime: !widget.posterCorner,
+                block: oldSchool.timelineBlock,
               ),
               const SizedBox(height: 8),
               Row(

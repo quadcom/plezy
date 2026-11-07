@@ -781,6 +781,7 @@ class DesktopVideoControlsState extends State<DesktopVideoControls> {
                 onFocusChange: _onFocusChange,
                 // Old School shows the timeline but can't be scrubbed ahead.
                 enabled: canInteract && widget.oldSchool == null,
+                block: widget.oldSchool?.timelineBlock,
                 thumbnailDataBuilder: widget.thumbnailDataBuilder,
                 showKeyRepeatThumbnail: _showKeyRepeatThumbnail,
                 previewPosition: _timelineSeek.pendingPosition,

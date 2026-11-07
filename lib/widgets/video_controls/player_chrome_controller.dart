@@ -41,8 +41,9 @@ class PlayerChromeController extends ChangeNotifier implements ValueListenable<b
   bool get pendingPlayPauseFocus => _pendingPlayPauseFocus;
 
   /// Whether the chrome is kept off screen: keys and taps still act, but
-  /// nothing raises the controls (an Old School film's own trailer,
-  /// PLAN_SHA_46/47).
+  /// nothing raises the controls. Old School used it for a film's own
+  /// trailer (PLAN_SHA_46/47) until 2026-11-06; nothing sets it now
+  /// (local/plans/old-school-preroll-mouse.md).
   bool get suppressed => _suppressed;
 
   void setSuppressed(bool suppressed) {

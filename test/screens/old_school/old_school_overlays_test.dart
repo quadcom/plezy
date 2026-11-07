@@ -295,6 +295,58 @@ void main() {
     });
   });
 
+  // local/plans/old-school-preroll-mouse.md: the controls come up over a
+  // film's own trailer, naming the film; its card steps aside meanwhile.
+  group("A film's own trailer with the controls up", () {
+    final film = OldSchoolEntry.fromJson({
+      'kind': 'show',
+      'itemType': 'Movie',
+      'itemId': 'film',
+      'start': '2026-11-06T22:00:00Z',
+      'end': '2026-11-06T23:34:30Z',
+      'name': 'Fantastic Four: Rise of the Silver Surfer',
+      'productionYear': 2007,
+      'officialRating': 'PG',
+    })!;
+    const channel = OldSchoolChannel(id: 'c1', number: 1, name: 'Movies');
+
+    test('the header names the film, not the trailer file', () {
+      final title = oldSchoolPreRollTitle(film);
+      expect(title.title, 'Fantastic Four: Rise of the Silver Surfer');
+      expect(title.line, 'Trailer · 2007 · PG');
+    });
+
+    testWidgets('the Up next card fades while hidden and comes back', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      Future<void> pump({required bool hidden}) => tester.pumpWidget(
+        MaterialApp(
+          home: Stack(
+            children: [
+              OldSchoolPreRollCard(
+                controller: controller,
+                channel: channel,
+                film: film,
+                trailerLeft: () => const Duration(seconds: 42),
+                hidden: hidden,
+              ),
+            ],
+          ),
+        ),
+      );
+      double opacity() => tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity).first).opacity;
+      await pump(hidden: false);
+      await tester.pump(const Duration(seconds: 2));
+      expect(opacity(), 1);
+      await pump(hidden: true);
+      expect(opacity(), 0);
+      expect(find.text('Up next'), findsOneWidget, reason: 'faded, not removed');
+      await pump(hidden: false);
+      expect(opacity(), 1);
+      await tester.pumpWidget(const SizedBox());
+    });
+  });
+
   group('PlayerChromeController suppressed (film trailer, PLAN_SHA_47)', () {
     test('hides the controls and nothing raises them', () {
       final chrome = PlayerChromeController();
