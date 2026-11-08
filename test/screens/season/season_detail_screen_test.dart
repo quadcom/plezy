@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:plezy/i18n/strings.g.dart';
@@ -214,6 +215,25 @@ void main() {
     await tester.pump();
     expect(find.text('What happens in 2-3.'), findsOneWidget);
     expect(find.text('What happens in 2-2.'), findsNothing);
+  });
+
+  testWidgets('Down from Resume reaches an episode far along the row (Greatroom TV, 2026-11-08)', (tester) async {
+    await pump(
+      tester,
+      const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+      onDeck: _episode(2, 12),
+      episodeMap: {
+        ...episodes,
+        's2': [for (var n = 1; n <= 12; n++) _episode(2, n, viewCount: n < 12 ? 1 : null)],
+      },
+    );
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Season:Primary');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Season:Episode12');
   });
 
   group('upcoming episodes (local/plans/upcoming-episodes.md)', () {

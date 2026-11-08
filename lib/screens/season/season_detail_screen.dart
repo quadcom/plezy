@@ -302,7 +302,11 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       if (_firstLoad) {
         _firstLoad = false;
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _primaryFocus.requestFocus();
+          if (!mounted) return;
+          // The episode to resume starts in view, so it is drawn and
+          // reachable with Down (Adrian, 2026-11-08).
+          _scrollRailTo(_selected);
+          _primaryFocus.requestFocus();
         });
       }
     } catch (e, st) {
@@ -402,8 +406,35 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
 
   void _openMoreMenu() => _moreMenuKey.currentState?.showContextMenu(context);
 
-  void _focusSelectedEpisode() {
-    if (_selected < _episodeFocus.length) _episodeFocus[_selected].requestFocus();
+  /// One card plus the gap, set by [_buildRail].
+  double _railItemExtent = 0;
+
+  /// Scrolls the episode row so episode [i] is in view, one card in from the
+  /// left where there is room.
+  void _scrollRailTo(int i) {
+    if (!_railController.hasClients || _railItemExtent <= 0) return;
+    final position = _railController.position;
+    final offset = ((i - 1) * _railItemExtent).clamp(0.0, position.maxScrollExtent);
+    _railController.jumpTo(offset);
+  }
+
+  /// Down from the buttons: the selected episode. The row is built lazily,
+  /// so a card far along it (the one to resume, say Episode 10) has no
+  /// widget yet and focusing it did nothing (Greatroom TV, 2026-11-08).
+  /// Scroll it into view first, then focus it once it is built.
+  void _focusSelectedEpisode([int attempt = 0]) {
+    final i = _selected;
+    if (i >= _episodeFocus.length) return;
+    final node = _episodeFocus[i];
+    if (node.context != null) {
+      node.requestFocus();
+      return;
+    }
+    if (attempt >= 3) return;
+    _scrollRailTo(i);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _selected == i) _focusSelectedEpisode(attempt + 1);
+    });
   }
 
   bool get _started => _episodes.any((e) => e.isWatched || (e.viewOffsetMs ?? 0) > 0);
@@ -661,27 +692,19 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             ),
           ),
         if (started)
-          FocusableButton(
-            useBackgroundFocus: true,
+          _HeaderButton(
             onPressed: startOver,
             onNavigateDown: _focusSelectedEpisode,
-            child: OutlinedButton.icon(
-              onPressed: startOver,
-              icon: const AppIcon(Symbols.replay_rounded, fill: 1),
-              label: Text(t.seasonPage.startOver),
-            ),
+            icon: Symbols.replay_rounded,
+            label: t.seasonPage.startOver,
           ),
         if (trailer != null)
-          FocusableButton(
+          _HeaderButton(
             focusNode: target == null ? _primaryFocus : null,
-            useBackgroundFocus: true,
             onPressed: playTrailer,
             onNavigateDown: _focusSelectedEpisode,
-            child: OutlinedButton.icon(
-              onPressed: playTrailer,
-              icon: const AppIcon(Symbols.theaters_rounded, fill: 1),
-              label: Text(_trailerIsShows ? t.seasonPage.showTrailer : t.seasonPage.watchTrailer),
-            ),
+            icon: Symbols.theaters_rounded,
+            label: _trailerIsShows ? t.seasonPage.showTrailer : t.seasonPage.watchTrailer,
           ),
         if (menuItem != null)
           MediaContextMenu(
@@ -703,6 +726,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
 
   Widget _buildRail(BuildContext context, MediaServerClient? client, Size size, bool wide, bool hideSpoilers) {
     final cardWidth = (size.width * (wide ? 0.2 : 0.55)).clamp(150.0, 320.0);
+    _railItemExtent = cardWidth + 16;
     final stillHeight = cardWidth * 9 / 16;
     return SizedBox(
       height: stillHeight + 60,
@@ -778,5 +802,65 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
       );
     }
     return RailNotesPanel(heading: parts.join('  ·  '), body: hidden ? t.seasonPage.spoilerHidden : episode.summary);
+  }
+}
+
+/// A secondary header button (Start over, Watch trailer). Outlined when idle;
+/// on remote or keyboard focus it turns solid, like Resume, so it stands out
+/// as one shape. The outline plus the focus wrapper's faint fill read as a
+/// double ring and were too faint to see on the TV (Adrian, 2026-11-08).
+class _HeaderButton extends StatefulWidget {
+  const _HeaderButton({
+    required this.onPressed,
+    required this.onNavigateDown,
+    required this.icon,
+    required this.label,
+    this.focusNode,
+  });
+
+  final VoidCallback onPressed;
+  final VoidCallback onNavigateDown;
+  final IconData icon;
+  final String label;
+  final FocusNode? focusNode;
+
+  @override
+  State<_HeaderButton> createState() => _HeaderButtonState();
+}
+
+class _HeaderButtonState extends State<_HeaderButton> {
+  FocusNode? _ownNode;
+
+  FocusNode get _node => widget.focusNode ?? (_ownNode ??= FocusNode(debugLabel: 'Season:${widget.label}'));
+
+  @override
+  void dispose() {
+    _ownNode?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final node = _node;
+    return FocusableButton(
+      focusNode: node,
+      useBackgroundFocus: true,
+      onPressed: widget.onPressed,
+      onNavigateDown: widget.onNavigateDown,
+      child: ListenableBuilder(
+        listenable: node,
+        builder: (context, _) {
+          final focused = node.hasFocus && InputModeTracker.isKeyboardMode(context);
+          // Shrink-wrapped, so the button's own shape is the whole hit box and
+          // the wrapper draws no second ring around it.
+          const style = ButtonStyle(tapTargetSize: MaterialTapTargetSize.shrinkWrap);
+          final icon = AppIcon(widget.icon, fill: 1);
+          final label = Text(widget.label);
+          return focused
+              ? FilledButton.icon(style: style, onPressed: widget.onPressed, icon: icon, label: label)
+              : OutlinedButton.icon(style: style, onPressed: widget.onPressed, icon: icon, label: label);
+        },
+      ),
+    );
   }
 }
