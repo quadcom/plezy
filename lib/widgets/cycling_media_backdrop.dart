@@ -34,7 +34,16 @@ class CyclingMediaBackdrop extends StatefulWidget {
     this.alignment = Alignment.center,
     this.rotationInterval = const Duration(seconds: 10),
     this.fadeDuration = const Duration(milliseconds: 280),
+    this.drift = 0,
+    this.driftPeriod = const Duration(seconds: 40),
   });
+
+  /// Slow sideways movement of the art, as a share of its width each way
+  /// (0 = still). The picture is enlarged by that much on both sides so its
+  /// edges never show, and glides from one side to the other over [driftPeriod],
+  /// then back. Off with reduced motion and while [active] is false.
+  final double drift;
+  final Duration driftPeriod;
 
   final Object? mediaKey;
   final List<String> imagePaths;
@@ -281,6 +290,17 @@ class _CyclingMediaBackdropState extends State<CyclingMediaBackdrop> with Widget
 
   @override
   Widget build(BuildContext context) {
+    final art = _buildArt(context);
+    if (widget.drift <= 0) return art;
+    return _BackdropDrift(
+      amount: widget.drift,
+      period: widget.driftPeriod,
+      active: widget.active && !(MediaQuery.maybeOf(context)?.disableAnimations ?? false),
+      child: art,
+    );
+  }
+
+  Widget _buildArt(BuildContext context) {
     final path = _currentPath;
     if (path == null) {
       return _buildCrossfade(context, null, localResolution: LocalFileResolution.missing);
@@ -297,6 +317,77 @@ class _CyclingMediaBackdropState extends State<CyclingMediaBackdrop> with Widget
       fileExists: widget.localFileExists,
       builder: (context, resolution, file) =>
           _buildCrossfade(context, path, localResolution: resolution, localFile: file),
+    );
+  }
+}
+
+/// Moves [child] slowly from one side to the other and back. The art is drawn
+/// once into its own layer and only that layer moves, so each frame costs a
+/// position change, not a redraw of the picture.
+class _BackdropDrift extends StatefulWidget {
+  const _BackdropDrift({required this.amount, required this.period, required this.active, required this.child});
+
+  final double amount;
+  final Duration period;
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_BackdropDrift> createState() => _BackdropDriftState();
+}
+
+class _BackdropDriftState extends State<_BackdropDrift> with SingleTickerProviderStateMixin {
+  late final AnimationController _t = AnimationController(vsync: this, duration: widget.period, value: 0.5);
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BackdropDrift oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _t.duration = widget.period;
+    if (oldWidget.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active) {
+      _t.repeat(reverse: true);
+    } else {
+      _t.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _t.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final art = RepaintBoundary(child: widget.child);
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+          return AnimatedBuilder(
+            animation: _t,
+            builder: (context, child) {
+              final eased = Curves.easeInOutSine.transform(_t.value);
+              final dx = (eased * 2 - 1) * widget.amount * width;
+              return Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.translationValues(dx, 0, 0)..scaleByDouble(1 + widget.amount * 2, 1 + widget.amount * 2, 1, 1),
+                child: child,
+              );
+            },
+            child: art,
+          );
+        },
+      ),
     );
   }
 }

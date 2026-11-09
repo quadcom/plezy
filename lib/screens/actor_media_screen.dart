@@ -18,6 +18,8 @@ import '../utils/media_image_helper.dart';
 import '../i18n/strings.g.dart';
 import 'base_media_list_detail_screen.dart';
 import 'focusable_detail_screen_mixin.dart';
+import 'media_detail/big_screen_layout.dart';
+import '../utils/platform_detector.dart';
 import '../mixins/grid_focus_node_mixin.dart';
 import '../focus/focusable_action_bar.dart';
 
@@ -134,12 +136,24 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
     return [];
   }
 
+  /// Tablets and up: the header and grid grow with the window, like the item
+  /// page (local/plans/movie-page-big-screens.md, stage 4); null elsewhere.
+  DetailBigScreenLayout? _bigLayout(BuildContext context) => DetailBigScreenLayout.resolve(
+    size: MediaQuery.sizeOf(context),
+    isPhone: PlatformDetector.isPhone(context),
+    isTv: PlatformDetector.isTV(),
+  );
+
   Widget _buildActorHeader() {
     final theme = Theme.of(context);
+    final big = _bigLayout(context);
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
+        child: DetailZoom(
+          scale: big?.personHeaderZoom ?? 1,
+          alignment: Alignment.topLeft,
+          child: Row(
           children: [
             if (widget.facetIcon case final icon?)
               CircleAvatar(
@@ -192,12 +206,14 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
             ),
           ],
         ),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final big = _bigLayout(context);
     return buildDetailScaffold(
       slivers: [
         CustomAppBar(title: Text(widget.actorName), pinned: true, actions: buildFocusableAppBarActions()),
@@ -209,6 +225,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
             itemAt: (index) => loadedItems[index],
             onRefresh: updateItem,
             onSkeletonVisible: (index) => ensureIndexLoaded(index, pageSize: _pageSize),
+            densityOverride: big?.personGridDensity(isTv: PlatformDetector.isTV()),
           ),
       ],
     );

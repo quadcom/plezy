@@ -15,6 +15,7 @@ import '../../media/media_item.dart';
 import '../../media/media_item_types.dart';
 import '../../media/media_server_client.dart';
 import '../../media/media_trailer.dart';
+import '../../services/device_performance.dart';
 import '../../services/settings_service.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/formatters.dart';
@@ -28,6 +29,7 @@ import '../../widgets/hub_section.dart';
 import '../../widgets/media_context_menu.dart';
 import '../../widgets/media_rail/rail_parts.dart';
 import '../../widgets/optimized_media_image.dart';
+import '../media_detail/big_screen_layout.dart';
 
 /// Whether seasons open on [SeasonDetailScreen] (the fork's default) rather
 /// than as tabs on the show screen.
@@ -484,6 +486,9 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
                   fallbackColor: theme.colorScheme.surface,
                   rotationInterval: _artInterval,
                   fadeDuration: _artFade,
+                  // Big screens: the art glides slowly sideways, like the item
+                  // page's (off on low-end devices).
+                  drift: _driftsArt(context) ? 0.04 : 0,
                 ),
               ),
               Positioned.fill(child: RailScrim(color: theme.colorScheme.surface)),
@@ -502,6 +507,15 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     );
   }
 
+  bool _driftsArt(BuildContext context) =>
+      !DevicePerformance.isLowEndHardware &&
+      DetailBigScreenLayout.resolve(
+            size: MediaQuery.sizeOf(context),
+            isPhone: PlatformDetector.isPhone(context),
+            isTv: PlatformDetector.isTV(),
+          ) !=
+          null;
+
   Widget _buildBody(BuildContext context, MediaServerClient? client, Size size, bool hideSpoilers) {
     final theme = Theme.of(context);
     if (_loading && _episodes.isEmpty) {
@@ -510,16 +524,29 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     if (_failed) {
       return Center(child: Text(t.seasonPage.loadFailed, style: theme.textTheme.titleMedium));
     }
+    // Tablets and up: the page keeps its layout but grows with the window, like
+    // the item page (local/plans/movie-page-big-screens.md, stage 2). It is laid
+    // out at 1/zoom of the window and drawn zoom times bigger.
+    final big = DetailBigScreenLayout.resolve(
+      size: MediaQuery.sizeOf(context),
+      isPhone: PlatformDetector.isPhone(context),
+      isTv: PlatformDetector.isTV(),
+    );
+    final zoom = big?.seasonZoom ?? 1.0;
     final wide = size.width >= 700;
     final pad = EdgeInsets.fromLTRB(wide ? 48 : 20, wide ? 40 : 56, wide ? 48 : 20, 32);
+    final inner = Size((size.width - pad.horizontal) / zoom + pad.horizontal, size.height / zoom);
     final ownSummary = _subject.summary;
     final summary = ownSummary != null && ownSummary.isNotEmpty ? ownSummary : _show?.summary;
     return SingleChildScrollView(
       padding: pad,
-      child: Column(
+      child: DetailZoom(
+        scale: zoom,
+        alignment: Alignment.topLeft,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(context, client, size, wide),
+          _buildHeader(context, client, inner, wide),
           if (summary != null && summary.isNotEmpty) ...[
             const SizedBox(height: 16),
             ConstrainedBox(
@@ -538,7 +565,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
           ),
           const SizedBox(height: 10),
-          _buildRail(context, client, size, wide, hideSpoilers),
+          _buildRail(context, client, inner, wide, hideSpoilers),
           if (_episodes.isNotEmpty) ...[const SizedBox(height: 16), _buildNotes(context, hideSpoilers)],
           if (_extras.isNotEmpty) ...[
             const SizedBox(height: 24),
@@ -562,6 +589,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             ),
           ],
         ],
+      ),
       ),
     );
   }

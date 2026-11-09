@@ -218,17 +218,36 @@ class DevLogFile {
     _watching = true;
     var built = 0;
     var drawn = 0;
+    var slowBuild = Duration.zero;
+    var slowRaster = Duration.zero;
+    var late = 0;
     SchedulerBinding.instance.addPersistentFrameCallback((_) => built++);
-    SchedulerBinding.instance.addTimingsCallback((timings) => drawn += timings.length);
+    SchedulerBinding.instance.addTimingsCallback((timings) {
+      drawn += timings.length;
+      for (final t in timings) {
+        if (t.buildDuration > slowBuild) slowBuild = t.buildDuration;
+        if (t.rasterDuration > slowRaster) slowRaster = t.rasterDuration;
+        // Over a 60 Hz frame's budget: a frame the screen had to wait for.
+        if (t.totalSpan > const Duration(microseconds: 16667)) late++;
+      }
+    });
     Timer.periodic(const Duration(seconds: 5), (_) {
       if (!enabled || (built == 0 && drawn == 0)) {
         built = 0;
         drawn = 0;
         return;
       }
-      appLogger.d('Frames (5 s): built $built, drawn $drawn');
+      // The slowest build (app code) and raster (drawing) times show whether an
+      // animation is too heavy for the device (local/plans/movie-page-big-screens.md).
+      appLogger.d(
+        'Frames (5 s): built $built, drawn $drawn, late $late, '
+        'slowest build ${slowBuild.inMicroseconds / 1000} ms, raster ${slowRaster.inMicroseconds / 1000} ms',
+      );
       built = 0;
       drawn = 0;
+      late = 0;
+      slowBuild = Duration.zero;
+      slowRaster = Duration.zero;
     });
   }
 

@@ -99,6 +99,10 @@ class HubSection extends StatefulWidget {
   /// Vertical viewport alignment when this hub is focused.
   final double focusScrollAlignment;
 
+  /// A fixed card width (its 3 px padding each side included) instead of the
+  /// grid's, e.g. the item page on big screens (local/plans/movie-page-big-screens.md).
+  final double? cardWidth;
+
   const HubSection({
     super.key,
     required this.hub,
@@ -122,6 +126,7 @@ class HubSection extends StatefulWidget {
     this.cardSizing = HubCardSizing.shelf,
     this.episodePosterModeOverride,
     this.focusScrollAlignment = 0.3,
+    this.cardWidth,
   }) : usesContinueWatchingAction = usesContinueWatchingAction ?? isInContinueWatching;
 
   @override
@@ -605,21 +610,23 @@ class HubSectionState extends State<HubSection> with MountedSetStateMixin, Skele
                     // same gutter the grid uses, so a row and the "see all"
                     // grid behind it render the same card at equal width.
                     final gridGap = svc.read(SettingsService.gridSpacing).gridGap;
-                    final cardWidth = isTv && widget.cardSizing == HubCardSizing.shelf
-                        ? _getTvCardWidth(
-                            context,
-                            constraints.maxWidth,
-                            density,
-                            leadingPadding,
-                            useWideLayout,
-                            gridGap,
-                          )
-                        : MediaGridDelegate.cellWidth(
-                            context: context,
-                            availableWidth: constraints.maxWidth,
-                            density: density,
-                            useWideAspectRatio: useWideLayout,
-                          );
+                    final cardWidth =
+                        widget.cardWidth ??
+                        (isTv && widget.cardSizing == HubCardSizing.shelf
+                            ? _getTvCardWidth(
+                                context,
+                                constraints.maxWidth,
+                                density,
+                                leadingPadding,
+                                useWideLayout,
+                                gridGap,
+                              )
+                            : MediaGridDelegate.cellWidth(
+                                context: context,
+                                availableWidth: constraints.maxWidth,
+                                density: density,
+                                useWideAspectRatio: useWideLayout,
+                              ));
                     final posterWidth = cardWidth - 6; // 3px padding on each side
                     final posterHeight = useWideLayout
                         ? posterWidth *

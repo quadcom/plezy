@@ -210,13 +210,14 @@ mixin FocusableDetailScreenMixin<T extends StatefulWidget> on State<T>, GridFocu
     VoidCallback? onListRefresh,
     CardShape? shape,
     int indexOffset = 0,
+    int? densityOverride,
   }) {
     return SettingsBuilder(
       prefs: const [SettingsService.viewMode, SettingsService.libraryDensity, SettingsService.tvFullCardLayout],
       builder: (context) {
         final svc = SettingsService.instance;
         final viewMode = svc.read(SettingsService.viewMode);
-        final libraryDensity = svc.read(SettingsService.libraryDensity);
+        final libraryDensity = densityOverride ?? svc.read<int>(SettingsService.libraryDensity);
         final fullCardLayout = PlatformDetector.isTV() && svc.read(SettingsService.tvFullCardLayout);
         final useFullCardLayout = fullCardLayout && shape != CardShape.square;
 

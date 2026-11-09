@@ -41,6 +41,13 @@ class CastMemberStrip extends StatefulWidget {
   /// initials where a person has no photo (the Search screen's People row).
   final bool circular;
 
+  /// A fixed photo width instead of the poster grids' (the item page on big
+  /// screens, local/plans/movie-page-big-screens.md); null follows Library density.
+  final double? cardWidth;
+
+  /// Names and roles at this many times their usual size.
+  final double textScale;
+
   const CastMemberStrip({
     super.key,
     required this.members,
@@ -50,6 +57,8 @@ class CastMemberStrip extends StatefulWidget {
     this.onNavigateDown,
     this.debugLabel = 'cast_row',
     this.circular = false,
+    this.cardWidth,
+    this.textScale = 1,
   });
 
   static const double _circularScale = 0.75;
@@ -64,7 +73,8 @@ class CastMemberStrip extends StatefulWidget {
 
   /// The strip's fixed height for a given card width:
   /// image + inner padding + text area + list padding + focus scale headroom.
-  static double heightForCardWidth(double cardWidth) => cardWidth + _innerPadding * 2 + 66 + 10;
+  static double heightForCardWidth(double cardWidth, {double textScale = 1}) =>
+      cardWidth + _innerPadding * 2 + 66 * textScale + 10;
 
   static double _itemExtentForCardWidth(double cardWidth) => cardWidth + _innerPadding * 2 + 4;
 
@@ -116,7 +126,8 @@ class CastMemberStripState extends State<CastMemberStrip> {
   }
 
   double _cardWidth() =>
-      CastMemberStrip.responsiveCardWidth(context) * (widget.circular ? CastMemberStrip._circularScale : 1);
+      (widget.cardWidth ?? CastMemberStrip.responsiveCardWidth(context)) *
+      (widget.circular ? CastMemberStrip._circularScale : 1);
 
   void _scrollToFocusedMember() {
     scrollListToIndex(
@@ -207,8 +218,17 @@ class CastMemberStripState extends State<CastMemberStrip> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final nameStyle = theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600);
-    final secondaryStyle = theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    final scale = widget.textScale;
+    final baseName = theme.textTheme.bodyMedium;
+    final baseSecondary = theme.textTheme.bodySmall;
+    final nameStyle = baseName?.copyWith(
+      fontWeight: FontWeight.w600,
+      fontSize: scale == 1 ? null : (baseName.fontSize ?? 14) * scale,
+    );
+    final secondaryStyle = baseSecondary?.copyWith(
+      color: theme.colorScheme.onSurfaceVariant,
+      fontSize: scale == 1 ? null : (baseSecondary.fontSize ?? 12) * scale,
+    );
     final cardWidth = _cardWidth();
     final imageSize = cardWidth;
     final circular = widget.circular;
@@ -221,7 +241,7 @@ class CastMemberStripState extends State<CastMemberStrip> {
       descendantsAreFocusable: false,
       onKeyEvent: _handleKeyEvent,
       child: SizedBox(
-        height: CastMemberStrip.heightForCardWidth(cardWidth),
+        height: CastMemberStrip.heightForCardWidth(cardWidth, textScale: scale),
         child: HorizontalScrollWithArrows(
           controller: _scrollController,
           builder: (scrollController) => ListView.builder(

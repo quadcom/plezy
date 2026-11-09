@@ -21,7 +21,8 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
   }
 
   Widget _buildAvailableActionButtons(BuildContext context, MediaItem metadata) {
-    final isTv = PlatformDetector.isTV();
+    // The big-screen page (TVs included) zooms the desktop-sized row itself.
+    final isTv = PlatformDetector.isTV() && _big == null;
     final tvScale = TvLayoutConstants.scaleOf(context);
     final actionSize = isTv ? _tvDetailActionSize * tvScale : 48.0;
     final playButtonLabel = _getPlayButtonLabel(metadata);
@@ -425,7 +426,7 @@ extension _MediaDetailActionButtons on _MediaDetailScreenState {
     // never compact because of it. On TV the hero is a 60% column, so the
     // status is placed at the screen edge by _buildTvDetailScreen instead.
     Widget? tracksStatusFor(List<FocusableAction> actions, double maxWidth) {
-      if (isTv || !maxWidth.isFinite) return null;
+      if (isTv || _big != null || !maxWidth.isFinite) return null;
       final remaining = maxWidth - estimatedRowWidth(actions) - gap;
       if (remaining < 160) return null;
       return _buildPlaybackTracksStatus(context, metadata, isTv: false, tvScale: tvScale, maxWidth: remaining);
