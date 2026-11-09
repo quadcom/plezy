@@ -40,6 +40,7 @@ class FolderTreeItem extends StatefulWidget {
   final bool isLoading;
   final FocusNode? focusNode;
   final VoidCallback? onNavigateUp;
+  final VoidCallback? onNavigateDown;
   final VoidCallback? onNavigateLeft;
   final void Function(MediaItem source)? onRefresh;
   final VoidCallback? onListRefresh;
@@ -59,6 +60,7 @@ class FolderTreeItem extends StatefulWidget {
     this.isLoading = false,
     this.focusNode,
     this.onNavigateUp,
+    this.onNavigateDown,
     this.onNavigateLeft,
     this.onRefresh,
     this.onListRefresh,
@@ -427,6 +429,7 @@ class _FolderTreeItemState extends State<FolderTreeItem> with ContextMenuTapMixi
             enableLongPress: hasMenu,
             onLongPress: hasMenu ? _showRowMenu : null,
             onNavigateUp: widget.onNavigateUp,
+            onNavigateDown: widget.onNavigateDown,
             onNavigateLeft: widget.onNavigateLeft,
             useBackgroundFocus: true,
             disableScale: true,

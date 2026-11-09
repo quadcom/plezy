@@ -46,7 +46,9 @@ class FolderGridTile extends StatefulWidget {
   final FocusNode? focusNode;
   final bool autofocus;
   final VoidCallback? onNavigateUp;
+  final VoidCallback? onNavigateDown;
   final VoidCallback? onNavigateLeft;
+  final VoidCallback? onNavigateRight;
   final VoidCallback? onBack;
   final void Function(MediaItem source)? onRefresh;
   final VoidCallback? onListRefresh;
@@ -63,7 +65,9 @@ class FolderGridTile extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.onNavigateUp,
+    this.onNavigateDown,
     this.onNavigateLeft,
+    this.onNavigateRight,
     this.onBack,
     this.onRefresh,
     this.onListRefresh,
@@ -304,7 +308,9 @@ class _FolderGridTileState extends State<FolderGridTile> with ContextMenuTapMixi
           enableLongPress: hasMenu,
           onLongPress: hasMenu ? _showMenu : null,
           onNavigateUp: widget.onNavigateUp,
+          onNavigateDown: widget.onNavigateDown,
           onNavigateLeft: widget.onNavigateLeft,
+          onNavigateRight: widget.onNavigateRight,
           onBack: widget.onBack,
           semanticLabel: _name,
           descendantsAreFocusable: false,

@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../media/ids.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../../media/media_backend.dart';
@@ -130,6 +132,45 @@ class FolderTreeViewState extends State<FolderTreeView> {
   int _prefetchesRunning = 0;
   static const _maxPrefetches = 3;
 
+  /// One focus node per tile (grid) or row (tree), by its key, so the arrow
+  /// keys move by index like the library's flat grid does. Left to
+  /// Flutter's directional guess, Up after scrolling down jumped to the
+  /// floating chips header and the page snapped to the top
+  /// (local/plans/folder-view-up-jump.md). Index 0 uses the parent's
+  /// [FolderTreeView.firstItemFocusNode] when it has one.
+  final Map<String, FocusNode> _itemFocusNodes = {};
+
+  /// The grid path bar's Up button: where Up from the first row goes inside
+  /// a folder.
+  final FocusNode _pathBarUpFocusNode = FocusNode(debugLabel: 'folder_path_up');
+
+  FocusNode _itemFocusNode(String key, int index) {
+    final first = widget.firstItemFocusNode;
+    if (index == 0 && first != null) return first;
+    return _itemFocusNodes.putIfAbsent(key, () => FocusNode(debugLabel: 'folder_item_$index'));
+  }
+
+  void _focusItem(List<String> keys, int index) {
+    if (index < 0 || index >= keys.length) return;
+    _itemFocusNode(keys[index], index).requestFocus();
+  }
+
+  /// Swallow the key: at an edge with nothing there, stay put rather than
+  /// let Flutter guess a far-off target.
+  static void _stay() {}
+
+  /// Drop the nodes of the folder no longer shown, once its tiles unmount.
+  void _resetItemFocusNodes() {
+    if (_itemFocusNodes.isEmpty) return;
+    final old = _itemFocusNodes.values.toList();
+    _itemFocusNodes.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final node in old) {
+        node.dispose();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -137,10 +178,21 @@ class FolderTreeViewState extends State<FolderTreeView> {
   }
 
   @override
+  void dispose() {
+    for (final node in _itemFocusNodes.values) {
+      node.dispose();
+    }
+    _itemFocusNodes.clear();
+    _pathBarUpFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   void didUpdateWidget(FolderTreeView oldWidget) {
     super.didUpdateWidget(oldWidget);
     // The grid asks for file details the tree leaves out: start over.
     if (oldWidget.grid != widget.grid) {
+      _resetItemFocusNodes();
       _openPath.clear();
       _prefetchQueue.clear();
       _childrenCache.clear();
@@ -153,6 +205,7 @@ class FolderTreeViewState extends State<FolderTreeView> {
   /// Back leaves the library as before.
   bool goUp() {
     if (!widget.grid || _openPath.isEmpty) return false;
+    _resetItemFocusNodes();
     setState(() => _openPath.removeLast());
     _focusFirstTile();
     return true;
@@ -169,11 +222,13 @@ class FolderTreeViewState extends State<FolderTreeView> {
 
   void _goTo(int depth) {
     if (depth >= _openPath.length) return;
+    _resetItemFocusNodes();
     setState(() => _openPath.removeRange(depth, _openPath.length));
     _focusFirstTile();
   }
 
   void _openFolder(MediaItem folder) {
+    _resetItemFocusNodes();
     setState(() => _openPath.add(folder));
     _focusFirstTile();
     unawaited(_fetchChildren(folder, opened: true).then((_) => _focusFirstTile()));
@@ -532,6 +587,9 @@ class FolderTreeViewState extends State<FolderTreeView> {
 
     final flattened = <({MediaItem item, int depth, String path, MediaItem? parent})>[];
     _flattenTreeItems(_rootFolders, 0, '', null, flattened);
+    // Path alone isn't unique enough as identity (the same Plex item can
+    // appear under two folders), so combine it with the item id.
+    final keys = [for (final entry in flattened) '${entry.path}:${entry.item.id}'];
 
     return SliverPadding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -549,9 +607,7 @@ class FolderTreeViewState extends State<FolderTreeView> {
           final canPlayFolder = isPlainFolder && _canPlayFolder(item);
 
           return FolderTreeItem(
-            // Path alone isn't unique enough as identity (the same Plex item
-            // can appear under two folders), so combine it with the item id.
-            key: ValueKey('${entry.path}:${item.id}'),
+            key: ValueKey(keys[index]),
             item: item,
             depth: entry.depth,
             isFolder: isPlainFolder,
@@ -563,8 +619,9 @@ class FolderTreeViewState extends State<FolderTreeView> {
             onTap: !isExpandable ? () => _handleItemTap(item, entry.parent) : null,
             onPlayAll: canPlayFolder ? () => _launchFolder(item, shuffle: false) : null,
             onShuffle: canPlayFolder ? () => _launchFolder(item, shuffle: true) : null,
-            focusNode: isFirstRootItem ? widget.firstItemFocusNode : null,
-            onNavigateUp: isFirstRootItem ? widget.onNavigateUp : null,
+            focusNode: _itemFocusNode(keys[index], index),
+            onNavigateUp: isFirstRootItem ? widget.onNavigateUp : () => _focusItem(keys, index - 1),
+            onNavigateDown: index + 1 < keys.length ? () => _focusItem(keys, index + 1) : _stay,
             onNavigateLeft: widget.onNavigateLeft,
             onRefresh: widget.onRefresh,
             onListRefresh: () => _refreshAfterDeletion(entry.parent),
@@ -643,11 +700,34 @@ class FolderTreeViewState extends State<FolderTreeView> {
           ),
       ],
     ];
+    // Down from anywhere on the bar goes to the first tile, Up to the chips,
+    // instead of Flutter's directional guess.
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onKeyEvent: (node, event) {
+        if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+        if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+          widget.firstItemFocusNode?.requestFocus();
+          return KeyEventResult.handled;
+        }
+        if (event.logicalKey == LogicalKeyboardKey.arrowUp && widget.onNavigateUp != null) {
+          widget.onNavigateUp!();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: _buildPathBarRow(open, canPlay, crumbs),
+    );
+  }
+
+  Widget _buildPathBarRow(MediaItem open, bool canPlay, List<Widget> crumbs) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
       child: Row(
         children: [
           IconButton(
+            focusNode: _pathBarUpFocusNode,
             tooltip: t.libraries.folderGrid.up,
             onPressed: goUp,
             icon: const AppIcon(Symbols.arrow_upward_rounded, fill: 1),
@@ -690,6 +770,8 @@ class FolderTreeViewState extends State<FolderTreeView> {
           final width = constraints.crossAxisExtent;
           final columns = GridSizeCalculator.getColumnCount(width, maxExtent, crossAxisSpacing: spacing);
           final cellWidth = GridSizeCalculator.getCellWidthForColumnCount(width, columns, crossAxisSpacing: spacing);
+          final keys = [for (final item in items) '${parent?.id ?? 'root'}:${item.id}'];
+          final lastRow = (items.length - 1) ~/ columns;
           return SliverGrid.builder(
             gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: columns,
@@ -711,8 +793,9 @@ class FolderTreeViewState extends State<FolderTreeView> {
                 });
               }
               final canPlay = isFolder && item.kind == MediaKind.folder && _canPlayFolder(item);
+              final column = index % columns;
               return FolderGridTile(
-                key: ValueKey('${parent?.id ?? 'root'}:${item.id}'),
+                key: ValueKey(keys[index]),
                 item: item,
                 isFolder: isFolder,
                 serverId: widget.serverId,
@@ -720,9 +803,23 @@ class FolderTreeViewState extends State<FolderTreeView> {
                 onTap: isFolder ? () => _openFolder(item) : () => unawaited(_handleItemTap(item, parent)),
                 onPlayAll: canPlay ? () => unawaited(_launchFolder(item, shuffle: false)) : null,
                 onShuffle: canPlay ? () => unawaited(_launchFolder(item, shuffle: true)) : null,
-                focusNode: index == 0 ? widget.firstItemFocusNode : null,
-                onNavigateUp: index < columns && _openPath.isEmpty ? widget.onNavigateUp : null,
-                onNavigateLeft: index % columns == 0 ? widget.onNavigateLeft : null,
+                focusNode: _itemFocusNode(keys[index], index),
+                // Up: the tile one row up; from the first row, the chips at
+                // the library's top, or the path bar inside a folder.
+                onNavigateUp: index >= columns
+                    ? () => _focusItem(keys, index - columns)
+                    : _openPath.isEmpty
+                    ? widget.onNavigateUp
+                    : _pathBarUpFocusNode.requestFocus,
+                // Down: the tile one row down, or the last tile when the
+                // next row is shorter.
+                onNavigateDown: index ~/ columns < lastRow
+                    ? () => _focusItem(keys, math.min(index + columns, items.length - 1))
+                    : _stay,
+                onNavigateLeft: column == 0 ? widget.onNavigateLeft : () => _focusItem(keys, index - 1),
+                onNavigateRight: column < columns - 1 && index + 1 < items.length
+                    ? () => _focusItem(keys, index + 1)
+                    : _stay,
                 onBack: _openPath.isEmpty ? null : () => goUp(),
                 onRefresh: widget.onRefresh,
                 onListRefresh: () => _refreshAfterDeletion(parent),
