@@ -102,6 +102,7 @@ import 'services/prefs_recovery.dart';
 import 'services/sensitive_prefs.dart';
 import 'services/startup_diagnostics.dart';
 import 'utils/dev_log_file.dart';
+import 'dev/dev_channel.dart';
 import 'utils/dialogs.dart';
 import 'widgets/dialog_action_button.dart';
 import 'widgets/startup_failure_view.dart';
@@ -173,6 +174,10 @@ void _bootstrapApp() {
   // Test builds: the log also goes to a file a developer can read. Release
   // builds open it once settings load, if "Save Log to File" is on.
   unawaited(DevLogFile.start());
+  // Developer mode (the file log above, or the switch file) also runs the
+  // developer's control line and timing recorder (local/plans/player-inspector.md).
+  DevChannel.configure(context: () => rootNavigatorKey.currentContext);
+  DevLogFile.watchSwitchFile();
 
   AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.runApp);
   runApp(

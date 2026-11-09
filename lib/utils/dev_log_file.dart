@@ -15,13 +15,89 @@ import 'app_logger.dart';
 /// (local/plans/dev-mode-toggle.md). The last run's file is kept as
 /// `plezy-dev.prev.log`. Uncaught errors, including a widget that fails to
 /// build, are logged too. Off, the file is never touched.
+///
+/// This is also "developer mode": while it is on, the dev channel runs too
+/// (lib/dev/dev_channel.dart, local/plans/player-inspector.md). A developer
+/// can switch it on without touching the app by creating the file
+/// `plezy-debug-on` ([switchFilePath]): in the `logs` folder on desktop, in the
+/// app's external files folder on Android (reachable over adb). Plezy looks
+/// for it every 15 s; while it is there developer mode is on, and when it is
+/// removed the setting decides again. The setting itself is never rewritten.
 class DevLogFile {
   DevLogFile._();
 
   static const _buildFlag = bool.fromEnvironment('PLEZY_DEV_LOG');
   static bool _switchedOn = false;
+  static bool _fileOn = false;
 
-  static bool get enabled => _buildFlag || _switchedOn;
+  static bool get enabled => _buildFlag || _switchedOn || _fileOn;
+
+  /// Whether the switch file is what turned developer mode on.
+  static bool get switchedOnByFile => _fileOn && !_buildFlag && !_switchedOn;
+
+  /// Told whenever [enabled] may have changed (the dev channel follows it).
+  static void Function()? onEnabledChanged;
+
+  static const switchFileName = 'plezy-debug-on';
+  static const _switchFileCheck = Duration(seconds: 15);
+  static Timer? _switchFileTimer;
+  static String? _switchFilePath;
+
+  /// Where the switch file goes on this device, or null where there is none.
+  static Future<String?> switchFilePath() async {
+    if (_switchFilePath != null) return _switchFilePath;
+    try {
+      if (Platform.isAndroid) {
+        final dir = await getExternalStorageDirectory();
+        if (dir == null) return null;
+        return _switchFilePath = p.join(dir.path, switchFileName);
+      }
+      return _switchFilePath = p.join((await getApplicationSupportDirectory()).path, 'logs', switchFileName);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Starts looking for the switch file: now, then every 15 s. One existence
+  /// check each time, nothing else. Safe to call again.
+  static void watchSwitchFile() {
+    if (_switchFileTimer != null) return;
+    _switchFileTimer = Timer.periodic(_switchFileCheck, (_) => unawaited(checkSwitchFile()));
+    unawaited(checkSwitchFile());
+  }
+
+  /// Forgets the switch file's place and state, for tests that change the folders.
+  @visibleForTesting
+  static void resetSwitchFile() {
+    _switchFilePath = null;
+    _fileOn = false;
+  }
+
+  /// One look for the switch file; the watcher calls it every 15 s.
+  static Future<void> checkSwitchFile() async {
+    final path = await switchFilePath();
+    if (path == null) return;
+    bool on;
+    try {
+      on = await File(path).exists();
+    } catch (_) {
+      on = false;
+    }
+    if (on == _fileOn) return;
+    _fileOn = on;
+    await _apply();
+    appLogger.i(on ? 'Developer mode on: switch file $path found' : 'Developer mode: switch file removed');
+  }
+
+  static Future<void> _apply() async {
+    refreshLoggerLevel();
+    if (enabled) {
+      await start();
+    } else {
+      await _close();
+    }
+    onEnabledChanged?.call();
+  }
 
   /// A file past this starts over, the old one kept as the `.prev` file.
   static const _maxBytes = 50 * 1024 * 1024;
@@ -45,12 +121,7 @@ class DevLogFile {
   /// it. A test build's flag keeps it on regardless.
   static Future<void> setSwitch(bool on) async {
     _switchedOn = on;
-    refreshLoggerLevel();
-    if (enabled) {
-      await start();
-    } else {
-      await _close();
-    }
+    await _apply();
   }
 
   static Future<void> _close() async {

@@ -85,6 +85,7 @@ import '../services/pip_service.dart';
 import '../services/shader_service.dart';
 import '../providers/shader_provider.dart';
 import '../providers/account_preferences_controller.dart';
+import '../dev/dev_channel.dart';
 import '../utils/app_logger.dart';
 import '../utils/dialogs.dart';
 import '../utils/log_redaction_manager.dart';
@@ -1674,6 +1675,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     if (!mounted || _shuttingDown) {
       // The route's teardown owns collaborators now. A late initializer may
       // only retire its captured native owner, never clear successor services.
+      DevChannel.detachPlayer(attemptPlayer);
       await attemptPlayer.dispose(preserveDisplayMode: _isReplacingWithVideo);
       return;
     }
@@ -1692,6 +1694,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     } catch (e, st) {
       appLogger.w('Failed to abandon audio focus during player rollback', error: e, stackTrace: st);
     }
+    DevChannel.detachPlayer(attemptPlayer);
     try {
       await attemptPlayer.dispose(preserveDisplayMode: false);
     } catch (e, st) {
@@ -2144,6 +2147,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
       player = currentPlayer;
       _playerBackendLabel = currentPlayer.playerType;
+      DevChannel.attachPlayer(
+        currentPlayer,
+        toast: (text) => _toastController.show(Symbols.build_rounded, text, duration: const Duration(seconds: 4)),
+      );
 
       initPhase = 'wiring player streams';
       await _wirePlayerStreams(
@@ -2588,6 +2595,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
     final playerToDispose = player;
     player = null;
     if (playerToDispose != null) {
+      DevChannel.detachPlayer(playerToDispose);
       // Keep the native display mode (tvOS HDMI criteria) across a
       // player→player handoff; the replacement screen primes its own.
       _nativeDisposal = playerToDispose.dispose(preserveDisplayMode: isReplacingWithVideo);

@@ -49,6 +49,60 @@ void main() {
     expect(logFile().readAsStringSync(), isNot(contains('after the switch')));
   });
 
+  group('switch file', () {
+    late File switchFile;
+    var changes = 0;
+
+    setUp(() async {
+      DevLogFile.resetSwitchFile();
+      changes = 0;
+      DevLogFile.onEnabledChanged = () => changes++;
+      switchFile = File((await DevLogFile.switchFilePath())!);
+    });
+
+    tearDown(() async {
+      if (switchFile.existsSync()) switchFile.deleteSync();
+      await DevLogFile.checkSwitchFile();
+      DevLogFile.onEnabledChanged = null;
+      DevLogFile.resetSwitchFile();
+    });
+
+    test('lives in the logs folder on desktop', () {
+      expect(switchFile.path, p.join(tempRoot.path, 'support', 'logs', 'plezy-debug-on'));
+    });
+
+    test('turns developer mode on while it exists, without the setting', () async {
+      await DevLogFile.checkSwitchFile();
+      expect(DevLogFile.enabled, isFalse);
+      expect(changes, 0);
+
+      switchFile.createSync(recursive: true);
+      await DevLogFile.checkSwitchFile();
+      expect(DevLogFile.enabled, isTrue);
+      expect(DevLogFile.switchedOnByFile, isTrue);
+      expect(debugLoggingEnabled, isTrue);
+      expect(changes, 1);
+
+      await DevLogFile.checkSwitchFile();
+      expect(changes, 1, reason: 'no change, no notice');
+
+      switchFile.deleteSync();
+      await DevLogFile.checkSwitchFile();
+      expect(DevLogFile.enabled, isFalse);
+      expect(changes, 2);
+    });
+
+    test('removing it leaves the setting in charge', () async {
+      await DevLogFile.setSwitch(true);
+      switchFile.createSync(recursive: true);
+      await DevLogFile.checkSwitchFile();
+      expect(DevLogFile.switchedOnByFile, isFalse, reason: 'the setting was on first');
+      switchFile.deleteSync();
+      await DevLogFile.checkSwitchFile();
+      expect(DevLogFile.enabled, isTrue);
+    });
+  });
+
   test('the debug logging setting still holds while the file is off', () async {
     setLoggerLevel(true);
     await DevLogFile.setSwitch(true);
