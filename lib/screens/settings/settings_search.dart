@@ -118,6 +118,7 @@ List<SettingsSearchEntry> settingsSearchEntries() {
       s.hardwareDecoding,
       s.passengerScreenMode,
       s.autoPip,
+      s.videoMiniPlayer,
       s.matchContentFrameRate,
       s.matchContentResolution,
       s.oldSchoolFilmRate,

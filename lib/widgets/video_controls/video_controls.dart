@@ -716,6 +716,11 @@ class PlexVideoControls extends StatefulWidget {
   @visibleForTesting
   final List<MediaMarker>? initialMarkers;
 
+  /// Where this item's credits start (the last credits marker), or null when it
+  /// has none or the markers are not loaded yet. The player uses it for the Up
+  /// Next page (local/plans/video-mini-player.md).
+  final ValueChanged<Duration?>? onCreditsStartChanged;
+
   const PlexVideoControls({
     super.key,
     required this.player,
@@ -724,6 +729,7 @@ class PlexVideoControls extends StatefulWidget {
     required this.toastController,
     this.initialChapters,
     this.initialMarkers,
+    this.onCreditsStartChanged,
     this.onNext,
     this.onPrevious,
     this.availableVersions = const [],
@@ -1108,6 +1114,7 @@ class _PlexVideoControlsState extends State<PlexVideoControls>
         _markers = [];
         _markersLoaded = false;
       });
+      widget.onCreditsStartChanged?.call(null);
       _clearCurrentMarker();
       _loadPlaybackExtras();
     }

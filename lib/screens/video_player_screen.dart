@@ -100,6 +100,8 @@ import '../utils/stream_buffer_sizing.dart';
 import '../utils/video_player_navigation.dart';
 import '../utils/android_exit_diagnostics.dart';
 import 'video_player/completion_latch.dart';
+import 'up_next/up_next_screen.dart';
+import 'video_player/video_mini_player.dart';
 import 'video_player/episode_session_state.dart';
 import 'video_player/first_frame_gate.dart';
 import 'video_player/frame_rate_matcher.dart';
@@ -154,6 +156,7 @@ import '../watch_together/services/watch_together_controller.dart';
 import '../utils/error_message_utils.dart';
 
 part 'video_player/parts/companion_remote.dart';
+part 'video_player/parts/mini_player.dart';
 part 'video_player/parts/display_matching.dart';
 part 'video_player/parts/episode_navigation.dart';
 part 'video_player/parts/episode_queue.dart';
@@ -557,6 +560,22 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   static bool isNavigationActive(VideoPlayerLaunchIdentity identity) => _activeRouteGuard.blocks(identity);
 
   Player? player;
+
+  /// In the corner box (local/plans/video-mini-player.md); the page it came
+  /// from is gone and [_miniNavigator] is where expand opens a new one.
+  bool _mini = false;
+  NavigatorState? _miniNavigator;
+  GlobalKey? _miniKey;
+  Widget? _miniEntry;
+  Future<void>? _miniStop;
+
+  /// The Up Next page under the box, while it is open: Back from full screen
+  /// during the credits goes back to it instead of opening a second one.
+  Route<dynamic>? _upNextRoute;
+
+  /// Where this item's credits start, from the controls' markers (null: none
+  /// known, so the last stretch of the item counts as the credits).
+  Duration? _creditsStart;
   VideoVolumeController? _volumeController;
   bool _isPlayerInitialized = false;
   String? _playerInitializationError;
@@ -2327,6 +2346,11 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
       _dismissPlaybackPromptForBack();
       return;
     }
+    // PC and tablets: Back keeps the video playing in a corner box.
+    if (!navigateHome && _canMinimize()) {
+      _minimizeToMiniPlayer();
+      return;
+    }
     if (_isHandlingBack) return;
     _isHandlingBack = true;
     try {
@@ -3015,6 +3039,7 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_mini) return _buildMiniPlayer(context);
     final isCurrentRoute = ModalRoute.of(context)?.isCurrent ?? true;
     // Screen-level Focus wraps ALL phases (loading + initialized).
     // - autofocus: grabs focus when no deeper child claims it.

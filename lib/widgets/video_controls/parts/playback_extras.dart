@@ -41,6 +41,9 @@ extension _PlexVideoControlsPlaybackExtrasMethods on _PlexVideoControlsState {
       _chaptersLoaded = true;
       _markersLoaded = true;
     });
+    final credits = extras.markers.where((marker) => marker.isCredits).toList()
+      ..sort((a, b) => a.startTimeOffset.compareTo(b.startTimeOffset));
+    widget.onCreditsStartChanged?.call(credits.isEmpty ? null : credits.last.startTime);
     _syncCurrentMarkerForCurrentPosition();
   }
 }

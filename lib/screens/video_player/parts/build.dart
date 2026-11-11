@@ -381,6 +381,7 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                                 onRateRequested: _setPlaybackRate,
                                 onPlayPauseRequested: _handleControlsTransport,
                                 onBack: widget.isOldSchool ? _oldSchoolHeaderBack : _handleBackButton,
+                                onCreditsStartChanged: (start) => _creditsStart = start,
                                 onReachedEnd: ({skipAutoPlayCountdown = false}) =>
                                     _onVideoCompleted(true, skipAutoPlayCountdown: skipAutoPlayCountdown),
                                 canControl: authority.canControlPlayback,

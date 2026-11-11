@@ -93,6 +93,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$addServer$en addServer = Translations$addServer$en.internal(_root);
 	late final Translations$course$en course = Translations$course$en.internal(_root);
 	late final Translations$seasonPage$en seasonPage = Translations$seasonPage$en.internal(_root);
+	late final Translations$upNext$en upNext = Translations$upNext$en.internal(_root);
 	late final Translations$oldSchool$en oldSchool = Translations$oldSchool$en.internal(_root);
 	late final Translations$iptv$en iptv = Translations$iptv$en.internal(_root);
 }
@@ -1065,6 +1066,12 @@ class Translations$settings$en {
 
 	/// en: 'Automatically enter picture-in-picture when you leave the app during playback'
 	String get autoPipDescription => 'Automatically enter picture-in-picture when you leave the app during playback';
+
+	/// en: 'Up Next During the Credits'
+	String get videoMiniPlayer => 'Up Next During the Credits';
+
+	/// en: 'Back during the credits keeps the video playing in the corner and shows what to watch next'
+	String get videoMiniPlayerDescription => 'Back during the credits keeps the video playing in the corner and shows what to watch next';
 
 	/// en: 'Passenger screen'
 	String get passengerScreenMode => 'Passenger screen';
@@ -5999,6 +6006,51 @@ class Translations$seasonPage$en {
 	String get noDetailsYet => 'No details yet';
 }
 
+// Path: upNext
+class Translations$upNext$en {
+	Translations$upNext$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Up next'
+	String get label => 'Up next';
+
+	/// en: 'Next episode'
+	String get nextEpisode => 'Next episode';
+
+	/// en: 'Next in Season ${number}'
+	String nextInSeason({required Object number}) => 'Next in Season ${number}';
+
+	/// en: 'More like ${title}'
+	String moreLike({required Object title}) => 'More like ${title}';
+
+	/// en: 'Play next episode'
+	String get playNextEpisode => 'Play next episode';
+
+	/// en: 'Play episode'
+	String get playEpisode => 'Play episode';
+
+	/// en: 'Play S1 · E1'
+	String get playFirstEpisode => 'Play S1 · E1';
+
+	/// en: 'Details'
+	String get details => 'Details';
+
+	/// en: 'S${season} · E${episode}'
+	String seasonEpisode({required Object season, required Object episode}) => 'S${season} · E${episode}';
+
+	/// en: 'Episode ${number}'
+	String episodeNumber({required Object number}) => 'Episode ${number}';
+
+	/// en: '${count} min'
+	String minutes({required Object count}) => '${count} min';
+
+	/// en: '${hours} h ${minutes} m'
+	String hoursMinutes({required Object hours, required Object minutes}) => '${hours} h ${minutes} m';
+}
+
 // Path: oldSchool
 class Translations$oldSchool$en {
 	Translations$oldSchool$en.internal(this._root);
@@ -8443,6 +8495,8 @@ extension on Translations {
 			'settings.companionRemoteServerStopFailed' => 'Couldn\'t stop the companion server',
 			'settings.autoPip' => 'Auto Picture-in-Picture',
 			'settings.autoPipDescription' => 'Automatically enter picture-in-picture when you leave the app during playback',
+			'settings.videoMiniPlayer' => 'Up Next During the Credits',
+			'settings.videoMiniPlayerDescription' => 'Back during the credits keeps the video playing in the corner and shows what to watch next',
 			'settings.passengerScreenMode' => 'Passenger screen',
 			'settings.passengerScreenModeDescription' => 'Allow picture-in-picture and keep playing while the car is moving. Only for screens the driver can\'t see.',
 			'settings.matchContentFrameRate' => 'Match Content Frame Rate',
@@ -8626,10 +8680,10 @@ extension on Translations {
 			'search.rows.noMatchYear' => 'year',
 			'hotkeys.setShortcutFor' => ({required Object actionName}) => 'Set Shortcut for ${actionName}',
 			'hotkeys.clearShortcut' => 'Clear shortcut',
-			'hotkeys.noShortcutSet' => 'No shortcut set',
-			'hotkeys.currentShortcut' => 'Current shortcut:',
 			_ => null,
 		} ?? switch (path) {
+			'hotkeys.noShortcutSet' => 'No shortcut set',
+			'hotkeys.currentShortcut' => 'Current shortcut:',
 			'hotkeys.pressToRecord' => 'Select to record a shortcut',
 			'hotkeys.recordingShortcut' => 'Press the shortcut now',
 			'hotkeys.actions.playPause' => 'Play/Pause',
@@ -9140,10 +9194,10 @@ extension on Translations {
 			'accountPreferences.noPreference' => 'No preference',
 			'accountPreferences.notSet' => 'Not set',
 			'accountPreferences.groups.audioAndSubtitles' => 'Audio & subtitles',
-			'accountPreferences.groups.libraryDisplay' => 'Library',
-			'accountPreferences.groups.personalMedia' => 'Personal media',
 			_ => null,
 		} ?? switch (path) {
+			'accountPreferences.groups.libraryDisplay' => 'Library',
+			'accountPreferences.groups.personalMedia' => 'Personal media',
 			'accountPreferences.preferredAudioLanguage' => 'Preferred audio language',
 			'accountPreferences.autoSelectAudio' => 'Choose audio by language',
 			'accountPreferences.autoSelectAudioDescription' => 'Off keeps whatever audio track the file marks as default.',
@@ -9654,10 +9708,10 @@ extension on Translations {
 			'liveTv.recordSettings.keepUpToHint' => '0 keeps every episode',
 			'liveTv.startingInMinutes' => ({required Object minutes}) => 'Starting in ${minutes} min',
 			'liveTv.dayAtTime' => ({required Object day, required Object time}) => '${day} at ${time}',
-			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
-			'liveTv.failedToStartChannel' => 'Could not start the live channel',
 			_ => null,
 		} ?? switch (path) {
+			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
+			'liveTv.failedToStartChannel' => 'Could not start the live channel',
 			'liveTv.failedToBuildStreamUrl' => 'Could not build the stream URL',
 			'liveTv.playbackStartFailed' => ({required Object reason}) => 'Couldn\'t start the channel: ${reason}',
 			'liveTv.channelSwitchFailed' => ({required Object reason}) => 'Couldn\'t switch channel: ${reason}',
@@ -10168,10 +10222,10 @@ extension on Translations {
 			'metadataEdit.preferredAudioLanguage' => 'Preferred Audio Language',
 			'metadataEdit.preferredSubtitleLanguage' => 'Preferred Subtitle Language',
 			'metadataEdit.subtitleMode' => 'Auto-Select Subtitle Mode',
-			'metadataEdit.manuallySelected' => 'Manually selected',
-			'metadataEdit.shownWithForeignAudio' => 'Shown with foreign audio',
 			_ => null,
 		} ?? switch (path) {
+			'metadataEdit.manuallySelected' => 'Manually selected',
+			'metadataEdit.shownWithForeignAudio' => 'Shown with foreign audio',
 			'metadataEdit.alwaysEnabled' => 'Always enabled',
 			'metadataEdit.tags' => 'Tags',
 			'metadataEdit.addTag' => 'Add tag',
@@ -10366,6 +10420,18 @@ extension on Translations {
 			'seasonPage.airsDay' => ({required Object day}) => 'Airs ${day}',
 			'seasonPage.tba' => 'TBA',
 			'seasonPage.noDetailsYet' => 'No details yet',
+			'upNext.label' => 'Up next',
+			'upNext.nextEpisode' => 'Next episode',
+			'upNext.nextInSeason' => ({required Object number}) => 'Next in Season ${number}',
+			'upNext.moreLike' => ({required Object title}) => 'More like ${title}',
+			'upNext.playNextEpisode' => 'Play next episode',
+			'upNext.playEpisode' => 'Play episode',
+			'upNext.playFirstEpisode' => 'Play S1 · E1',
+			'upNext.details' => 'Details',
+			'upNext.seasonEpisode' => ({required Object season, required Object episode}) => 'S${season} · E${episode}',
+			'upNext.episodeNumber' => ({required Object number}) => 'Episode ${number}',
+			'upNext.minutes' => ({required Object count}) => '${count} min',
+			'upNext.hoursMinutes' => ({required Object hours, required Object minutes}) => '${hours} h ${minutes} m',
 			'oldSchool.title' => 'Old School',
 			'oldSchool.matchSource' => 'Match source',
 			'oldSchool.matchSourceDescription' => 'Play this programme at its own resolution and frame rate, for this programme only',

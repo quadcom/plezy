@@ -384,6 +384,11 @@ extension _VideoPlayerIptvMethods on VideoPlayerScreenState {
   /// Leave IPTV at once; playback stops.
   Future<void> _iptvExit() {
     _iptv.watchdog?.cancel();
+    // IPTV keeps playing in the corner box too (Adrian, 2026-11-09).
+    if (_canMinimize()) {
+      _minimizeToMiniPlayer();
+      return Future<void>.value();
+    }
     return _exitPlayerRoute(navigateHome: false, stop: true);
   }
 

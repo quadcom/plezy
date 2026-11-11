@@ -278,7 +278,7 @@ class _TimelineSliderState extends State<TimelineSlider> {
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    _ScrubFrameView(frame: resolvedFrame),
+                    ScrubFrameView(frame: resolvedFrame),
                     Positioned(bottom: 4, left: 0, right: 0, child: Center(child: timeLabel)),
                   ],
                 ),
@@ -443,9 +443,11 @@ class _TimelineSliderState extends State<TimelineSlider> {
   }
 }
 
-class _ScrubFrameView extends StatelessWidget {
+/// One trick-play frame, sized to its box (the seek bar tooltip, the Up Next
+/// page's next-episode thumbnail).
+class ScrubFrameView extends StatelessWidget {
   final ScrubFrame frame;
-  const _ScrubFrameView({required this.frame});
+  const ScrubFrameView({super.key, required this.frame});
 
   int? _cacheDimension(double logicalSize, double devicePixelRatio) {
     if (!logicalSize.isFinite || logicalSize <= 0) return null;

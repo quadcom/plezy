@@ -82,6 +82,15 @@ class PlaybackCoordinator {
     _stopMusicSession = stopAndDispose;
   }
 
+  Future<void> Function()? _stopMiniVideo;
+
+  /// A video moved into the corner box registers how to stop it.
+  void registerMiniVideo({required Future<void> Function() stop}) => _stopMiniVideo = stop;
+
+  void unregisterMiniVideo(Future<void> Function() stop) {
+    if (_stopMiniVideo == stop) _stopMiniVideo = null;
+  }
+
   /// Remove [stopAndDispose] if it is the current registration. Passing the
   /// same callback used to register keeps a stale unregister (from an
   /// already-replaced session) from tearing down the new one.
@@ -92,6 +101,16 @@ class PlaybackCoordinator {
   /// Video playback is about to construct its native core: stop and dispose
   /// any live music session first. Completes once the audio core is gone.
   Future<void> claimVideo() async {
+    // A video still playing in the corner box goes first: one player owns the
+    // native video at a time (local/plans/video-mini-player.md).
+    final mini = _stopMiniVideo;
+    if (mini != null) {
+      try {
+        await mini();
+      } catch (e, st) {
+        appLogger.w('PlaybackCoordinator: mini player stop failed', error: e, stackTrace: st);
+      }
+    }
     final stop = _stopMusicSession;
     if (stop == null) return;
     try {

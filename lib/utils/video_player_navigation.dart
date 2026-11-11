@@ -41,13 +41,36 @@ const String kVideoPlayerRouteName = '/video_player';
 /// Commit through [push], not Navigator.push: a covered player still owns the
 /// native channel and must leave before another playback can take ownership.
 class VideoPlayerRoute extends PageRouteBuilder<bool> {
-  VideoPlayerRoute({required WidgetBuilder builder, this.watchTogetherLease})
+  VideoPlayerRoute({required WidgetBuilder builder, WatchPlaybackLease? watchTogetherLease, GlobalKey? screenKey})
+    : this._(
+        builder,
+        watchTogetherLease,
+        screenKey ?? GlobalKey(debugLabel: 'video_player_screen'),
+        ValueNotifier(false),
+      );
+
+  VideoPlayerRoute._(WidgetBuilder builder, this.watchTogetherLease, this.screenKey, this._screenReleased)
     : super(
         settings: const RouteSettings(name: kVideoPlayerRouteName),
-        pageBuilder: (context, _, _) => builder(context),
+        pageBuilder: (context, _, _) => ValueListenableBuilder<bool>(
+          valueListenable: _screenReleased,
+          // Once released the page draws nothing, so the screen is never in
+          // two places while it moves to the mini player.
+          builder: (context, released, _) =>
+              released ? const SizedBox.shrink() : KeyedSubtree(key: screenKey, child: builder(context)),
+        ),
         transitionDuration: Duration.zero,
         reverseTransitionDuration: Duration.zero,
       );
+
+  /// The player screen's identity while it moves between this page and the
+  /// video mini player and back, so its state (and the playing player) carries
+  /// over (local/plans/video-mini-player.md).
+  final GlobalKey screenKey;
+  final ValueNotifier<bool> _screenReleased;
+
+  /// The page lets go of its screen (it is moving to the mini player).
+  void releaseScreen() => _screenReleased.value = true;
 
   // Reserve at route commit, not screen initState: another launch can arrive
   // before the first frame. Navigator identity also isolates profile sessions.
@@ -92,6 +115,7 @@ class VideoPlayerRoute extends PageRouteBuilder<bool> {
   void dispose() {
     final owner = navigator;
     if (owner != null && identical(_activeRoutes[owner], this)) _activeRoutes[owner] = null;
+    _screenReleased.dispose();
     super.dispose();
   }
 }

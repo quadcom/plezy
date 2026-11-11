@@ -794,6 +794,10 @@ class SettingsService extends BaseSharedPreferencesService {
   static const matchDynamicRange = BoolPref('match_dynamic_range');
   static const appLocale = _AppLocalePref();
   static const autoPip = _AutoPipPref();
+
+  /// Back during playback keeps the video playing in a corner box (PC and
+  /// tablets; local/plans/video-mini-player.md). On by default (Adrian, 2026-11-09).
+  static const videoMiniPlayerOnBack = BoolPref('video_mini_player_on_back', defaultValue: true);
   static const passengerScreenMode = BoolPref('passenger_screen_mode');
   static const customDownloadPath = NullableStringPref('custom_download_path');
   static final customRelayUrl = NullableStringPref('custom_relay_url', transform: _normalizeRelayBaseUrl);
@@ -1408,6 +1412,7 @@ class SettingsService extends BaseSharedPreferencesService {
     audioDownmixNormalize,
     appLocale,
     autoPip,
+    videoMiniPlayerOnBack,
     passengerScreenMode,
     maxVolume,
     downmixCenterBoost,

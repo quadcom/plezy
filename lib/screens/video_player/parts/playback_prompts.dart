@@ -49,6 +49,11 @@ extension _VideoPlayerPlaybackPromptMethods on VideoPlayerScreenState {
       _ => null,
     };
     unawaited(_sendStoppedProgressOnce(positionOverride: duration));
+    // In the corner box the item stops at its end: no Play Next, no countdown.
+    if (_mini) {
+      unawaited(_stopMiniPlayer());
+      return;
+    }
     // The launch receipt is not ended here: the session may go on to the next
     // episode in place, and a receipt marked `completed` now would report the
     // finished item while the next one plays. It reads the live EOF state

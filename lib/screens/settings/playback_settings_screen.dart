@@ -10,6 +10,7 @@ import '../../models/player_setting_scope.dart';
 import '../../utils/quality_preset_labels.dart';
 import '../../services/settings_service.dart';
 import '../../utils/platform_detector.dart';
+import '../video_player/video_mini_player.dart';
 import '../../widgets/setting_tile.dart';
 import '../../widgets/settings_builder.dart';
 import '../../widgets/settings_page.dart';
@@ -65,6 +66,7 @@ class PlaybackSettingsScreen extends StatelessWidget {
                 if (exoActive) _tunneledPlaybackTile(),
                 if (PlatformDetector.isAutomotive()) _passengerScreenTile(),
                 if (PlatformDetector.supportsPictureInPicture()) _autoPipTile(),
+                if (VideoMiniPlayer.appliesOn(context)) _videoMiniPlayerTile(),
               ],
             ),
 
@@ -449,6 +451,13 @@ class PlaybackSettingsScreen extends StatelessWidget {
     icon: Symbols.picture_in_picture_alt_rounded,
     title: t.settings.autoPip,
     subtitle: t.settings.autoPipDescription,
+  );
+
+  Widget _videoMiniPlayerTile() => SettingSwitchTile(
+    pref: SettingsService.videoMiniPlayerOnBack,
+    icon: Symbols.picture_in_picture_rounded,
+    title: t.settings.videoMiniPlayer,
+    subtitle: t.settings.videoMiniPlayerDescription,
   );
 
   Widget _matchContentFrameRateTile() => SettingSwitchTile(

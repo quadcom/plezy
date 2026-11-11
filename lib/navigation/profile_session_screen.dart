@@ -38,6 +38,7 @@ import '../services/system_shelf_service.dart';
 import '../utils/app_logger.dart';
 import '../watch_together/providers/watch_together_provider.dart';
 import '../widgets/music/mini_player.dart';
+import '../screens/video_player/video_mini_player.dart';
 import '../widgets/agent_control_scope.dart';
 import 'profile_navigation_scope.dart';
 import 'settings_shortcut.dart';
@@ -398,6 +399,8 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
                     ],
                     onGenerateRoute: _onGenerateRoute,
                   ),
+                  // A video kept playing after Back (PC and tablets).
+                  const Positioned.fill(child: VideoMiniPlayerLayer()),
                   const Positioned.fill(child: MusicMiniPlayerOverlay()),
                 ],
               ),
