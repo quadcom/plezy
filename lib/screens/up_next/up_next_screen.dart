@@ -93,6 +93,15 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
   // Design units: the mock-up is drawn on a 1920-wide screen.
   static const _design = 1920.0;
 
+  // The hero logo slot, in design units.
+  static const _logoWidth = 520.0;
+  static const _logoHeight = 104.0;
+
+  /// Logos to load ahead of the one shown: rows start at the far left and
+  /// scroll right, and anything passed stays in the image cache, so only the
+  /// next ones to the right (Adrian, 2026-11-12).
+  static const _logoLookahead = 2;
+
   final _mini = VideoMiniPlayer.instance;
   final _playNode = FocusNode(debugLabel: 'up_next_play');
   final _detailsNode = FocusNode(debugLabel: 'up_next_details');
@@ -108,6 +117,11 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
   int _heroRow = -1;
   bool _loaded = false;
   bool _shown = false;
+
+  /// Page scale from the last layout (window width / [_design]); the logo
+  /// preload needs it to ask for the same image size the page shows.
+  double _k = 1;
+  final Set<String> _preloadedLogos = {};
 
   /// The box's video has ended or stopped: the art grows to the full width.
   bool _gone = false;
@@ -297,6 +311,11 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
         ..addAll(List.filled(rows.length, 0));
       if (rows.isNotEmpty) _setHero(0, 0);
     });
+    // Each row starts at its left end: its first logos are the next ones seen.
+    _preloadLogos([
+      for (var r = 0; r < rows.length; r++)
+        for (var c = 0; c < rows[r].items.length && c < _logoLookahead; c++) (r, c),
+    ]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _playNode.requestFocus();
     });
@@ -339,6 +358,32 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
     _hero = item;
     _heroKind = _rows[row].kind;
     _heroRow = row;
+    _preloadLogos([for (final c in upNextLookaheadColumns(col, _rows[row].items.length, _logoLookahead)) (row, c)]);
+  }
+
+  /// Starts downloading the logos of [cells] (row, column) so they show at
+  /// once when reached. Runs after the frame: callers are inside setState, and
+  /// [_k] is only known once the page has laid out.
+  void _preloadLogos(List<(int, int)> cells) {
+    if (cells.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      for (final (row, col) in cells) {
+        if (row >= _rows.length || col >= _rows[row].items.length) continue;
+        final item = _rows[row].items[col];
+        final path = item.clearLogoPath;
+        if (path == null || path.isEmpty) continue;
+        final image = UpNextLogo.imageFor(
+          context,
+          client: _clientFor(item),
+          logoPath: path,
+          width: _logoWidth * _k,
+          height: _logoHeight * _k,
+        );
+        if (image == null || !_preloadedLogos.add(image.url)) continue;
+        unawaited(precacheImage(image.provider, context, onError: (_, _) {}));
+      }
+    });
   }
 
   /// Movie page, or the episode page off its season row: the art sits on the
@@ -494,6 +539,7 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
               builder: (context, constraints) {
                 final size = constraints.biggest;
                 final k = size.width / _design;
+                _k = k;
                 return Stack(
                   fit: StackFit.expand,
                   children: [_background(context, size, bg), _content(context, size, k)],
@@ -682,21 +728,18 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
                 ),
                 SizedBox(height: 12 * k),
                 SizedBox(
-                  height: 104 * k,
-                  width: 520 * k,
+                  height: _logoHeight * k,
+                  width: _logoWidth * k,
                   child: Align(
                     alignment: Alignment.bottomLeft,
                     child: logo != null
-                        ? OptimizedMediaImage(
+                        ? UpNextLogo(
                             key: ValueKey(('logo', hero.globalKey)),
                             client: _clientFor(hero),
-                            imagePath: logo,
-                            imageType: ImageType.logo,
-                            width: 520 * k,
-                            height: 104 * k,
-                            fit: BoxFit.contain,
-                            alignment: Alignment.bottomLeft,
-                            errorWidget: (context, _, _) => _bigName(name, k),
+                            logoPath: logo,
+                            width: _logoWidth * k,
+                            height: _logoHeight * k,
+                            fallback: _bigName(name, k),
                           )
                         : _bigName(name, k),
                   ),
@@ -922,6 +965,84 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
       },
     );
   }
+}
+
+/// Columns after [col] whose logos load ahead, at most [lookahead] and never
+/// past the row's [count] items. Rows only scroll right from the left end, and
+/// passed logos stay cached, so nothing to the left.
+@visibleForTesting
+List<int> upNextLookaheadColumns(int col, int count, int lookahead) => [
+  for (var c = col + 1; c < count && c <= col + lookahead; c++) c,
+];
+
+/// The Up Next hero logo. While it downloads the slot stays empty: the default
+/// loading tile is a solid box the size of the slot, which showed until the
+/// logo's see-through picture arrived (Adrian, 2026-11-12). The title shows
+/// only if the logo can't load.
+@visibleForTesting
+class UpNextLogo extends StatelessWidget {
+  const UpNextLogo({
+    super.key,
+    required this.client,
+    required this.logoPath,
+    required this.width,
+    required this.height,
+    required this.fallback,
+  });
+
+  final MediaServerClient? client;
+  final String logoPath;
+  final double width;
+  final double height;
+  final Widget fallback;
+
+  static const _type = ImageType.logo;
+
+  /// The image this widget shows for these values, as [OptimizedMediaImage]
+  /// builds it: same URL and decode size, so a preload lands in the same
+  /// memory-cache entry. Null when no URL can be made.
+  static ({String url, ImageProvider provider})? imageFor(
+    BuildContext context, {
+    required MediaServerClient? client,
+    required String logoPath,
+    required double width,
+    required double height,
+  }) {
+    final pixelRatio = MediaImageHelper.artworkPixelRatio(context, imageType: _type);
+    final url = MediaImageHelper.getOptimizedImageUrl(
+      client: client,
+      thumbPath: logoPath,
+      maxWidth: width,
+      maxHeight: height,
+      pixelRatio: pixelRatio,
+      imageType: _type,
+    );
+    if (url.isEmpty) return null;
+    final scaledWidth = width * pixelRatio;
+    final scaledHeight = height * pixelRatio;
+    final (memWidth, memHeight) = MediaImageHelper.getMemCacheDimensions(
+      displayWidth: scaledWidth.isFinite && scaledWidth > 0 ? scaledWidth.round() : 0,
+      displayHeight: scaledHeight.isFinite && scaledHeight > 0 ? scaledHeight.round() : 0,
+      imageType: _type,
+    );
+    return (
+      url: url,
+      provider: MediaImageHelper.serverArtworkProvider(imageUrl: url, memWidth: memWidth, memHeight: memHeight),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => OptimizedMediaImage(
+    client: client,
+    imagePath: logoPath,
+    imageType: _type,
+    width: width,
+    height: height,
+    fit: BoxFit.contain,
+    alignment: Alignment.bottomLeft,
+    placeholder: (context, _) => const SizedBox.shrink(),
+    errorWidget: (context, _, _) => fallback,
+  );
 }
 
 class _Shadowed extends StatelessWidget {
