@@ -11,7 +11,10 @@ import 'package:flutter/widgets.dart';
 /// move) and upright windows get null and stay as they were.
 @immutable
 class DetailBigScreenLayout {
-  const DetailBigScreenLayout._(this.size, this.k);
+  const DetailBigScreenLayout._(this.size, this.k, {this.isTv = false});
+
+  /// A TV: same layout, sizes x[tvBoost], remote focus.
+  final bool isTv;
 
   static const designWidth = 2560.0;
   static const designHeight = 1410.0;
@@ -27,15 +30,20 @@ class DetailBigScreenLayout {
   /// This window's size next to the design window (1 on his PC).
   final double k;
 
+  /// Pins TVs to their own (older) item page, which stays for a TV window the
+  /// big page doesn't cover; the tests of that page set this.
+  @visibleForTesting
+  static bool debugTvKeepsOwnLayout = false;
+
   static DetailBigScreenLayout? resolve({required Size size, required bool isPhone, required bool isTv}) {
+    if (isTv && debugTvKeepsOwnLayout) return null;
     // The design is for wide screens; an upright window (a phone-shaped desktop
     // window, a tablet held upright) keeps the old page.
-    // TVs keep their own item layout for now: it has TV-only parts (the episode
-    // rail the top section follows, remote focus on the info area) that this
-    // page doesn't have (stage 3 of the plan, held 2026-11-09).
-    if (isPhone || isTv || size.width < minWidth || size.height <= 0 || size.height > size.width) return null;
-    final k = math.min(size.width / designWidth, size.height / designHeight);
-    return DetailBigScreenLayout._(size, k);
+    if (isPhone || size.width < minWidth || size.height <= 0 || size.height > size.width) return null;
+    // TVs: the same layout, a fifth bigger for the viewing distance (design
+    // session 2026-11-15, local/plans/tv-movie-page.md).
+    final k = math.min(size.width / designWidth, size.height / designHeight) * (isTv ? tvBoost : 1);
+    return DetailBigScreenLayout._(size, k, isTv: isTv);
   }
 
   double _z(double v) => v * k;

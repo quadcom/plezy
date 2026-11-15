@@ -20,7 +20,17 @@ import 'fitted_metadata_line.dart';
 import 'settings_builder.dart';
 import 'media_rating_badge.dart';
 import 'optimized_media_image.dart' show ClearLogoImage, blurArtwork;
+import '../utils/obfuscation_utils.dart';
 import 'rasterized_gradient.dart';
+
+/// The TV spotlight's art moves on every TV except low-end ones, and not in
+/// blurred test builds (local/plans/tv-home-art-motion.md).
+@visibleForTesting
+bool tvSpotlightArtMoves({required bool lowEnd, required bool blurred}) => !lowEnd && !blurred;
+
+/// One move per picture: the spotlight's 10 s per picture plus its fade, so a
+/// picture keeps moving until the next one is in.
+const Duration tvSpotlightMoveDuration = Duration(seconds: 11);
 
 class TvSpotlightBackground extends StatelessWidget {
   final MediaItem? item;
@@ -84,6 +94,11 @@ class TvSpotlightBackground extends StatelessWidget {
           width: size.width,
           height: size.height,
           fallbackColor: media == null ? bgColor : Theme.of(context).colorScheme.surfaceContainerHighest,
+          // Gentle random moves like the PC banner, a new one for each picture
+          // (local/plans/tv-home-art-motion.md); off on low-end TVs.
+          randomMove: tvSpotlightArtMoves(lowEnd: DevicePerformance.isLowEndHardware, blurred: kBlurArtwork),
+          moveDuration: tvSpotlightMoveDuration,
+          newMovePerPicture: true,
         );
         return Stack(
           fit: StackFit.expand,

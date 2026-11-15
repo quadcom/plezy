@@ -373,6 +373,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   /// Sizes for tablets and up, set each build; null on phones and TVs, which
   /// keep their own layouts (local/plans/movie-page-big-screens.md).
   DetailBigScreenLayout? _big;
+
+  /// A TV showing its own (older) item page; 1080p TVs use the big-screen page
+  /// (local/plans/tv-movie-page.md), where the remote moves like a keyboard on
+  /// a PC: Down from the buttons reaches the Overview, not the TV episode rail.
+  bool get _onTvOwnLayout => PlatformDetector.isTV() && _big == null;
   List<MediaItem> _seasons = [];
   bool _isLoadingSeasons = false;
   bool _seasonsLoadFailed = false; // the seasons fetch threw (vs. a genuinely empty show)
@@ -1227,7 +1232,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   /// Build a metadata chip with optional leading icon or widget
   Widget _buildMetadataChip(String text, {IconData? icon, Widget? leading}) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isTv = PlatformDetector.isTV();
+    // The big-screen page sizes its chips by zooming the PC ones (and measures
+    // them at the PC size), so only the TV's own page uses the TV chip size.
+    final isTv = _onTvOwnLayout;
     final textWidget = Text(
       text,
       style: TextStyle(color: colorScheme.onSecondaryContainer, fontSize: isTv ? 16 : 13, fontWeight: .w600),
@@ -2494,7 +2501,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (metadata.isShow && !_showEpisodesDirectly && _seasons.isNotEmpty && _seasonTabFocusNodes.isNotEmpty) {
       _seasonTabFocusNodes[_selectedSeasonIndex].requestFocus();
       _scrollSectionIntoView(_seasonsSectionKey);
-    } else if (!PlatformDetector.isTV() && metadata.summary != null && metadata.summary!.isNotEmpty) {
+    } else if (!_onTvOwnLayout && metadata.summary != null && metadata.summary!.isNotEmpty) {
       _overviewFocusNode.requestFocus();
       _scrollSectionIntoView(_overviewSectionKey);
     } else {
@@ -2645,7 +2652,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   /// Focus the first available section above the primary action row.
   void _focusAboveActionRow() {
-    if (PlatformDetector.isTV()) {
+    if (_onTvOwnLayout) {
       // The hero information block sits directly above the action row and is
       // the D-pad path to the full details sheet (#2042).
       _tvDetailInfoFocusNode.requestFocus();
@@ -2658,7 +2665,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   void _focusBelowActionRow() {
     final metadata = _metadata;
 
-    if (PlatformDetector.isTV()) {
+    if (_onTvOwnLayout) {
       _tvDetailRailKey.currentState?.requestFocus();
       return;
     }
@@ -2788,7 +2795,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
   }
 
   Widget _buildSeasonTabsContent(BuildContext context, bool showPosters) {
-    final showSeasonPosters = showPosters && !PlatformDetector.isTV();
+    final showSeasonPosters = showPosters && !_onTvOwnLayout;
 
     return HorizontalScrollWithArrows(
       controller: _seasonTabsScrollController,
@@ -2905,7 +2912,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                           }
                         : null,
                     onNavigateDown: () {
-                      if (PlatformDetector.isTV()) {
+                      if (_onTvOwnLayout) {
                         _tvDetailRailKey.currentState?.requestFocus();
                         return;
                       }
@@ -3157,7 +3164,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
               ? () {
                   if (!_showEpisodesDirectly) {
                     _focusSelectedSeasonTab();
-                  } else if (!PlatformDetector.isTV() && _metadata.summary?.isNotEmpty == true) {
+                  } else if (!_onTvOwnLayout && _metadata.summary?.isNotEmpty == true) {
                     _overviewFocusNode.requestFocus();
                     _scrollSectionIntoView(_overviewSectionKey);
                   } else {

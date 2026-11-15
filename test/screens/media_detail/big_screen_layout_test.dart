@@ -47,11 +47,27 @@ void main() {
     expect(big.logoHeight, 120);
   });
 
-  test('phones, TVs (own layout for now) and narrow windows keep the old page', () {
+  test('phones and narrow windows keep the old page', () {
     expect(at(412, 915, phone: true), isNull);
-    expect(at(1920, 1080, tv: true), isNull);
     expect(at(800, 900), isNull);
     expect(at(1100, 2400), isNull, reason: 'upright windows keep the old page');
+  });
+
+  test('a 1080p TV gets the same layout a fifth bigger (design session 2026-11-15)', () {
+    final tv = at(1920, 1080, tv: true)!;
+    expect(tv.isTv, isTrue);
+    expect(tv.k, closeTo(0.75 * 1.2, 1e-9));
+    expect(tv.titleLeft, closeTo(86.4, 1e-9));
+    expect(tv.posterWidth, closeTo(621, 1e-9));
+    expect(tv.overviewFontSize, closeTo(25.2, 1e-9));
+    expect(tv.castCardWidth, closeTo(189, 1e-9));
+  });
+
+  test('a TV can be pinned to its own page (its tests do)', () {
+    DetailBigScreenLayout.debugTvKeepsOwnLayout = true;
+    addTearDown(() => DetailBigScreenLayout.debugTvKeepsOwnLayout = false);
+    expect(at(1920, 1080, tv: true), isNull);
+    expect(at(2560, 1410), isNotNull);
   });
 
   test('the overview stops short of the poster', () {

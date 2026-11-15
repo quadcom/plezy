@@ -81,6 +81,7 @@ class CyclingMediaBackdrop extends StatefulWidget {
     this.moveDuration = const Duration(seconds: 9),
     this.moveSize = 0.03,
     this.moveZoom = 0.06,
+    this.newMovePerPicture = false,
   });
 
   /// Slow sideways movement of the art, as a share of its width each way
@@ -99,6 +100,14 @@ class CyclingMediaBackdrop extends StatefulWidget {
   final Duration moveDuration;
   final double moveSize;
   final double moveZoom;
+
+  /// With [randomMove]: every picture this backdrop shows (a new item, or the
+  /// next of an item's pictures) starts its own random move, blending out of
+  /// where the last one had got to so nothing jumps. For a backdrop that stays
+  /// on screen and swaps what it shows, like the TV home page's spotlight
+  /// (local/plans/tv-home-art-motion.md). Off: one move for the backdrop's life,
+  /// as each Discover banner slide has its own backdrop.
+  final bool newMovePerPicture;
 
   final Object? mediaKey;
   final List<String> imagePaths;
@@ -353,6 +362,7 @@ class _CyclingMediaBackdropState extends State<CyclingMediaBackdrop> with Widget
         size: widget.moveSize,
         zoom: widget.moveZoom,
         active: animate,
+        moveKey: widget.newMovePerPicture ? (widget.mediaKey, _currentPath) : null,
         child: art,
       );
     }
@@ -471,6 +481,7 @@ class _BackdropMoveLayer extends StatefulWidget {
     required this.zoom,
     required this.active,
     required this.child,
+    this.moveKey,
   });
 
   final Duration duration;
@@ -479,13 +490,22 @@ class _BackdropMoveLayer extends StatefulWidget {
   final bool active;
   final Widget child;
 
+  /// When this changes, a new random move starts, blended out of the pose the
+  /// last one had reached (see [CyclingMediaBackdrop.newMovePerPicture]).
+  final Object? moveKey;
+
   @override
   State<_BackdropMoveLayer> createState() => _BackdropMoveLayerState();
 }
 
 class _BackdropMoveLayerState extends State<_BackdropMoveLayer> with SingleTickerProviderStateMixin {
   late final AnimationController _t = AnimationController(vsync: this, duration: widget.duration);
-  final BackdropMove _move = BackdropMove.random();
+  BackdropMove _move = BackdropMove.random();
+
+  /// Where the previous move had got to when this one started; the new move
+  /// eases out of it over its first [_blendShare] so the picture never jumps.
+  ({double x, double y, double zoom})? _from;
+  static const _blendShare = 0.25;
 
   @override
   void initState() {
@@ -497,7 +517,29 @@ class _BackdropMoveLayerState extends State<_BackdropMoveLayer> with SingleTicke
   void didUpdateWidget(covariant _BackdropMoveLayer oldWidget) {
     super.didUpdateWidget(oldWidget);
     _t.duration = widget.duration;
+    if (widget.moveKey != null && widget.moveKey != oldWidget.moveKey) {
+      _from = _pose(_t.value);
+      _move = BackdropMove.random();
+      _t.value = 0;
+      _sync();
+      return;
+    }
     if (oldWidget.active != widget.active) _sync();
+  }
+
+  /// The pose at [t]: the current move, eased out of [_from] at its start.
+  ({double x, double y, double zoom}) _pose(double t) {
+    final p = _move.at(t);
+    final from = _from;
+    if (from == null || t >= _blendShare) return p;
+    final start = _move.at(0);
+    final u = t / _blendShare;
+    final w = 1 - u * u * (3 - 2 * u); // 1 -> 0, smooth at both ends
+    return (
+      x: p.x + (from.x - start.x) * w,
+      y: p.y + (from.y - start.y) * w,
+      zoom: p.zoom + (from.zoom - start.zoom) * w,
+    );
   }
 
   void _sync() {
@@ -527,7 +569,7 @@ class _BackdropMoveLayerState extends State<_BackdropMoveLayer> with SingleTicke
           return AnimatedBuilder(
             animation: _t,
             builder: (context, child) {
-              final p = _move.at(_t.value);
+              final p = _pose(_t.value);
               final scale = base + widget.zoom * p.zoom;
               return Transform(
                 alignment: Alignment.center,

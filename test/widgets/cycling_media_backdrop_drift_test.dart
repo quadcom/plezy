@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plezy/screens/discover_screen.dart';
 import 'package:plezy/widgets/cycling_media_backdrop.dart';
+import 'package:plezy/widgets/tv_spotlight_background.dart';
 
 /// Fan art motion: the item-page drift and the Discover banner's one-way moves
 /// (local/plans/discover-banner-drift.md, discover-banner-motion.md).
 void main() {
-  Widget host({bool reduceMotion = false, bool randomMove = false, double drift = 0}) => MediaQuery(
+  Widget host({
+    bool reduceMotion = false,
+    bool randomMove = false,
+    double drift = 0,
+    Object mediaKey = 'item',
+    bool newMovePerPicture = false,
+  }) => MediaQuery(
     data: MediaQueryData(size: const Size(800, 400), disableAnimations: reduceMotion),
     child: Directionality(
       textDirection: TextDirection.ltr,
@@ -14,7 +21,7 @@ void main() {
         width: 800,
         height: 400,
         child: CyclingMediaBackdrop(
-          mediaKey: 'item',
+          mediaKey: mediaKey,
           imagePaths: const [],
           client: null,
           width: 800,
@@ -24,6 +31,7 @@ void main() {
           driftPeriod: const Duration(seconds: 28),
           randomMove: randomMove,
           moveDuration: const Duration(seconds: 9),
+          newMovePerPicture: newMovePerPicture,
         ),
       ),
     ),
@@ -45,6 +53,26 @@ void main() {
     await tester.pumpWidget(host(drift: 0.04, reduceMotion: true));
     await tester.pump(const Duration(seconds: 7));
     expect(moving(tester).transform.getTranslation().x.abs(), lessThan(1));
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('TV spotlight: a new item starts a new move without the picture jumping', (tester) async {
+    // local/plans/tv-home-art-motion.md: one backdrop stays on screen and swaps items.
+    await tester.pumpWidget(host(randomMove: true, newMovePerPicture: true));
+    await tester.pump(const Duration(seconds: 6));
+    final before = moving(tester).transform.clone();
+    await tester.pumpWidget(host(randomMove: true, newMovePerPicture: true, mediaKey: 'next'));
+    final right = moving(tester).transform.clone();
+    // Same pose at the swap: the new move blends out of where the old one was.
+    expect((right.getTranslation() - before.getTranslation()).length, lessThan(0.5));
+    expect((right.getMaxScaleOnAxis() - before.getMaxScaleOnAxis()).abs(), lessThan(0.001));
+    // ... and keeps moving (the old move had 3 s left; this one runs its full 9 s).
+    await tester.pump(const Duration(seconds: 8));
+    final later = moving(tester).transform.clone();
+    final moved =
+        (later.getTranslation() - right.getTranslation()).length > 1 ||
+        (later.getMaxScaleOnAxis() - right.getMaxScaleOnAxis()).abs() > 0.005;
+    expect(moved, isTrue);
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -110,5 +138,11 @@ void main() {
     expect(discoverBannerMovesFor(lowEnd: false, blurred: true), isFalse);
     expect(discoverBannerArtShare, 0.8);
     expect(discoverBannerMoveDuration, greaterThan(const Duration(seconds: 8)));
+  });
+
+  test('the TV spotlight moves on all but low-end TVs', () {
+    expect(tvSpotlightArtMoves(lowEnd: false, blurred: false), isTrue);
+    expect(tvSpotlightArtMoves(lowEnd: true, blurred: false), isFalse);
+    expect(tvSpotlightArtMoves(lowEnd: false, blurred: true), isFalse);
   });
 }

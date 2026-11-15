@@ -26,6 +26,7 @@ import 'package:plezy/mixins/deletion_aware.dart';
 import 'package:plezy/providers/download_provider.dart';
 import 'package:plezy/providers/multi_server_provider.dart';
 import 'package:plezy/providers/watch_state_store.dart';
+import 'package:plezy/screens/media_detail/big_screen_layout.dart';
 import 'package:plezy/screens/media_detail_screen.dart';
 import 'package:plezy/models/download_models.dart';
 import 'package:plezy/navigation/profile_navigation_scope.dart';
@@ -73,11 +74,16 @@ void main() {
     resetSharedPreferencesForTest(initialAsync: {'fork_season_pages': false});
     SettingsService.resetForTesting();
     TvDetectionService.debugSetAppleTVOverride(true);
+    // The "TV detail" tests cover the TV's own item page, which stays for a TV
+    // window the big-screen page doesn't cover; 1080p TVs use the big page
+    // (local/plans/tv-movie-page.md, see "TV big-screen layout" below).
+    DetailBigScreenLayout.debugTvKeepsOwnLayout = true;
     LocaleSettings.setLocaleSync(AppLocale.en);
   });
 
   tearDown(() {
     TvDetectionService.debugSetAppleTVOverride(null);
+    DetailBigScreenLayout.debugTvKeepsOwnLayout = false;
   });
 
   testWidgets('TV detail scales fallback title to fit logo bounds', (tester) async {
@@ -1679,10 +1685,12 @@ void main() {
       String? initialEpisodeId,
       NavigatorObserver? observer,
       ThemeData? theme,
+      bool bigTv = false,
     }) async {
-      TvDetectionService.debugSetAppleTVOverride(false);
+      TvDetectionService.debugSetAppleTVOverride(bigTv);
+      if (bigTv) DetailBigScreenLayout.debugTvKeepsOwnLayout = false;
       await SettingsService.getInstance();
-      tester.view.physicalSize = const Size(1100, 2400);
+      tester.view.physicalSize = bigTv ? const Size(1920, 1080) : const Size(1100, 2400);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -1777,6 +1785,29 @@ void main() {
         },
       );
     }
+
+    group('TV big-screen layout', () {
+      // 1080p TVs use the big-screen item page, a fifth bigger (design session
+      // 2026-11-15, local/plans/tv-movie-page.md).
+      testWidgets('a 1080p TV gets the big-screen page with its Overview section', (tester) async {
+        final show = buildShow(summary: 'A show about a family.');
+        await pumpPhoneDetail(tester, singleSeasonClient(show), show, bigTv: true);
+        expect(find.text('Overview'), findsOneWidget);
+        expect(find.text('A show about a family.'), findsOneWidget);
+      });
+
+      testWidgets('focus starts on Play and DOWN reaches the overview', (tester) async {
+        final show = buildShow(summary: 'A show about a family.');
+        await pumpPhoneDetail(tester, singleSeasonClient(show), show, bigTv: true);
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'play_button');
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(FocusManager.instance.primaryFocus?.debugLabel, 'overview');
+      });
+    });
 
     testWidgets('phone hero title fallback uses the light theme foreground', (tester) async {
       // The hero scrim washes artwork toward the near-white light background;
