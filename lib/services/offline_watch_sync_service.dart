@@ -20,6 +20,7 @@ import '../utils/watch_state_notifier.dart';
 import 'multi_server_manager.dart';
 import 'plex_client.dart';
 import 'settings_service.dart';
+import '../dev/server_write_guard.dart';
 import 'trackers/tracker_coordinator.dart';
 import 'watch_state_resolver.dart';
 
@@ -429,6 +430,12 @@ class OfflineWatchSyncService extends ChangeNotifier with DisposableChangeNotifi
   /// Called automatically when connectivity is restored, or manually.
   /// Actions are batched by server to reduce connectivity lookups.
   Future<void> syncPendingItems() async {
+    // The developer switch file sends nothing to the server; queued rows wait, untouched,
+    // for the next sync after it is turned off (local/plans/dev-tools.md).
+    if (ServerWriteGuard.active) {
+      appLogger.d('Offline sync skipped: developer switch file is on');
+      return;
+    }
     if (_isSyncing) {
       appLogger.d('Sync already in progress, skipping');
       return;

@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../dev/server_write_guard.dart';
 import 'app_logger.dart';
 import 'future_extensions.dart';
 import 'isolate_helper.dart';
@@ -96,11 +97,16 @@ class MediaServerHttpClient {
     Map<String, String> defaultHeaders = const {},
     this.connectTimeout = const Duration(seconds: 10),
     this.receiveTimeout = const Duration(seconds: 120),
+    this.guardServerWrites = false,
   }) : _client = client ?? platform.createPlatformClient(),
        defaultHeaders = Map.of(defaultHeaders);
 
   /// The underlying [http.Client] for direct streaming / multipart requests.
   http.Client get inner => _client;
+
+  /// Set on the media server clients (Jellyfin, Plex): while developer mode is
+  /// on, writes are held back by [ServerWriteGuard] (local/plans/dev-tools.md).
+  final bool guardServerWrites;
 
   String baseUrl;
   Map<String, String> defaultHeaders;
@@ -263,6 +269,24 @@ class MediaServerHttpClient {
     Duration? timeout,
     AbortController? abort,
   }) {
+    if (guardServerWrites && ServerWriteGuard.active) {
+      final uri = _resolveUri(path, queryParameters);
+      switch (ServerWriteGuard.check(method, uri)) {
+        case ServerWriteVerdict.allow:
+          break;
+        case ServerWriteVerdict.pretend:
+          return Future.value(MediaServerResponse(statusCode: 204, headers: const {}, requestUri: uri));
+        case ServerWriteVerdict.refuse:
+          return Future.value(
+            MediaServerResponse(
+              statusCode: 403,
+              data: ServerWriteBlockedException(method, uri.path).toString(),
+              headers: const {},
+              requestUri: uri,
+            ),
+          );
+      }
+    }
     return _perform<MediaServerResponse>(
       method,
       path,

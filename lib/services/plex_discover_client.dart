@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../media/media_kind.dart';
+import '../dev/server_write_guard.dart';
 import '../utils/app_logger.dart';
 import '../utils/external_ids.dart';
 import '../utils/json_utils.dart';
@@ -315,6 +316,11 @@ class PlexDiscoverClient {
   }
 
   Future<void> setWatchlisted(String ratingKey, {required bool add}) async {
+    final path = add ? '/actions/addToWatchlist' : '/actions/removeFromWatchlist';
+    if (ServerWriteGuard.active) {
+      ServerWriteGuard.record('PUT', path);
+      throw ServerWriteBlockedException('PUT', path);
+    }
     await _request(
       'PUT',
       add ? '/actions/addToWatchlist' : '/actions/removeFromWatchlist',

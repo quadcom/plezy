@@ -6,6 +6,7 @@ import '../../media/media_kind.dart';
 import '../../media/media_server_client.dart';
 import '../../media/playback_timeline.dart';
 import '../../models/trackers/tracker_context.dart';
+import '../../dev/server_write_guard.dart';
 import '../../utils/app_logger.dart';
 import '../../media/episode_collection.dart';
 import 'anime_episode_progress_resolver.dart';
@@ -144,6 +145,8 @@ class TrackerCoordinator {
   /// fire-and-forget, and a queue that cannot be read or written this time simply
   /// waits for the next trigger.
   Future<void> flushWriteQueue() async {
+    // Developer mode sends no watches anywhere (local/plans/dev-tools.md).
+    if (ServerWriteGuard.active) return;
     final scope = _currentScope;
     try {
       await _writeQueue.flush(scope.userUuid, send: (item) => _replayQueuedWrite(item, scope));
@@ -170,7 +173,7 @@ class TrackerCoordinator {
 
   Future<void> startPlayback(MediaItem metadata, MediaServerClient client, {bool isLive = false}) async {
     final revision = ++_playbackRevision;
-    if (isLive) {
+    if (isLive || ServerWriteGuard.active) {
       _reset();
       return;
     }
@@ -274,6 +277,7 @@ class TrackerCoordinator {
   Future<void> markUnwatched(MediaItem item, MediaServerClient client) => _markManual(item, client, watched: false);
 
   Future<void> _markManual(MediaItem item, MediaServerClient client, {required bool watched}) async {
+    if (ServerWriteGuard.active) return;
     try {
       await _applyManualMark(item, client, watched: watched);
     } catch (e) {

@@ -27,7 +27,6 @@ import '../database/app_database.dart';
 import '../screens/main_screen.dart';
 import '../screens/video_player_screen.dart';
 import '../services/api_cache.dart';
-import '../services/agent_control_service.dart';
 import '../services/catalog/catalog_library_matcher.dart';
 import '../services/music/music_playback_service.dart';
 import '../services/music/music_playback_service_impl.dart';
@@ -354,7 +353,7 @@ class _ProfileSessionNavigatorState extends State<_ProfileSessionNavigator> {
   }
 
   Widget _withAgentControls(Widget child) {
-    if (!agentControlEnabled) return child;
+    // Always mounted; see the root scope in main.dart.
     return AgentControlScope(
       profile: true,
       commandContext: () => _navigatorKey.currentState?.overlay?.context,

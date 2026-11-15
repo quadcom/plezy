@@ -344,6 +344,7 @@ class JellyfinClient
       baseUrl: connection.baseUrl,
       defaultHeaders: headers,
       logLabel: 'Jellyfin',
+      guardServerWrites: true,
       prioritizedEndpoints: connection.baseUrls,
       onEndpointSwitch: (newBaseUrl, {required persist}) => client._handleEndpointSwitch(newBaseUrl, persist: persist),
       onAllEndpointsExhausted: onAllEndpointsExhausted,

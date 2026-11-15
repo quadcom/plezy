@@ -11,6 +11,7 @@ import '../services/scoped_player_prefs.dart';
 import '../services/settings_service.dart';
 import '../services/subtitle_preference.dart';
 import '../services/track_selection_service.dart';
+import '../dev/server_write_guard.dart';
 import '../utils/app_logger.dart';
 import '../utils/track_label_builder.dart';
 
@@ -523,6 +524,8 @@ class TrackManager {
   /// Shared with the source-switch reload path so both answers to the same
   /// user-facing promise come from one read.
   static Future<bool> shouldPersistTrackSelections() async {
+    // Developer mode keeps track picks off the server (local/plans/dev-tools.md).
+    if (ServerWriteGuard.active) return false;
     final settings = await SettingsService.getInstance();
     return settings.read(SettingsService.rememberTrackSelections);
   }

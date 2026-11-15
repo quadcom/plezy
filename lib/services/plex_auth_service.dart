@@ -11,6 +11,7 @@ import '../models/plex/plex_account_preferences.dart';
 import '../models/plex/plex_home.dart';
 import '../models/plex/plex_home_user.dart';
 import '../models/plex/plex_switch_response.dart';
+import '../dev/server_write_guard.dart';
 import '../utils/app_logger.dart';
 import '../utils/device_identity.dart';
 import '../utils/endpoint_race.dart';
@@ -283,6 +284,10 @@ class PlexAuthService {
   /// body. The `experience` settings blob and PMS `/accounts/1` mirror remain
   /// deliberately untouched.
   Future<AccountPreferences> updateAccountPreferences(String authToken, AccountPreferencesPatch patch) async {
+    if (ServerWriteGuard.active) {
+      ServerWriteGuard.record('PUT', '/user/profile');
+      throw ServerWriteBlockedException('PUT', '/user/profile');
+    }
     final response = await _http.put(
       '$_clientsApi/user/profile',
       queryParameters: PlexAccountPreferences.queryParametersFor(patch),

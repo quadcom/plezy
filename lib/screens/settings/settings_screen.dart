@@ -61,7 +61,9 @@ import 'keyboard_shortcuts_screen.dart';
 import 'logs_screen.dart';
 import 'playback_settings_screen.dart';
 import '../profile/profile_switch_screen.dart';
+import 'dev_tools_screen.dart';
 import 'services_settings_screen.dart';
+import '../../utils/dev_log_file.dart';
 import 'settings_search.dart';
 import 'settings_utils.dart';
 import 'tracker_service_info.dart';
@@ -226,7 +228,11 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
                 if (_keyboardShortcutsSupported || PlatformDetector.shouldActAsRemoteHost(sheetContext))
                   _buildControlsSection(sheetContext),
 
-                _buildAdvancedSection(),
+                // Rebuilt when developer mode flips, for the Developer tools row.
+                ValueListenableBuilder<bool>(
+                  valueListenable: DevLogFile.enabledListenable,
+                  builder: (context, _, _) => _buildAdvancedSection(),
+                ),
 
                 if (UpdateService.isUpdateCheckAvailable) ...[_buildUpdateSection()],
 
@@ -659,6 +665,14 @@ class _SettingsScreenState extends State<SettingsScreen> with FocusableTab, Moun
           subtitle: t.settings.resetSettingsDescription,
           onTap: () => _showResetSettingsDialog(),
         ),
+        // Shown only in developer mode (local/plans/dev-tools.md); English only.
+        if (DevLogFile.enabled)
+          SettingNavigationTile(
+            icon: Symbols.construction_rounded,
+            title: 'Developer tools',
+            subtitle: 'Tools for testing Plezy. Only shown in developer mode.',
+            destinationBuilder: (context) => const DevToolsScreen(),
+          ),
         if (kDebugMode)
           SettingNavigationTile(
             icon: Symbols.error_rounded,

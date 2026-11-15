@@ -32,11 +32,19 @@ class DevLogFile {
 
   static bool get enabled => _buildFlag || _switchedOn || _fileOn;
 
+  /// Whether the switch file (or a test build's flag) is on, whatever the
+  /// setting says. Only this holds back server writes (Adrian, 2026-11-15), so
+  /// "Save Log to File" alone can stay on for logging while he watches.
+  static bool get switchFileOn => _fileOn || _buildFlag;
+
   /// Whether the switch file is what turned developer mode on.
   static bool get switchedOnByFile => _fileOn && !_buildFlag && !_switchedOn;
 
   /// Told whenever [enabled] may have changed (the dev channel follows it).
   static void Function()? onEnabledChanged;
+
+  /// Follows [enabled] for widgets (the Developer tools row, the server-write guard note).
+  static final ValueNotifier<bool> enabledListenable = ValueNotifier(_buildFlag);
 
   static const switchFileName = 'plezy-debug-on';
   static const _switchFileCheck = Duration(seconds: 15);
@@ -96,6 +104,7 @@ class DevLogFile {
     } else {
       await _close();
     }
+    enabledListenable.value = enabled;
     onEnabledChanged?.call();
   }
 

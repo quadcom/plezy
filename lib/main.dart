@@ -41,6 +41,8 @@ import 'services/native_window_service.dart';
 import 'services/fullscreen_state_manager.dart';
 import 'services/settings_service.dart';
 import 'services/agent_control_service.dart';
+import 'dev/dev_actions.dart';
+import 'dev/startup_timeline.dart';
 import 'widgets/agent_control_scope.dart';
 import 'widgets/settings_builder.dart';
 import 'utils/platform_detector.dart';
@@ -142,6 +144,7 @@ void _registerTvosPlatformPlugins() {
 }
 
 void main() {
+  StartupTimeline.start();
   final binding = PlezyWidgetsBinding.ensureInitialized();
   if (agentControlEnabled) AgentControlService.instance.register();
   AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.dartMain);
@@ -225,7 +228,7 @@ Future<StartupThemeResolution> _resolveStartupTheme() async {
 /// not even be attributed to one of four concurrent steps (#1732).
 Future<T> _gatePhase<T>(StartupPhase phase, Future<T> Function() step) async {
   try {
-    return await step();
+    return await StartupTimeline.time('phase ${phase.id}', step);
   } catch (error, stackTrace) {
     Error.throwWithStackTrace(StartupPhaseException(phase, error), stackTrace);
   }
@@ -251,7 +254,10 @@ Future<void> _optionalGatePhase(
   // Keep a handler on the original future. `timeout` abandons the work rather
   // than cancelling it, so a late failure would otherwise land as an unhandled
   // async error long after the gate moved on.
-  final work = Future<void>.sync(step).catchError((Object error, StackTrace stackTrace) {
+  final work = Future<void>.sync(() => StartupTimeline.time('optional phase ${phase.id}', step)).catchError((
+    Object error,
+    StackTrace stackTrace,
+  ) {
     appLogger.w('Optional startup phase "${phase.id}" failed', error: error, stackTrace: stackTrace);
   });
   try {
@@ -717,6 +723,7 @@ class _StartupBootstrapState<T> extends State<StartupBootstrap<T>> {
     unawaited(_resolveTheme());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AndroidExitDiagnostics.markStartupPhase(AndroidStartupPhase.firstFrame);
+      StartupTimeline.mark('first frame');
       if (mounted) unawaited(_initialize());
     });
   }
@@ -922,6 +929,7 @@ Future<_StartupDependencies> _initializeStartup(SettingsService settings) async 
   final startupWatch = Stopwatch()..start();
   var lastStartupMarkMs = 0;
   void markStartupPhase(String phase) {
+    StartupTimeline.mark(phase);
     if (!kProfileMode) return;
     final elapsedMs = startupWatch.elapsedMilliseconds;
     appLogger.i('Startup phase $phase: ${elapsedMs - lastStartupMarkMs}ms (total ${elapsedMs}ms)');
@@ -1008,7 +1016,10 @@ void _startNonessentialInitialization(SettingsService settings) {
 
   void bestEffort(String name, FutureOr<void> Function() action) {
     unawaited(
-      afterFirstAppFrame.then((_) => action()).catchError((Object error, StackTrace stackTrace) {
+      afterFirstAppFrame.then((_) => StartupTimeline.time('task $name', () async => action())).catchError((
+        Object error,
+        StackTrace stackTrace,
+      ) {
         appLogger.e('$name startup task failed (${error.runtimeType})', stackTrace: stackTrace);
       }),
     );
@@ -1878,10 +1889,13 @@ class _AppShell extends StatelessWidget {
                     },
                     builder: (context, child) {
                       final shell = rootShell(child);
-                      if (!agentControlEnabled) return shell;
+                      // Always mounted (no tree change when developer mode flips); only
+                      // the VM service (opted-in builds) or the developer-mode dev
+                      // channel can reach the service behind it.
                       return AgentControlScope(
                         commandContext: () => rootNavigatorKey.currentState?.overlay?.context,
-                        child: shell,
+                        // Lets the developer tools draw the app to a picture in any build.
+                        child: RepaintBoundary(key: DevActions.screenshotKey, child: shell),
                       );
                     },
                   ),

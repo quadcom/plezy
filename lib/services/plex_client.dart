@@ -537,6 +537,7 @@ class PlexClient
       receiveTimeout: MediaServerTimeouts.receive,
       client: httpClient,
       logLabel: 'Plex',
+      guardServerWrites: true,
       prioritizedEndpoints: prioritizedEndpoints ?? const [],
       onEndpointSwitch: (newBaseUrl, {required persist}) => _handleEndpointSwitch(newBaseUrl, persist: persist),
       onAllEndpointsExhausted: _onAllEndpointsExhausted,

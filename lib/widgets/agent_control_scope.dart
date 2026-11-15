@@ -5,7 +5,9 @@ import '../profiles/active_profile_provider.dart';
 import '../providers/multi_server_provider.dart';
 import '../services/agent_control_service.dart';
 
-/// Mounted only in opted-in builds. The supplied context lives below the
+/// Always mounted, so the tree never changes shape when developer mode flips.
+/// The service it feeds is reachable only from opted-in builds (VM service)
+/// or the developer-mode dev channel. The supplied context lives below the
 /// appropriate navigator and existing providers; it is never retained after
 /// this scope leaves the tree.
 class AgentControlScope extends StatefulWidget {

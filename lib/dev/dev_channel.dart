@@ -14,7 +14,9 @@ import '../services/settings_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/dev_log_file.dart';
 import '../utils/snackbar_helper.dart';
+import 'dev_actions.dart';
 import 'playback_timing.dart';
+import 'server_write_guard.dart';
 
 /// A developer's window into a running copy of Plezy (local/plans/player-inspector.md).
 ///
@@ -88,6 +90,9 @@ class DevChannel {
   /// need their runtime effect applied. The line then follows developer mode.
   static void configure({required BuildContext? Function() context}) {
     _context = context;
+    DevActions.configure(rootContext: context, announce: (what) => _announce(what));
+    DevActions.playerLookup = () => _player;
+    ServerWriteGuard.onBlocked = _noteBlockedWrite;
     if (_configured) return;
     _configured = true;
     DevLogFile.onEnabledChanged = _sync;
@@ -405,12 +410,53 @@ class DevChannel {
         return {'key': pref.key, 'before': before, 'now': now};
       case 'revert':
         return _revert();
+      case 'actions.list':
+        return {
+          'groups': DevActions.groups,
+          'actions': [for (final a in DevActions.all) a.toJson()],
+          'run': '{"cmd":"actions.run","name":"<action>","args":{...}}',
+          'otherCommands': _commands,
+        };
+      case 'actions.run':
+        final args = r['args'];
+        if (args != null && args is! Map) throw const FormatException('args must be a JSON object.');
+        return DevActions.run(r['name'] as String? ?? '', Map<String, dynamic>.from((args as Map?) ?? const {}));
+      case 'agent':
+        final arguments = r['arguments'];
+        if (arguments != null && arguments is! Map) throw const FormatException('arguments must be a JSON object.');
+        return DevActions.agent(
+          r['command'] as String? ?? '',
+          Map<String, dynamic>.from((arguments as Map?) ?? const {}),
+        );
     }
-    throw FormatException(
-      'Unknown cmd "$cmd". Try: ping, status, events, mark, timing.interval, '
-      'mpv.get, mpv.set, settings.list, settings.get, settings.set, revert.',
-    );
+    throw FormatException('Unknown cmd "$cmd". Try: ${_commands.join(', ')}.');
   }
+
+  static const _commands = [
+    'ping',
+    'status',
+    'events',
+    'mark',
+    'timing.interval',
+    'mpv.get',
+    'mpv.set',
+    'settings.list',
+    'settings.get',
+    'settings.set',
+    'revert',
+    'actions.list',
+    'actions.run',
+    'agent',
+  ];
+
+  /// The port the line listens on, or 0 while it is closed.
+  static int get port => _server == null ? 0 : _port;
+
+  /// Changes made through the line or the Developer tools page, oldest first.
+  static List<String> get changes => [for (final c in _changes) '${c.kind} ${c.name} (was ${c.before})'];
+
+  /// Undoes every change made through the line (the page's "Undo all").
+  static Future<List<String>> revert() => _revert();
 
   static Player _requirePlayer() {
     final player = _player;
@@ -462,6 +508,24 @@ class DevChannel {
       _timing('  revert: $line');
     }
     return done;
+  }
+
+  static DateTime? _lastBlockedNote;
+
+  /// A person changed something that lives on the server (a watched mark, a
+  /// favourite, a profile setting): say it was not saved, at most every 5 s.
+  static void _noteBlockedWrite(String method, String path) {
+    final now = DateTime.now();
+    final last = _lastBlockedNote;
+    if (last != null && now.difference(last) < const Duration(seconds: 5)) return;
+    _lastBlockedNote = now;
+    const text = 'Developer mode: not saved to the server';
+    final toast = _toast;
+    if (toast != null) {
+      toast(text);
+    } else {
+      showMainSnackBar(text);
+    }
   }
 
   /// Every change shows on screen: as a player toast during a video, as a
