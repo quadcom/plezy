@@ -90,6 +90,12 @@ class HubSection extends StatefulWidget {
   /// Use when the parent already provides edge spacing (e.g. inside Padding(16)).
   final bool inset;
 
+  /// Extra room before the header and the first card, inside the row's own
+  /// scroll padding, so cards still scroll right up to the edge. The home page
+  /// uses it to keep its rows off the side menu (local/plans/home-row-padding.md).
+  /// Card sizes don't change.
+  final double extraLeadingInset;
+
   /// Controls whether cards follow top-level shelf or grid geometry.
   final HubCardSizing cardSizing;
 
@@ -123,6 +129,7 @@ class HubSection extends StatefulWidget {
     this.onNavigateUp,
     this.onNavigateToSidebar,
     this.inset = false,
+    this.extraLeadingInset = 0,
     this.cardSizing = HubCardSizing.shelf,
     this.episodePosterModeOverride,
     this.focusScrollAlignment = 0.3,
@@ -287,7 +294,7 @@ class HubSectionState extends State<HubSection> with MountedSetStateMixin, Skele
       _scrollController,
       index,
       itemExtent: _itemExtent,
-      leadingPadding: _leadingPadding,
+      leadingPadding: _leadingPadding + widget.extraLeadingInset,
       animate: animate,
       duration: _navigationScrollDuration,
       curve: Curves.easeOutCubic,
@@ -504,7 +511,7 @@ class HubSectionState extends State<HubSection> with MountedSetStateMixin, Skele
           Padding(
             padding: widget.inset
                 ? EdgeInsets.symmetric(vertical: isTv ? 6 : 2)
-                : EdgeInsets.fromLTRB(leadingPadding - 4, isTv ? 6 : 2, 8, isTv ? 8 : 2),
+                : EdgeInsets.fromLTRB(leadingPadding - 4 + widget.extraLeadingInset, isTv ? 6 : 2, 8, isTv ? 8 : 2),
             child: ExcludeFocus(
               child: InkWell(
                 mouseCursor: widget.hub.more ? SystemMouseCursors.click : MouseCursor.defer,
@@ -685,7 +692,12 @@ class HubSectionState extends State<HubSection> with MountedSetStateMixin, Skele
                           scrollCacheExtent: isTv ? null : const ScrollCacheExtent.pixels(0),
                           padding: widget.inset
                               ? EdgeInsets.symmetric(vertical: isTv ? 6 : 2)
-                              : EdgeInsets.symmetric(horizontal: isTv ? leadingPadding : 8, vertical: isTv ? 6 : 2),
+                              : EdgeInsets.fromLTRB(
+                                  (isTv ? leadingPadding : 8) + widget.extraLeadingInset,
+                                  isTv ? 6 : 2,
+                                  isTv ? leadingPadding : 8,
+                                  isTv ? 6 : 2,
+                                ),
                           itemCount: isKeyboardMode ? _totalItemCount : widget.hub.items.length,
                           itemBuilder: (context, index) {
                             final isItemFocused = hasFocus && index == _focusedIndex;

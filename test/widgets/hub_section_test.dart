@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/screens/discover_screen.dart' show discoverRowExtraInset;
 import 'package:material_symbols_icons/symbols.dart';
 import 'package:plezy/focus/input_mode_tracker.dart';
 import 'package:plezy/focus/locked_hub_controller.dart';
@@ -288,6 +289,49 @@ void main() {
       final expectedGap = spacing == GridSpacing.tight ? 4.0 : spacing.gridGap;
       expect(cardPitch(), closeTo(card.width! + expectedGap, 0.01), reason: '$spacing: card pitch');
     }
+  });
+
+  testWidgets('extraLeadingInset moves the header and first card in without resizing cards', (tester) async {
+    tester.view.physicalSize = const Size(1440, 2400);
+    tester.view.devicePixelRatio = 3.0;
+    addTearDown(tester.view.reset);
+
+    final items = [
+      for (var i = 0; i < 3; i++)
+        testMediaItem(id: 'movie_$i', backend: MediaBackend.plex, kind: MediaKind.movie, title: 'Movie $i'),
+    ];
+    final hub = MediaHub(id: 'movies', title: 'Movies', type: 'movie', items: items, size: items.length);
+
+    Future<({double card, double header, double width})> measure(double extra) async {
+      await tester.pumpWidget(
+        _TestApp(
+          child: HubSection(
+            key: ValueKey(extra),
+            hub: hub,
+            focusMemory: HubFocusMemory(),
+            icon: Symbols.movie_rounded,
+            extraLeadingInset: extra,
+          ),
+        ),
+      );
+      final card = find.byType(MediaCard).first;
+      return (
+        card: tester.getTopLeft(card).dx,
+        header: tester.getTopLeft(find.text('Movies').first).dx,
+        width: tester.widget<MediaCard>(card).width!,
+      );
+    }
+
+    final plain = await measure(0);
+    final padded = await measure(16);
+    expect(padded.card - plain.card, closeTo(16, 0.01));
+    expect(padded.header - plain.header, closeTo(16, 0.01));
+    expect(padded.width, plain.width);
+  });
+
+  test('home rows get 16 px more room except on TVs', () {
+    expect(discoverRowExtraInset(isTv: false), 16);
+    expect(discoverRowExtraInset(isTv: true), 0);
   });
 
   testWidgets('TV shelf wide cards use the rail wide formula, not a tall-card multiplier', (tester) async {

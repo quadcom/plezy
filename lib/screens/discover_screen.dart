@@ -24,6 +24,8 @@ import '../media/media_server_client.dart';
 import '../media/media_hub.dart';
 import '../utils/media_image_helper.dart';
 import '../utils/content_utils.dart';
+import '../services/device_performance.dart';
+import '../utils/obfuscation_utils.dart';
 import '../widgets/cycling_media_backdrop.dart';
 import '../widgets/optimized_media_image.dart' show ClearLogoImage, OptimizedMediaImage, blurArtwork;
 import '../widgets/toolbar_scrim.dart';
@@ -72,6 +74,28 @@ import '../watch_together/watch_together.dart';
 import '../providers/companion_remote_provider.dart';
 import '../widgets/companion_remote/remote_session_dialog.dart';
 import 'companion_remote/mobile_remote_screen.dart';
+
+/// Room between the side menu and the home page rows, on top of the row's own
+/// inset: 16 px on PC, tablet and phone; TVs keep their own wider inset
+/// (Adrian, 2026-11-15: "16 pixels"; local/plans/home-row-padding.md).
+double discoverRowExtraInset({required bool isTv}) => isTv ? 0 : 16;
+
+/// Banner art motion (local/plans/discover-banner-motion.md): each slide's art
+/// makes one random gentle move (pan, diagonal or zoom) at a steady speed for
+/// the slide's whole life, about 8 s on screen plus its fades. Every device but
+/// low-end ones, and not in blurred test builds.
+const Duration discoverBannerMoveDuration = Duration(seconds: 9);
+
+@visibleForTesting
+bool discoverBannerMovesFor({required bool lowEnd, required bool blurred}) => !lowEnd && !blurred;
+
+/// On screens wide enough for the banner's side poster, the art fills the left
+/// 80% and fades out on its right edge so the poster doesn't cover it (Adrian,
+/// 2026-11-15: "fill the left ... take it up to 80%").
+const double discoverBannerArtShare = 0.8;
+
+/// Where the right-edge fade starts, as a share of the art's own width.
+const double discoverBannerFadeFrom = 0.62;
 
 class DiscoverScreen extends StatefulWidget {
   const DiscoverScreen({super.key});
@@ -1115,6 +1139,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                             onVerticalNavigation: (isUp) => _handleVerticalNavigation(i, isUp),
                             onNavigateUp: i == 0 ? _focusTopBoundary : null,
                             onNavigateToSidebar: _navigateToSidebar,
+                            extraLeadingInset: discoverRowExtraInset(isTv: PlatformDetector.isTV()),
                           )
                         : HubSection(
                             key: rows[i].key,
@@ -1126,6 +1151,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                             onVerticalNavigation: (isUp) => _handleVerticalNavigation(i, isUp),
                             onNavigateUp: i == 0 ? _focusTopBoundary : null,
                             onNavigateToSidebar: _navigateToSidebar,
+                            extraLeadingInset: discoverRowExtraInset(isTv: PlatformDetector.isTV()),
                           ),
                   ),
 
@@ -1649,6 +1675,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       ? _buildHeroBackdrop(slide.item, heroHeight)
       : _buildBannerBackdrop(slide, heroHeight);
 
+  bool get _bannerMoves => discoverBannerMovesFor(lowEnd: DevicePerformance.isLowEndHardware, blurred: kBlurArtwork);
+
   /// The art of [_buildHeroItem]: fan art that zooms in as it fades up, with
   /// parallax, and a gradient into the page below.
   Widget _buildHeroBackdrop(MediaItem heroItem, double heroHeight) {
@@ -1696,6 +1724,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                         width: screenWidth,
                         height: heroHeight,
                         fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        randomMove: _bannerMoves,
+                        moveDuration: discoverBannerMoveDuration,
                       ),
                     );
                   },
@@ -1743,34 +1773,51 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     final item = slide.item;
     final client = _getMediaClientForItem(item);
     final screenWidth = MediaQuery.sizeOf(context).width;
-    final heroAspectRatio = screenWidth / heroHeight;
+    // The side poster shows above 700 wide (see _buildBannerSlide): keep the
+    // art to the left of it.
+    final split = screenWidth > 700;
+    final artWidth = split ? screenWidth * discoverBannerArtShare : screenWidth;
+    final heroAspectRatio = artWidth / heroHeight;
     final artPaths = item.heroArtCandidates(containerAspectRatio: heroAspectRatio);
+    Widget art = ClipRect(
+      child: AnimatedBuilder(
+        animation: _scrollController,
+        builder: (context, child) {
+          final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
+          return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
+        },
+        child: blurArtwork(
+          CyclingMediaBackdrop(
+            mediaKey: item.globalKey,
+            imagePaths: item.heroRotationPaths(containerAspectRatio: heroAspectRatio),
+            fallbackImagePaths: artPaths,
+            client: client,
+            active: _isTabVisible,
+            width: artWidth,
+            height: heroHeight,
+            fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+            randomMove: _bannerMoves,
+            moveDuration: discoverBannerMoveDuration,
+          ),
+        ),
+      ),
+    );
+    if (split) {
+      art = ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (rect) => const LinearGradient(
+          colors: [Colors.white, Colors.white, Color(0x00FFFFFF)],
+          stops: [0, discoverBannerFadeFrom, 1],
+        ).createShader(rect),
+        child: art,
+      );
+    }
     return Stack(
       fit: StackFit.expand,
       clipBehavior: Clip.none,
       children: [
         if (artPaths.isNotEmpty)
-          ClipRect(
-            child: AnimatedBuilder(
-              animation: _scrollController,
-              builder: (context, child) {
-                final scrollOffset = _scrollController.hasClients ? _scrollController.offset : 0.0;
-                return Transform.translate(offset: Offset(0, scrollOffset * 0.3), child: child);
-              },
-              child: blurArtwork(
-                CyclingMediaBackdrop(
-                  mediaKey: item.globalKey,
-                  imagePaths: item.heroRotationPaths(containerAspectRatio: heroAspectRatio),
-                  fallbackImagePaths: artPaths,
-                  client: client,
-                  active: _isTabVisible,
-                  width: screenWidth,
-                  height: heroHeight,
-                  fallbackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-                ),
-              ),
-            ),
-          )
+          Positioned(left: 0, top: 0, bottom: 0, width: artWidth, child: art)
         else
           ColoredBox(color: Theme.of(context).colorScheme.surfaceContainerHighest),
         // "A slight darkening overlay" (Adrian): 35% black over the art.

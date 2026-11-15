@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -10,6 +11,46 @@ import '../utils/media_image_helper.dart';
 import 'optimized_media_image.dart';
 
 Future<bool> _defaultLocalFileExists(File file) => file.exists();
+
+/// One gentle "Ken Burns" move of the art (local/plans/discover-banner-motion.md).
+enum BackdropMove {
+  panLeft,
+  panRight,
+  upLeft,
+  upRight,
+  downLeft,
+  downRight,
+  zoomIn,
+  zoomOut;
+
+  static final _random = math.Random();
+  static BackdropMove? _last;
+
+  /// A random move, never the same as the one picked just before.
+  static BackdropMove random() {
+    var move = values[_random.nextInt(values.length)];
+    while (move == _last) {
+      move = values[_random.nextInt(values.length)];
+    }
+    return _last = move;
+  }
+
+  /// Sideways and up/down position (-1..1, times the move size) and extra zoom
+  /// (0..1, times the zoom size) at [t] (0..1) through the move.
+  ({double x, double y, double zoom}) at(double t) {
+    final f = t * 2 - 1;
+    return switch (this) {
+      BackdropMove.panLeft => (x: -f, y: 0.0, zoom: 0.0),
+      BackdropMove.panRight => (x: f, y: 0.0, zoom: 0.0),
+      BackdropMove.upLeft => (x: -f, y: -f, zoom: 0.0),
+      BackdropMove.upRight => (x: f, y: -f, zoom: 0.0),
+      BackdropMove.downLeft => (x: -f, y: f, zoom: 0.0),
+      BackdropMove.downRight => (x: f, y: f, zoom: 0.0),
+      BackdropMove.zoomIn => (x: 0.0, y: 0.0, zoom: t),
+      BackdropMove.zoomOut => (x: 0.0, y: 0.0, zoom: 1 - t),
+    };
+  }
+}
 
 /// Displays server artwork and rotates through multiple backdrops in order.
 ///
@@ -36,6 +77,10 @@ class CyclingMediaBackdrop extends StatefulWidget {
     this.fadeDuration = const Duration(milliseconds: 280),
     this.drift = 0,
     this.driftPeriod = const Duration(seconds: 40),
+    this.randomMove = false,
+    this.moveDuration = const Duration(seconds: 9),
+    this.moveSize = 0.03,
+    this.moveZoom = 0.06,
   });
 
   /// Slow sideways movement of the art, as a share of its width each way
@@ -44,6 +89,16 @@ class CyclingMediaBackdrop extends StatefulWidget {
   /// then back. Off with reduced motion and while [active] is false.
   final double drift;
   final Duration driftPeriod;
+
+  /// Instead of [drift]: one random [BackdropMove] picked when this backdrop is
+  /// first shown, at a steady speed over [moveDuration], one way only; it then
+  /// holds still (Adrian, 2026-11-15: the move should "span the duration of the
+  /// slides life", no easing, no stop and reverse). [moveSize] is the pan as a
+  /// share of the width/height each side of centre, [moveZoom] the zoom change.
+  final bool randomMove;
+  final Duration moveDuration;
+  final double moveSize;
+  final double moveZoom;
 
   final Object? mediaKey;
   final List<String> imagePaths;
@@ -291,6 +346,16 @@ class _CyclingMediaBackdropState extends State<CyclingMediaBackdrop> with Widget
   @override
   Widget build(BuildContext context) {
     final art = _buildArt(context);
+    final animate = widget.active && !(MediaQuery.maybeOf(context)?.disableAnimations ?? false);
+    if (widget.randomMove) {
+      return _BackdropMoveLayer(
+        duration: widget.moveDuration,
+        size: widget.moveSize,
+        zoom: widget.moveZoom,
+        active: animate,
+        child: art,
+      );
+    }
     if (widget.drift <= 0) return art;
     return _BackdropDrift(
       amount: widget.drift,
@@ -380,7 +445,95 @@ class _BackdropDriftState extends State<_BackdropDrift> with SingleTickerProvide
               final dx = (eased * 2 - 1) * widget.amount * width;
               return Transform(
                 alignment: Alignment.center,
-                transform: Matrix4.translationValues(dx, 0, 0)..scaleByDouble(1 + widget.amount * 2, 1 + widget.amount * 2, 1, 1),
+                // Sampled between pixels, so a slow glide doesn't step a whole
+                // pixel at a time (local/plans/discover-banner-motion.md).
+                filterQuality: FilterQuality.medium,
+                transform: Matrix4.translationValues(dx, 0, 0)
+                  ..scaleByDouble(1 + widget.amount * 2, 1 + widget.amount * 2, 1, 1),
+                child: child,
+              );
+            },
+            child: art,
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Plays one random [BackdropMove] on [child], once, at a steady speed. The
+/// art is drawn once into its own layer and only that layer moves; it is
+/// sampled between pixels so the slow glide stays smooth.
+class _BackdropMoveLayer extends StatefulWidget {
+  const _BackdropMoveLayer({
+    required this.duration,
+    required this.size,
+    required this.zoom,
+    required this.active,
+    required this.child,
+  });
+
+  final Duration duration;
+  final double size;
+  final double zoom;
+  final bool active;
+  final Widget child;
+
+  @override
+  State<_BackdropMoveLayer> createState() => _BackdropMoveLayerState();
+}
+
+class _BackdropMoveLayerState extends State<_BackdropMoveLayer> with SingleTickerProviderStateMixin {
+  late final AnimationController _t = AnimationController(vsync: this, duration: widget.duration);
+  final BackdropMove _move = BackdropMove.random();
+
+  @override
+  void initState() {
+    super.initState();
+    _sync();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BackdropMoveLayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _t.duration = widget.duration;
+    if (oldWidget.active != widget.active) _sync();
+  }
+
+  void _sync() {
+    if (widget.active) {
+      _t.forward();
+    } else {
+      _t.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _t.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final art = RepaintBoundary(child: widget.child);
+    // Enlarged so the art's edges never show at either end of a pan.
+    final base = 1 + widget.size * 2 + 0.02;
+    return ClipRect(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+          final height = constraints.maxHeight.isFinite ? constraints.maxHeight : 0.0;
+          return AnimatedBuilder(
+            animation: _t,
+            builder: (context, child) {
+              final p = _move.at(_t.value);
+              final scale = base + widget.zoom * p.zoom;
+              return Transform(
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.medium,
+                transform: Matrix4.translationValues(p.x * widget.size * width, p.y * widget.size * height, 0)
+                  ..scaleByDouble(scale, scale, 1, 1),
                 child: child,
               );
             },
