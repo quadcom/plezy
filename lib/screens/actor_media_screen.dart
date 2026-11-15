@@ -149,63 +149,65 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
     final big = _bigLayout(context);
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        // Big screens: in from the edge like the item page's title
+        // (local/plans/detail-left-edge.md).
+        padding: EdgeInsets.symmetric(horizontal: big?.titleLeft ?? 16, vertical: 8),
         child: DetailZoom(
           scale: big?.personHeaderZoom ?? 1,
           alignment: Alignment.topLeft,
           child: Row(
-          children: [
-            if (widget.facetIcon case final icon?)
-              CircleAvatar(
-                radius: 40,
-                backgroundColor: theme.colorScheme.surfaceContainerHighest,
-                child: Icon(icon, size: 36, color: theme.colorScheme.onSurfaceVariant),
-              )
-            else
-              ClipRRect(
-                borderRadius: BorderRadius.circular(40),
-                child: OptimizedMediaImage(
-                  client: _mediaClient,
-                  imagePath: widget.actorThumb,
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  imageType: ImageType.avatar,
-                  fallbackIcon: Symbols.person_rounded,
-                ),
-              ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                children: [
-                  Text(
-                    widget.actorName,
-                    style: theme.textTheme.headlineSmall?.copyWith(fontWeight: .bold),
-                    maxLines: 2,
-                    overflow: .ellipsis,
+            children: [
+              if (widget.facetIcon case final icon?)
+                CircleAvatar(
+                  radius: 40,
+                  backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                  child: Icon(icon, size: 36, color: theme.colorScheme.onSurfaceVariant),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(40),
+                  child: OptimizedMediaImage(
+                    client: _mediaClient,
+                    imagePath: widget.actorThumb,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    imageType: ImageType.avatar,
+                    fallbackIcon: Symbols.person_rounded,
                   ),
-                  if (widget.characterName != null) ...[
-                    const SizedBox(height: 4),
+                ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: .start,
+                  children: [
                     Text(
-                      widget.characterName!,
-                      style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      maxLines: 1,
+                      widget.actorName,
+                      style: theme.textTheme.headlineSmall?.copyWith(fontWeight: .bold),
+                      maxLines: 2,
                       overflow: .ellipsis,
                     ),
+                    if (widget.characterName != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.characterName!,
+                        style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        maxLines: 1,
+                        overflow: .ellipsis,
+                      ),
+                    ],
+                    if (totalSize > 0) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        t.discover.titleCount(n: totalSize),
+                        style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                      ),
+                    ],
                   ],
-                  if (totalSize > 0) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      t.discover.titleCount(n: totalSize),
-                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                    ),
-                  ],
-                ],
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       ),
     );
@@ -226,6 +228,8 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
             onRefresh: updateItem,
             onSkeletonVisible: (index) => ensureIndexLoaded(index, pageSize: _pageSize),
             densityOverride: big?.personGridDensity(isTv: PlatformDetector.isTV()),
+            // The grid keeps the header's edge (the header is 8 further in by default too).
+            padding: big == null ? null : EdgeInsets.symmetric(horizontal: big.titleLeft - 8, vertical: 8),
           ),
       ],
     );

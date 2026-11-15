@@ -75,6 +75,7 @@ import '../providers/watch_state_store.dart';
 import '../services/catalog/catalog_source.dart';
 import '../services/catalog/library_watchlist_candidates.dart';
 import '../utils/app_logger.dart';
+import '../utils/external_ids.dart';
 import '../utils/formatters.dart';
 import '../utils/scroll_utils.dart';
 import '../utils/dialogs.dart';
@@ -578,13 +579,73 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
 
   void _onLibraryContentChanged(LibraryChangeEvent event) {
     if (!_canUseDetail || widget.isOffline || event.serverId != serverBoundServerId) return;
+    final comingSoon = _metadata.isComingSoonStandIn;
     // Exact ids are authoritative even when the producer omits its per-item
     // fanout. Advisory flags alone do not prove this detail was removed.
     if (_terminalDeletionIds.any(event.removedItemIds.contains)) {
+      // Fork: a Coming Soon stand-in may be removed because the film itself
+      // arrived; open the film rather than closing the page.
+      if (comingSoon) {
+        unawaited(
+          _openArrivedFilm(announce: true).then((moved) {
+            if (!moved) _markDetailDeleted();
+          }),
+        );
+        return;
+      }
       _markDetailDeleted();
       return;
     }
+    // Fork: something was added while a Coming Soon page is open: is it the film?
+    if (comingSoon && event.itemsAdded) unawaited(_openArrivedFilm(announce: true));
     _refreshUpdatedItems(event.updatedItemIds);
+  }
+
+  /// The running look-up for the film behind a Coming Soon stand-in; a second
+  /// caller shares it instead of asking the server again.
+  Future<bool>? _arrivalCheck;
+
+  /// Fork: a Coming Soon page turns into the real film's page once the film is
+  /// on the server (Adrian, 2026-11-15; local/plans/detail-left-edge.md part C).
+  /// One title search verified by TMDB id, run when the page opens and when the
+  /// server says items were added (it batches those pushes), never on a timer.
+  /// [announce] says so with a toast: the film arrived while the page was open.
+  /// Returns true when the page moved on.
+  Future<bool> _openArrivedFilm({required bool announce}) =>
+      _arrivalCheck ??= _findArrivedFilm(announce: announce).whenComplete(() => _arrivalCheck = null);
+
+  Future<bool> _findArrivedFilm({required bool announce}) async {
+    final standIn = _metadata;
+    if (widget.isOffline || !standIn.isComingSoonStandIn) return false;
+    final tmdb = standIn.tmdbIdFromProviderIds;
+    final client = getServerBoundMediaClient(context);
+    if (tmdb == null || client == null) return false;
+    try {
+      final found = await client.findByExternalIds(
+        ExternalIds(tmdb: tmdb),
+        kind: MediaKind.movie,
+        titles: [standIn.displayTitle],
+      );
+      if (!_canUseDetail || !mounted || found == null) return false;
+      MediaItem? film;
+      for (final item in found) {
+        if (item.id != standIn.id && !item.isComingSoonStandIn) {
+          film = item;
+          break;
+        }
+      }
+      if (film == null) return false;
+      final target = film.copyWith(
+        serverId: film.serverId ?? standIn.serverId,
+        serverName: film.serverName ?? standIn.serverName,
+      );
+      if (announce) showSuccessSnackBar(context, t.discover.comingSoonArrived(title: target.displayTitle));
+      unawaited(Navigator.of(context).pushReplacement(mediaDetailRoute(metadata: target)));
+      return true;
+    } catch (e) {
+      appLogger.d('Coming Soon: looking for the arrived film failed', error: e);
+      return false;
+    }
   }
 
   /// Most listed rows refetched for one update event; past this the event is
@@ -1250,12 +1311,23 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
       ));
     }
 
-    if (metadata.year != null) addTextChip('${metadata.year}', 0);
+    // A Coming Soon stand-in's file is the trailer: its runtime and quality
+    // say nothing about the film, so they stay off and the release date shows
+    // in full instead of only the year (local/plans/detail-left-edge.md).
+    final comingSoon = metadata.isComingSoonStandIn;
+    final releaseDate = metadata.originallyAvailableAt;
+    if (comingSoon && releaseDate != null && releaseDate.isNotEmpty) {
+      addTextChip(formatAbbreviatedDate(releaseDate), 0);
+    } else if (metadata.year != null) {
+      addTextChip('${metadata.year}', 0);
+    }
     if (metadata case PlexMediaItem(:final editionTitle?)) addTextChip(editionTitle, 3);
     if (metadata.contentRating != null) addTextChip(formatContentRating(metadata.contentRating!), 2);
-    if (metadata.durationMs != null) addTextChip(formatDurationTextual(metadata.durationMs!), 1);
-    for (final label in buildMediaQualityLabels(metadata)) {
-      addTextChip(label, 4);
+    if (!comingSoon && metadata.durationMs != null) addTextChip(formatDurationTextual(metadata.durationMs!), 1);
+    if (!comingSoon) {
+      for (final label in buildMediaQualityLabels(metadata)) {
+        addTextChip(label, 4);
+      }
     }
     if (ratings.isNotEmpty) {
       // Every attributed score shares one pill rather than taking a chip
@@ -1722,6 +1794,9 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
         return;
       }
       final base = publish(metadata ?? _metadata, onDeckEpisode: result.onDeckEpisode, onDeckSettled: true);
+      // Fork: a Coming Soon stand-in whose film is already here opens the film
+      // straight away (Adrian, 2026-11-15).
+      if (base.isComingSoonStandIn) unawaited(_openArrivedFilm(announce: false));
 
       if (base.isShow) {
         unawaited(_loadSeasons());
@@ -3703,7 +3778,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                             // tight under the hero's action row (the hero already
                             // contributes its own bottom inset above this).
                             padding: .fromLTRB(
-                              isTv && big == null ? TvLayoutConstants.horizontalInset : 16,
+                              big?.titleLeft ?? (isTv ? TvLayoutConstants.horizontalInset : 16),
                               isTv ? 8 : 4,
                               isTv && big == null ? TvLayoutConstants.horizontalInset : 16,
                               isTv ? 8 : 16,
@@ -3720,7 +3795,7 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                                   ConstrainedBox(
                                     constraints: BoxConstraints(
                                       maxWidth:
-                                          big?.overviewMaxWidth(16 + MediaQuery.paddingOf(context).left) ??
+                                          big?.overviewMaxWidth(big.titleLeft + MediaQuery.paddingOf(context).left) ??
                                           double.infinity,
                                     ),
                                     child: CollapsibleText(
@@ -4333,7 +4408,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (lineMetadata.contentRating != null) {
       parts.add(MetadataLineText(formatContentRating(lineMetadata.contentRating!), dropPriority: 2));
     }
-    if (lineMetadata.durationMs != null) {
+    // A Coming Soon stand-in's runtime is its trailer's (detail-left-edge.md).
+    if (lineMetadata.durationMs != null && !lineMetadata.isComingSoonStandIn) {
       parts.add(MetadataLineText(formatDurationTextual(lineMetadata.durationMs!), dropPriority: 1));
     }
     final ratings = mediaRatingsFor(lineMetadata, fallbackItem: metadata);
@@ -5327,7 +5403,8 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     // The row slides under the poster on the right: fade it into the page
     // colour before the poster's edge, solid from there to the window edge.
     final background = Theme.of(context).scaffoldBackgroundColor;
-    final contentLeft = 16 + MediaQuery.paddingOf(context).left;
+    // The page body starts at the title's edge (local/plans/detail-left-edge.md).
+    final contentLeft = big.titleLeft + MediaQuery.paddingOf(context).left;
     final fadeLeft = big.posterLeft - contentLeft - big.castFade;
     return Stack(
       clipBehavior: Clip.none,

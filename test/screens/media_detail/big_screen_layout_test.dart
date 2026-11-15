@@ -10,7 +10,11 @@ void main() {
   test('his PC window gets the agreed sizes', () {
     final big = at(2560, 1410)!;
     expect(big.k, 1);
-    expect(big.topHeight, 560);
+    // 560 agreed, raised 70 so Overview sits closer to the buttons (detail-left-edge.md);
+    // the title lift drops by the same 70, so the title block stays put.
+    expect(big.topHeight, 490);
+    expect(big.titleLift, 20);
+    expect(big.topHeight - big.titleLift, 560 - 90);
     expect(big.posterWidth, 690);
     expect(big.posterHeight, 1035);
     expect(big.posterEdge, 24);
@@ -53,6 +57,6 @@ void main() {
   test('the overview stops short of the poster', () {
     final big = at(2560, 1410)!;
     expect(big.posterLeft, 2560 - 24 - 690);
-    expect(big.overviewMaxWidth(16), 2560 - 24 - 690 - 48 - 16);
+    expect(big.overviewMaxWidth(96), 2560 - 24 - 690 - 48 - 96);
   });
 }

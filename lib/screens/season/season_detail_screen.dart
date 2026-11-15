@@ -534,7 +534,10 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
     );
     final zoom = big?.seasonZoom ?? 1.0;
     final wide = size.width >= 700;
-    final pad = EdgeInsets.fromLTRB(wide ? 48 : 20, wide ? 40 : 56, wide ? 48 : 20, 32);
+    // Big screens: the sides line up with the item page's title edge (96 on
+    // Adrian's PC, local/plans/detail-left-edge.md); 48 / 20 elsewhere.
+    final side = big?.titleLeft ?? (wide ? 48.0 : 20.0);
+    final pad = EdgeInsets.fromLTRB(side, wide ? 40 : 56, side, 32);
     final inner = Size((size.width - pad.horizontal) / zoom + pad.horizontal, size.height / zoom);
     final ownSummary = _subject.summary;
     final summary = ownSummary != null && ownSummary.isNotEmpty ? ownSummary : _show?.summary;
@@ -544,52 +547,54 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         scale: zoom,
         alignment: Alignment.topLeft,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(context, client, inner, wide),
-          if (summary != null && summary.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Text(
-                summary,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodyLarge?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.85)),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildHeader(context, client, inner, wide),
+            if (summary != null && summary.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 900),
+                child: Text(
+                  summary,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                  ),
+                ),
               ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          Text(
-            t.libraries.groupings.episodes,
-            style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
-          ),
-          const SizedBox(height: 10),
-          _buildRail(context, client, inner, wide, hideSpoilers),
-          if (_episodes.isNotEmpty) ...[const SizedBox(height: 16), _buildNotes(context, hideSpoilers)],
-          if (_extras.isNotEmpty) ...[
+            ],
             const SizedBox(height: 24),
-            HubSection(
-              key: _extrasKey,
-              hub: MediaHub(
-                id: 'season_extras',
-                title: t.discover.extras,
-                type: 'clip',
-                items: _extras,
-                size: _extras.length,
-              ),
-              focusMemory: _hubFocusMemory,
-              icon: Symbols.theaters_rounded,
-              inset: true,
-              onItemTap: _playExtra,
-              onVerticalNavigation: (isUp) {
-                if (isUp) _focusSelectedEpisode();
-                return true;
-              },
+            Text(
+              t.libraries.groupings.episodes,
+              style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
             ),
+            const SizedBox(height: 10),
+            _buildRail(context, client, inner, wide, hideSpoilers),
+            if (_episodes.isNotEmpty) ...[const SizedBox(height: 16), _buildNotes(context, hideSpoilers)],
+            if (_extras.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              HubSection(
+                key: _extrasKey,
+                hub: MediaHub(
+                  id: 'season_extras',
+                  title: t.discover.extras,
+                  type: 'clip',
+                  items: _extras,
+                  size: _extras.length,
+                ),
+                focusMemory: _hubFocusMemory,
+                icon: Symbols.theaters_rounded,
+                inset: true,
+                onItemTap: _playExtra,
+                onVerticalNavigation: (isUp) {
+                  if (isUp) _focusSelectedEpisode();
+                  return true;
+                },
+              ),
+            ],
           ],
-        ],
-      ),
+        ),
       ),
     );
   }

@@ -378,6 +378,25 @@ sealed class MediaItem with _$MediaItem {
     return providerIds is Map && providerIds.containsKey('Sonarr');
   }
 
+  /// A Coming Soon stand-in: Media Bridge files an unreleased film as its
+  /// trailer, named `<Name> {tmdb-NNN} {edition-Trailer}.mp4` (it keeps that
+  /// naming for Plezy, PLAN_PMB_89). The item JSON names no library, so the
+  /// file name is the marker. Its runtime, quality and tracks are the
+  /// trailer's, not the film's (local/plans/detail-left-edge.md).
+  bool get isComingSoonStandIn {
+    if (kind != MediaKind.movie) return false;
+    final path = raw?['Path'];
+    return path is String && path.contains('{edition-Trailer}');
+  }
+
+  /// The TMDB id from a MediaBrowser item's `ProviderIds`, when it has one.
+  int? get tmdbIdFromProviderIds {
+    final providerIds = raw?['ProviderIds'];
+    if (providerIds is! Map) return null;
+    final value = providerIds['Tmdb'];
+    return value == null ? null : int.tryParse(value.toString());
+  }
+
   /// A Jellyfin virtual episode: listed by the server with no file behind it.
   bool get isVirtual => raw?['LocationType'] == 'Virtual';
 

@@ -211,6 +211,7 @@ mixin FocusableDetailScreenMixin<T extends StatefulWidget> on State<T>, GridFocu
     CardShape? shape,
     int indexOffset = 0,
     int? densityOverride,
+    EdgeInsets? padding,
   }) {
     return SettingsBuilder(
       prefs: const [SettingsService.viewMode, SettingsService.libraryDensity, SettingsService.tvFullCardLayout],
@@ -254,7 +255,7 @@ mixin FocusableDetailScreenMixin<T extends StatefulWidget> on State<T>, GridFocu
           viewMode: viewMode,
           itemCount: totalItems,
           density: libraryDensity,
-          padding: const EdgeInsets.all(8),
+          padding: padding ?? const EdgeInsets.all(8),
           fullBleedImage: useFullCardLayout,
           shape: shape,
           itemBuilder: (context, position) => buildTile(position),

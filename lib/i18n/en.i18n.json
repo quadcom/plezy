@@ -1174,6 +1174,7 @@
     "mostPlayedIn": "Most Played in ${library}",
     "playEpisode": "S${season}E${episode}",
     "overview": "Overview",
+    "comingSoonArrived": "${title} is here",
     "cast": "Cast",
     "extras": "Trailers & Extras",
     "studio": "Studio",

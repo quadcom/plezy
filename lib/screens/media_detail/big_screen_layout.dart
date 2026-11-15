@@ -40,8 +40,15 @@ class DetailBigScreenLayout {
 
   double _z(double v) => v * k;
 
-  /// The top section's agreed height; it grows if its contents need more.
-  double get topHeight => _z(560);
+  /// How much higher the page body sits than in the first build: the empty band
+  /// between the file-specs line and Overview was ~140 on his PC (Adrian,
+  /// 2026-11-15: "the overview text ... could move up"). Taken off both the top
+  /// section and [titleLift], so the title block stays where it was.
+  static const _bodyRaise = 70.0;
+
+  /// The top section's agreed height (560, less [_bodyRaise]); it grows if its
+  /// contents need more.
+  double get topHeight => _z(560 - _bodyRaise);
 
   double get posterWidth => math.max(_z(690), 200);
   double get posterHeight => posterWidth * 1.5;
@@ -52,7 +59,7 @@ class DetailBigScreenLayout {
   double get posterLeft => size.width - posterEdge - posterWidth;
 
   double get titleLeft => math.max(_z(96), 16);
-  double get titleLift => _z(90);
+  double get titleLift => _z(90 - _bodyRaise);
   double get logoHeight => math.max(_z(240), 70);
   double get logoMaxWidth => math.max(_z(1120), 300);
 
@@ -66,8 +73,8 @@ class DetailBigScreenLayout {
   double get overviewFontSize => math.max(28 * k, 17);
   double get headingFontSize => math.max(26.4 * k, 19);
 
-  /// Width the Overview text may use from the content's left edge (16 in), so
-  /// its lines stop short of the poster.
+  /// Width the Overview text may use from the content's left edge (the title's
+  /// edge, [titleLeft]), so its lines stop short of the poster.
   double overviewMaxWidth(double contentLeft) => math.max(posterLeft - _z(48) - contentLeft, 320);
 
   /// Cast photo width (square), names and roles scaled with it.

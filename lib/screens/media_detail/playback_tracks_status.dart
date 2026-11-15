@@ -126,6 +126,9 @@ extension _MediaDetailPlaybackTracksStatus on _MediaDetailScreenState {
     required double tvScale,
     required double maxWidth,
   }) {
+    // A Coming Soon stand-in plays its trailer: the file's codec, audio and
+    // subtitle line describes the trailer, not the film (detail-left-edge.md).
+    if (metadata.isComingSoonStandIn) return const SizedBox.shrink();
     return ValueListenableBuilder<int>(
       valueListenable: _playbackStatusRevision,
       builder: (context, _, _) =>
