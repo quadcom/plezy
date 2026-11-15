@@ -48,6 +48,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$settings$en settings = Translations$settings$en.internal(_root);
 	late final Translations$search$en search = Translations$search$en.internal(_root);
 	late final Translations$hotkeys$en hotkeys = Translations$hotkeys$en.internal(_root);
+	late final Translations$outsideTitles$en outsideTitles = Translations$outsideTitles$en.internal(_root);
 	late final Translations$fileInfo$en fileInfo = Translations$fileInfo$en.internal(_root);
 	late final Translations$mediaMenu$en mediaMenu = Translations$mediaMenu$en.internal(_root);
 	late final Translations$rateSheet$en rateSheet = Translations$rateSheet$en.internal(_root);
@@ -1540,6 +1541,69 @@ class Translations$hotkeys$en {
 	String get recordingShortcut => 'Press the shortcut now';
 
 	late final Translations$hotkeys$actions$en actions = Translations$hotkeys$actions$en.internal(_root);
+}
+
+// Path: outsideTitles
+class Translations$outsideTitles$en {
+	Translations$outsideTitles$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Add to Coming Soon'
+	String get addToComingSoon => 'Add to Coming Soon';
+
+	/// en: 'Add to New Shows'
+	String get addToNewShows => 'Add to New Shows';
+
+	/// en: 'Request'
+	String get request => 'Request';
+
+	/// en: 'Requested'
+	String get requested => 'Requested';
+
+	/// en: 'Downloading'
+	String get processing => 'Downloading';
+
+	/// en: 'Available'
+	String get available => 'Available';
+
+	/// en: 'Added. It shows in Coming Soon once its trailer is found.'
+	String get addedComingSoon => 'Added. It shows in Coming Soon once its trailer is found.';
+
+	/// en: 'Added. It shows in New Shows once its trailer is found.'
+	String get addedNewShows => 'Added. It shows in New Shows once its trailer is found.';
+
+	/// en: 'Couldn't send the request.'
+	String get requestFailed => 'Couldn\'t send the request.';
+
+	/// en: 'Known for'
+	String get knownFor => 'Known for';
+
+	/// en: 'In your library'
+	String get inYourLibrary => 'In your library';
+
+	/// en: 'Not in your library'
+	String get notInYourLibrary => 'Not in your library';
+
+	/// en: 'Born ${date}'
+	String born({required Object date}) => 'Born ${date}';
+
+	/// en: 'Born ${date} (age ${age})'
+	String bornAge({required Object date, required Object age}) => 'Born ${date} (age ${age})';
+
+	/// en: 'Died ${date} (aged ${age})'
+	String died({required Object date, required Object age}) => 'Died ${date} (aged ${age})';
+
+	/// en: 'From ${place}'
+	String from({required Object place}) => 'From ${place}';
+
+	/// en: 'TV'
+	String get tvTag => 'TV';
+
+	/// en: 'Coming ${date}'
+	String comingOn({required Object date}) => 'Coming ${date}';
 }
 
 // Path: fileInfo
@@ -8714,6 +8778,24 @@ extension on Translations {
 			'hotkeys.actions.shaderToggle' => 'Toggle Shaders',
 			'hotkeys.actions.skipMarker' => 'Skip Intro/Credits',
 			'hotkeys.actions.screenshot' => 'Take Screenshot',
+			'outsideTitles.addToComingSoon' => 'Add to Coming Soon',
+			'outsideTitles.addToNewShows' => 'Add to New Shows',
+			'outsideTitles.request' => 'Request',
+			'outsideTitles.requested' => 'Requested',
+			'outsideTitles.processing' => 'Downloading',
+			'outsideTitles.available' => 'Available',
+			'outsideTitles.addedComingSoon' => 'Added. It shows in Coming Soon once its trailer is found.',
+			'outsideTitles.addedNewShows' => 'Added. It shows in New Shows once its trailer is found.',
+			'outsideTitles.requestFailed' => 'Couldn\'t send the request.',
+			'outsideTitles.knownFor' => 'Known for',
+			'outsideTitles.inYourLibrary' => 'In your library',
+			'outsideTitles.notInYourLibrary' => 'Not in your library',
+			'outsideTitles.born' => ({required Object date}) => 'Born ${date}',
+			'outsideTitles.bornAge' => ({required Object date, required Object age}) => 'Born ${date} (age ${age})',
+			'outsideTitles.died' => ({required Object date, required Object age}) => 'Died ${date} (aged ${age})',
+			'outsideTitles.from' => ({required Object place}) => 'From ${place}',
+			'outsideTitles.tvTag' => 'TV',
+			'outsideTitles.comingOn' => ({required Object date}) => 'Coming ${date}',
 			'fileInfo.title' => 'File Info',
 			'fileInfo.overview' => 'Overview',
 			'fileInfo.video' => 'Video',
@@ -9179,6 +9261,8 @@ extension on Translations {
 			'connections.sectionTitle' => 'Connections',
 			'connections.addConnection' => 'Add connection',
 			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a PlezyFin or Emby server',
+			_ => null,
+		} ?? switch (path) {
 			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, PlezyFin, Emby, or another profile connection',
 			'connections.sessionExpiredOne' => ({required Object name}) => 'Session expired for ${name}',
 			'connections.sessionExpiredMany' => ({required Object count}) => 'Session expired for ${count} servers',
@@ -9197,8 +9281,6 @@ extension on Translations {
 			'accountPreferences.noPreference' => 'No preference',
 			'accountPreferences.notSet' => 'Not set',
 			'accountPreferences.groups.audioAndSubtitles' => 'Audio & subtitles',
-			_ => null,
-		} ?? switch (path) {
 			'accountPreferences.groups.libraryDisplay' => 'Library',
 			'accountPreferences.groups.personalMedia' => 'Personal media',
 			'accountPreferences.preferredAudioLanguage' => 'Preferred audio language',
@@ -9693,6 +9775,8 @@ extension on Translations {
 			'liveTv.recordingRuleDeleted' => 'Recording rule deleted',
 			'liveTv.processRecordingRules' => 'Re-evaluate rules',
 			'liveTv.recordingInProgress' => 'Recording now',
+			_ => null,
+		} ?? switch (path) {
 			'liveTv.recordingsCount' => ({required Object count}) => '${count} scheduled',
 			'liveTv.editRule' => 'Edit rule',
 			'liveTv.editRuleAction' => 'Edit',
@@ -9711,8 +9795,6 @@ extension on Translations {
 			'liveTv.recordSettings.keepUpTo' => 'Episodes to keep',
 			'liveTv.recordSettings.keepUpToHint' => '0 keeps every episode',
 			'liveTv.startingInMinutes' => ({required Object minutes}) => 'Starting in ${minutes} min',
-			_ => null,
-		} ?? switch (path) {
 			'liveTv.dayAtTime' => ({required Object day, required Object time}) => '${day} at ${time}',
 			'liveTv.invalidPlaybackData' => ({required Object product}) => '${product} returned invalid Live TV playback data',
 			'liveTv.failedToStartChannel' => 'Could not start the live channel',
@@ -10207,6 +10289,8 @@ extension on Translations {
 			'metadataEdit.allEpisodes' => 'All episodes',
 			'metadataEdit.latestEpisodes' => ({required Object count}) => '${count} latest episodes',
 			'metadataEdit.latestEpisode' => 'Latest episode',
+			_ => null,
+		} ?? switch (path) {
 			'metadataEdit.episodesAddedPastDays' => ({required Object count}) => 'Episodes added in the past ${count} days',
 			'metadataEdit.deleteAfterPlaying' => 'Delete Episodes After Playing',
 			'metadataEdit.never' => 'Never',
@@ -10225,8 +10309,6 @@ extension on Translations {
 			'metadataEdit.useOriginalTitle' => 'Use Original Title',
 			'metadataEdit.preferredAudioLanguage' => 'Preferred Audio Language',
 			'metadataEdit.preferredSubtitleLanguage' => 'Preferred Subtitle Language',
-			_ => null,
-		} ?? switch (path) {
 			'metadataEdit.subtitleMode' => 'Auto-Select Subtitle Mode',
 			'metadataEdit.manuallySelected' => 'Manually selected',
 			'metadataEdit.shownWithForeignAudio' => 'Shown with foreign audio',

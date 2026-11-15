@@ -2,13 +2,18 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../exceptions/media_server_exceptions.dart';
 import '../focus/focusable_text_field.dart';
+import '../i18n/app_locale_utils.dart';
+import '../focus/locked_hub_controller.dart';
 import '../i18n/strings.g.dart';
 import '../media/account_preferences.dart';
 import '../media/ids.dart';
+import '../media/catalog_item_ref.dart';
+import '../media/media_hub.dart';
 import '../media/media_item.dart';
 import '../media/media_kind.dart';
 import '../media/media_item_merge.dart';
@@ -20,7 +25,10 @@ import '../providers/account_preferences_controller.dart';
 import '../providers/hidden_libraries_provider.dart';
 import '../providers/libraries_provider.dart';
 import '../providers/multi_server_provider.dart';
+import '../models/plezyfin_titles.dart';
 import '../services/data_aggregation_service.dart';
+import '../services/jellyfin_client.dart';
+import '../services/plezyfin_title_source.dart';
 import '../services/settings_service.dart';
 import '../services/voice_search_service.dart';
 import '../utils/app_logger.dart';
@@ -40,10 +48,12 @@ import '../widgets/search_scope_panel.dart';
 import '../widgets/voice_listening_dialog.dart';
 import '../widgets/focusable_media_card.dart';
 import '../widgets/focusable_tab_chip.dart';
+import '../widgets/hub_section.dart';
 import '../widgets/settings_builder.dart';
 import '../focus/input_mode_tracker.dart';
 import '../utils/focus_utils.dart';
 import 'actor_media_screen.dart';
+import 'catalog_item_detail_screen.dart';
 import 'libraries/state_messages.dart';
 import 'main_screen.dart';
 
@@ -97,6 +107,14 @@ class _SearchScreenState extends State<SearchScreen>
   /// Servers the user owns (or administers) among those that answered the
   /// visible query. Their libraries' sections come before shared servers'.
   Set<String> _ownServerIds = const {};
+
+  /// Fork: films and shows on TMDb that aren't in the library, for accounts
+  /// that may request (PlezyFin PLAN_PFN_115, local/plans/search-request.md).
+  /// Null when there is nothing to show for the visible query.
+  PlezyFinTitleSearch? _outside;
+  String? _outsideQuery;
+  JellyfinClient? _outsideClient;
+  final _outsideFocusMemory = HubFocusMemory();
 
   /// Media-kind filter over the current results. Chips and the filtered view
   /// derive from [_searchCandidates] — the pre-rank pool behind the ranked
@@ -388,6 +406,101 @@ class _SearchScreenState extends State<SearchScreen>
     _pendingSearchOutcome = null;
   }
 
+  /// The own PlezyFin server's client: the one that answers outside searches.
+  JellyfinClient? _plezyFinClient() {
+    final multi = context.read<MultiServerProvider>();
+    for (final id in _ownServerIds) {
+      final client = multi.getClientForServer(ServerId(id));
+      if (client is JellyfinClient) return client;
+    }
+    for (final client in multi.serverManager.onlineClients.values) {
+      if (client is JellyfinClient) return client;
+    }
+    return null;
+  }
+
+  /// One outside search per finished library search (that search is already
+  /// debounced), never while typing (Adrian: don't flood the server). A 403 (this
+  /// account may not request) or a failure shows nothing.
+  Future<void> _loadOutside(String query) async {
+    final client = _plezyFinClient();
+    if (client == null || query.trim().length < 2) return;
+    try {
+      final result = await client.plezyFinTitleSearch(query);
+      if (!mounted || searchController.text.trim() != query) return;
+      setState(() {
+        _outside = result;
+        _outsideQuery = query;
+        _outsideClient = client;
+      });
+    } catch (e) {
+      appLogger.d('PlezyFin outside search failed', error: e);
+    }
+  }
+
+  void _clearOutside() {
+    _outside = null;
+    _outsideQuery = null;
+  }
+
+  /// Results not already in the library, as cards: "Coming 1 May 2027" for a
+  /// title not out yet, else its year; "Requested" once asked for; a TV tag.
+  List<PlezyFinTitle> get _outsideTitles {
+    final outside = _outside;
+    if (outside == null || _outsideQuery != lastSearchedQuery) return const [];
+    return [
+      for (final title in outside.results)
+        if (!title.inLibrary) title,
+    ];
+  }
+
+  MediaHub? _outsideHub() {
+    final titles = _outsideTitles;
+    if (titles.isEmpty) return null;
+    final today = DateTime.now();
+    final dateFormat = DateFormat.yMMMd(LocaleSettings.currentLocale.intlLocaleName);
+    return MediaHub(
+      id: 'search_outside',
+      title: t.outsideTitles.notInYourLibrary,
+      type: 'mixed',
+      items: [
+        for (final title in titles)
+          title.toCatalogItem().toMediaItem().copyWith(
+            parentTitle: [
+              if (title.isUpcoming(today) && title.releaseDate != null)
+                t.outsideTitles.comingOn(date: dateFormat.format(title.releaseDate!))
+              else if (title.year case final year?)
+                '$year',
+              if (title.requestState case final state? when !state.canAsk) t.outsideTitles.requested,
+              if (title.kind == MediaKind.show) t.outsideTitles.tvTag,
+            ].join(' · '),
+          ),
+      ],
+      size: titles.length,
+    );
+  }
+
+  void _openOutside(MediaItem item) {
+    final catalog = item.catalogItem;
+    final client = _outsideClient;
+    if (catalog == null || client == null) return;
+    PlezyFinRequestState? state;
+    for (final title in _outsideTitles) {
+      if (title.tmdbId == catalog.ids.tmdb && title.kind == catalog.kind) state = title.requestState;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CatalogItemDetailScreen(
+            item: catalog,
+            plezyFin: PlezyFinTitleSource(client, canRequest: _outside?.canRequest ?? false),
+            requestState: state,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void onSearchError(Object error) {
     _focusResultsForQuery = null;
@@ -402,6 +515,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   void onSearchCleared() {
+    _clearOutside();
     _focusResultsForQuery = null;
     _pendingSearchOutcome = null;
     _resetKindFilter();
@@ -422,6 +536,9 @@ class _SearchScreenState extends State<SearchScreen>
     _ownServerIds = matchedOutcome?.ownServerIds ?? const {};
     _facetMatches = matchedOutcome?.facets ?? const [];
     _searchedScope = matchedOutcome?.scope ?? const {};
+    // Fork: then the titles outside the library (switched-on accounts only).
+    if (_outsideQuery != query) _clearOutside();
+    unawaited(_loadOutside(query));
 
     // Committed alongside the results the pending setState renders (build has
     // not run yet): the pre-rank pool the kind chips derive from. A selected
@@ -760,7 +877,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   static bool _isPeopleRow(SearchScopeKind kind) => kind == SearchScopeKind.actors || kind == SearchScopeKind.crew;
 
-  bool get _hasAnyResult => searchResults.isNotEmpty || _facetMatches.isNotEmpty;
+  bool get _hasAnyResult => searchResults.isNotEmpty || _facetMatches.isNotEmpty || _outsideTitles.isNotEmpty;
 
   /// Focus the first person or chip of the [index]th focusable extra row.
   void _focusExtraRow(int index) {
@@ -1019,6 +1136,19 @@ class _SearchScreenState extends State<SearchScreen>
                 if (_showKindChips) _buildKindFilterChips(),
                 if (searchResults.isNotEmpty) ..._buildResultSections(context),
                 ..._buildExtraRows(context),
+                // Fork: last, titles not in the library (local/plans/search-request.md).
+                if (_outsideHub() case final outside?)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 16, bottom: 16),
+                      child: HubSection(
+                        hub: outside,
+                        focusMemory: _outsideFocusMemory,
+                        icon: Symbols.add_circle_rounded,
+                        onItemTap: _openOutside,
+                      ),
+                    ),
+                  ),
               ],
             ],
           ),

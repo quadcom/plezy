@@ -19,6 +19,7 @@ import '../i18n/app_locale_utils.dart';
 import '../i18n/strings.g.dart';
 import '../media/media_hub.dart';
 import '../media/media_item.dart';
+import '../media/media_kind.dart';
 import '../media/media_item_merge.dart';
 import '../media/media_rating.dart';
 import '../media/media_version.dart';
@@ -26,6 +27,8 @@ import '../models/catalog/catalog_cast_member.dart';
 import '../models/catalog/catalog_item.dart';
 import '../models/catalog/catalog_labels.dart';
 import '../models/catalog/catalog_metadata.dart';
+import '../models/plezyfin_titles.dart';
+import '../services/plezyfin_title_source.dart';
 import '../providers/catalog_sources_provider.dart';
 import '../providers/multi_server_provider.dart';
 import '../providers/seerr_account_provider.dart';
@@ -64,7 +67,16 @@ import '../widgets/stat_chip.dart';
 class CatalogItemDetailScreen extends StatefulWidget {
   final CatalogItem item;
 
-  const CatalogItemDetailScreen({super.key, required this.item});
+  /// Fork: the page is fed by a PlezyFin server (details, cast, and Request
+  /// through the per-account switch) instead of a catalog sign-in on this
+  /// device. Set when a title is opened from search or a cast member's page
+  /// (local/plans/search-request.md, local/plans/person-page.md).
+  final PlezyFinTitleSource? plezyFin;
+
+  /// The title's request state as the list that opened it knew it.
+  final PlezyFinRequestState? requestState;
+
+  const CatalogItemDetailScreen({super.key, required this.item, this.plezyFin, this.requestState});
 
   @override
   State<CatalogItemDetailScreen> createState() => _CatalogItemDetailScreenState();
@@ -99,6 +111,10 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
 
   CatalogItem? _detailItem;
 
+  /// Fork: PlezyFin request state and the request in flight ([widget.plezyFin]).
+  PlezyFinRequestState? _plezyFinState;
+  bool _plezyFinRequesting = false;
+
   /// Library items matching this catalog item; null while resolving.
   List<MediaItem>? _matches;
 
@@ -124,6 +140,7 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _plezyFinState = widget.requestState;
     _syncDetailCollections(widget.item);
     unawaited(_resolveMatches(widget.item));
     unawaited(_loadDetail());
@@ -238,8 +255,9 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
     }
   }
 
-  CatalogSource? get _ownSource =>
-      context.read<CatalogSourcesProvider>().connectedSources.firstWhereOrNull((s) => s.id == widget.item.source);
+  CatalogSource? get _ownSource => widget.plezyFin != null
+      ? null
+      : context.read<CatalogSourcesProvider>().connectedSources.firstWhereOrNull((s) => s.id == widget.item.source);
 
   CatalogItem get _item => _detailItem ?? widget.item;
 
@@ -269,6 +287,7 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
   /// One lazy detail load against the item's own source; failures keep the
   /// opening item visible and leave provider-only sections hidden.
   Future<void> _loadDetail() async {
+    if (widget.plezyFin case final plezyFin?) return _loadPlezyFinDetail(plezyFin);
     final source = _ownSource;
     if (source == null) return;
     try {
@@ -308,6 +327,70 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
     }
   }
 
+  /// Fork: details and cast from PlezyFin (`PlezyFin/Title`).
+  Future<void> _loadPlezyFinDetail(PlezyFinTitleSource source) async {
+    try {
+      final result = await source.fetchDetail(widget.item);
+      if (!mounted || result == null) return;
+      _syncDetailCollections(result.detail.item);
+      setState(() {
+        _detailItem = result.detail.item;
+        _cast = result.detail.cast;
+        _related = const [];
+        _plezyFinState = result.state ?? _plezyFinState;
+      });
+    } catch (e) {
+      appLogger.d('PlezyFin title detail failed for ${widget.item.identityKey}', error: e);
+    }
+  }
+
+  /// Fork: the PlezyFin Request button's words: not out yet -> "Add to Coming
+  /// Soon" / "Add to New Shows" (Media Bridge makes the placeholder as soon as
+  /// Radarr/Sonarr has it), out -> "Request"; then the state Seerr reports.
+  String _plezyFinRequestLabel(CatalogItem item) {
+    final state = _plezyFinState;
+    if (state != null && !state.canAsk) {
+      return switch (state) {
+        PlezyFinRequestState.processing => t.outsideTitles.processing,
+        PlezyFinRequestState.available => t.outsideTitles.available,
+        _ => t.outsideTitles.requested,
+      };
+    }
+    final date = item.releaseDate;
+    final upcoming = date != null && date.isAfter(DateTime.now());
+    if (!upcoming) return t.outsideTitles.request;
+    return item.kind == MediaKind.show ? t.outsideTitles.addToNewShows : t.outsideTitles.addToComingSoon;
+  }
+
+  bool get _plezyFinCanAsk => (_plezyFinState?.canAsk ?? true) && !_plezyFinRequesting;
+
+  Future<void> _sendPlezyFinRequest(BuildContext hostContext, PlezyFinTitleSource source, CatalogItem item) async {
+    if (_plezyFinRequesting) return;
+    setState(() => _plezyFinRequesting = true);
+    try {
+      final result = await source.request(item);
+      if (!mounted) return;
+      setState(() {
+        _plezyFinRequesting = false;
+        if (result.ok) _plezyFinState = result.requestState ?? PlezyFinRequestState.requested;
+      });
+      if (!hostContext.mounted) return;
+      if (result.ok) {
+        showSuccessSnackBar(
+          hostContext,
+          item.kind == MediaKind.show ? t.outsideTitles.addedNewShows : t.outsideTitles.addedComingSoon,
+        );
+      } else {
+        showErrorSnackBar(hostContext, result.message ?? t.outsideTitles.requestFailed);
+      }
+    } catch (e) {
+      appLogger.w('PlezyFin request failed for ${item.identityKey}', error: e);
+      if (!mounted) return;
+      setState(() => _plezyFinRequesting = false);
+      if (hostContext.mounted) showErrorSnackBar(hostContext, t.outsideTitles.requestFailed);
+    }
+  }
+
   void _replaceRelationFocusNodes(int count) {
     for (final node in _relationFocusNodes) {
       node.dispose();
@@ -339,7 +422,10 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
   /// with the detail fetch (issue #1959).
   bool get _canRequest => _requestSource != null && _item.ids.tmdb != null;
 
-  bool get _hasActions => _watchlistSource != null || _canRequest || _hasTrailer;
+  /// Fork: the PlezyFin Request button shows (switched-on accounts only).
+  bool get _canRequestViaPlezyFin => (widget.plezyFin?.canRequest ?? false) && _item.ids.tmdb != null;
+
+  bool get _hasActions => _watchlistSource != null || _canRequest || _canRequestViaPlezyFin || _hasTrailer;
 
   bool get _hasLibraryMatches => _libraryMatchFocusNodes.isNotEmpty;
 
@@ -1458,6 +1544,28 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
                                                     ),
                                                   ),
                                                 ),
+                                              if (widget.plezyFin case final plezyFin? when _canRequestViaPlezyFin)
+                                                FocusableAction(
+                                                  debugLabel: 'catalog_plezyfin_request',
+                                                  icon: (_plezyFinState?.canAsk ?? true)
+                                                      ? Symbols.add_circle_rounded
+                                                      : Symbols.check_circle_rounded,
+                                                  tooltip: _plezyFinRequestLabel(item),
+                                                  onPressed: _plezyFinCanAsk
+                                                      ? () =>
+                                                            unawaited(_sendPlezyFinRequest(hostContext, plezyFin, item))
+                                                      : null,
+                                                  child: _PlezyFinRequestButton(
+                                                    label: _plezyFinRequestLabel(item),
+                                                    done: !(_plezyFinState?.canAsk ?? true),
+                                                    busy: _plezyFinRequesting,
+                                                    onPressed: _plezyFinCanAsk
+                                                        ? () => unawaited(
+                                                            _sendPlezyFinRequest(hostContext, plezyFin, item),
+                                                          )
+                                                        : null,
+                                                  ),
+                                                ),
                                               if (item.trailerUrl?.trim() case final trailer? when trailer.isNotEmpty)
                                                 FocusableAction(
                                                   debugLabel: 'catalog_trailer',
@@ -1552,6 +1660,30 @@ class _CatalogItemDetailScreenState extends State<CatalogItemDetailScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Fork: the PlezyFin Request button with its words ("Add to Coming Soon",
+/// "Requested"), so the action is clear without a tooltip on a TV.
+class _PlezyFinRequestButton extends StatelessWidget {
+  const _PlezyFinRequestButton({required this.label, required this.done, required this.busy, this.onPressed});
+
+  final String label;
+  final bool done;
+  final bool busy;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final icon = busy
+        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+        : AppIcon(done ? Symbols.check_circle_rounded : Symbols.add_circle_rounded, size: 20);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+      child: done
+          ? OutlinedButton.icon(onPressed: null, icon: icon, label: Text(label))
+          : FilledButton.tonalIcon(onPressed: onPressed, icon: icon, label: Text(label)),
     );
   }
 }

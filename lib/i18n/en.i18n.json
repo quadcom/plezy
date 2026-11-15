@@ -568,6 +568,26 @@
       "screenshot": "Take Screenshot"
     }
   },
+  "outsideTitles": {
+    "addToComingSoon": "Add to Coming Soon",
+    "addToNewShows": "Add to New Shows",
+    "request": "Request",
+    "requested": "Requested",
+    "processing": "Downloading",
+    "available": "Available",
+    "addedComingSoon": "Added. It shows in Coming Soon once its trailer is found.",
+    "addedNewShows": "Added. It shows in New Shows once its trailer is found.",
+    "requestFailed": "Couldn't send the request.",
+    "knownFor": "Known for",
+    "inYourLibrary": "In your library",
+    "notInYourLibrary": "Not in your library",
+    "born": "Born ${date}",
+    "bornAge": "Born ${date} (age ${age})",
+    "died": "Died ${date} (aged ${age})",
+    "from": "From ${place}",
+    "tvTag": "TV",
+    "comingOn": "Coming ${date}"
+  },
   "fileInfo": {
     "title": "File Info",
     "overview": "Overview",

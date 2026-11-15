@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../media/ids.dart';
 import 'package:material_symbols_icons/symbols.dart';
 import '../media/library_query.dart';
@@ -15,6 +18,8 @@ import '../utils/provider_extensions.dart';
 import '../widgets/desktop_app_bar.dart';
 import '../widgets/optimized_media_image.dart';
 import '../utils/media_image_helper.dart';
+import '../i18n/app_locale_utils.dart';
+import '../focus/locked_hub_controller.dart';
 import '../i18n/strings.g.dart';
 import 'base_media_list_detail_screen.dart';
 import 'focusable_detail_screen_mixin.dart';
@@ -22,6 +27,14 @@ import 'media_detail/big_screen_layout.dart';
 import '../utils/platform_detector.dart';
 import '../mixins/grid_focus_node_mixin.dart';
 import '../focus/focusable_action_bar.dart';
+import '../media/catalog_item_ref.dart';
+import '../media/media_hub.dart';
+import '../models/plezyfin_titles.dart';
+import '../services/jellyfin_client.dart';
+import '../services/plezyfin_title_source.dart';
+import '../widgets/collapsible_text.dart';
+import '../widgets/hub_section.dart';
+import 'catalog_item_detail_screen.dart';
 
 /// Screen to browse all media featuring a specific actor, or (through
 /// [ActorMediaScreen.filtered]) the films and shows of one genre, studio,
@@ -100,6 +113,80 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
   @override
   bool get hasItems => totalSize > 0;
 
+  /// Fork: bio and the "Known for" row from PlezyFin (PLAN_PFN_114,
+  /// local/plans/person-page.md); null until loaded, and for facets.
+  PlezyFinPersonPage? _personPage;
+  final _knownForFocusMemory = HubFocusMemory();
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.facet == null && widget.personId.isNotEmpty) unawaited(_loadPersonPage());
+  }
+
+  /// One call per page open; a server without the route, or any failure,
+  /// leaves today's page.
+  Future<void> _loadPersonPage() async {
+    final client = _mediaClient;
+    if (client is! JellyfinClient) return;
+    try {
+      final page = await client.plezyFinPerson(widget.personId);
+      if (!mounted || page == null) return;
+      setState(() => _personPage = page);
+    } catch (e) {
+      appLogger.d('PlezyFin person page failed for ${widget.personId}', error: e);
+    }
+  }
+
+  /// "Known for" as hub cards: year, role and a TV tag under each poster.
+  MediaHub? _knownForHub() {
+    final page = _personPage;
+    if (page == null) return null;
+    final titles = page.knownFor;
+    if (titles.isEmpty) return null;
+    return MediaHub(
+      id: 'person_known_for',
+      title: t.outsideTitles.knownFor,
+      type: 'mixed',
+      items: [
+        for (final title in titles)
+          title.toCatalogItem().toMediaItem().copyWith(
+            parentTitle: [
+              if (title.year case final year?) '$year',
+              if (title.character case final character? when character.isNotEmpty)
+                character
+              else if (title.job case final job? when job.isNotEmpty)
+                job,
+              if (title.kind == MediaKind.show) t.outsideTitles.tvTag,
+            ].join(' · '),
+          ),
+      ],
+      size: titles.length,
+    );
+  }
+
+  void _openKnownFor(MediaItem item) {
+    final catalog = item.catalogItem;
+    final client = _mediaClient;
+    if (catalog == null || client is! JellyfinClient) return;
+    final page = _personPage;
+    PlezyFinRequestState? state;
+    for (final title in page?.credits ?? const <PlezyFinTitle>[]) {
+      if (title.tmdbId == catalog.ids.tmdb && title.kind == catalog.kind) state = title.requestState;
+    }
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CatalogItemDetailScreen(
+            item: catalog,
+            plezyFin: PlezyFinTitleSource(client, canRequest: page?.canRequest ?? false),
+            requestState: state,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     disposePagination();
@@ -165,16 +252,28 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
                 )
               else
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(40),
-                  child: OptimizedMediaImage(
-                    client: _mediaClient,
-                    imagePath: widget.actorThumb,
-                    width: 80,
-                    height: 80,
-                    fit: BoxFit.cover,
-                    imageType: ImageType.avatar,
-                    fallbackIcon: Symbols.person_rounded,
-                  ),
+                  borderRadius: BorderRadius.circular(_photoSize / 2),
+                  child: widget.actorThumb == null && _personPage?.person?.profileUrl != null
+                      ? Image.network(
+                          _personPage!.person!.profileUrl!,
+                          width: _photoSize,
+                          height: _photoSize,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) => SizedBox(
+                            width: _photoSize,
+                            height: _photoSize,
+                            child: const Icon(Symbols.person_rounded),
+                          ),
+                        )
+                      : OptimizedMediaImage(
+                          client: _mediaClient,
+                          imagePath: widget.actorThumb,
+                          width: _photoSize,
+                          height: _photoSize,
+                          fit: BoxFit.cover,
+                          imageType: ImageType.avatar,
+                          fallbackIcon: Symbols.person_rounded,
+                        ),
                 ),
               const SizedBox(width: 16),
               Expanded(
@@ -203,6 +302,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
                         style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
                       ),
                     ],
+                    ..._personFacts(theme),
                   ],
                 ),
               ),
@@ -213,13 +313,73 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
     );
   }
 
+  /// The photo grows when PlezyFin has details to sit beside it.
+  double get _photoSize => _personPage?.person == null ? 80 : 120;
+
+  /// Born / died with age, birthplace, known for, and the bio (a few lines,
+  /// "More" opens the rest).
+  List<Widget> _personFacts(ThemeData theme) {
+    final person = _personPage?.person;
+    if (person == null) return const [];
+    final locale = LocaleSettings.currentLocale.intlLocaleName;
+    String day(DateTime date) => DateFormat.yMMMMd(locale).format(date);
+    final age = person.ageOn(DateTime.now());
+    final facts = [
+      if (person.deathday case final died?)
+        t.outsideTitles.died(date: day(died), age: age ?? '?')
+      else if (person.birthday case final born?)
+        age == null ? t.outsideTitles.born(date: day(born)) : t.outsideTitles.bornAge(date: day(born), age: age),
+      if (person.placeOfBirth case final place?) t.outsideTitles.from(place: place),
+      ?person.knownForDepartment,
+    ];
+    final muted = theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant);
+    return [
+      if (facts.isNotEmpty) ...[const SizedBox(height: 6), Text(facts.join('  ·  '), style: muted)],
+      if (person.biography case final bio?) ...[
+        const SizedBox(height: 10),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 900),
+          child: CollapsibleText(text: bio, maxLines: 4, style: theme.textTheme.bodyMedium, skipTraversal: false),
+        ),
+      ],
+    ];
+  }
+
+  Widget _sectionHeading(BuildContext context, String text, DetailBigScreenLayout? big) {
+    final theme = Theme.of(context);
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(big?.titleLeft ?? 16, 16, 16, 4),
+        child: Text(text, style: theme.textTheme.titleLarge?.copyWith(fontWeight: .bold)),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final big = _bigLayout(context);
+    final knownFor = _knownForHub();
     return buildDetailScaffold(
       slivers: [
         CustomAppBar(title: Text(widget.actorName), pinned: true, actions: buildFocusableAppBarActions()),
         _buildActorHeader(),
+        // Fork: films and shows they're known for that aren't in the library
+        // (local/plans/person-page.md). Above the library grid, which can run
+        // long; its own row so it never pushes the library off the page.
+        if (knownFor != null)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.only(left: big == null ? 0 : big.titleLeft - 16),
+              child: HubSection(
+                hub: knownFor,
+                focusMemory: _knownForFocusMemory,
+                icon: Symbols.movie_rounded,
+                cardWidth: big?.posterRowCardWidth,
+                onItemTap: _openKnownFor,
+              ),
+            ),
+          ),
+        if (knownFor != null && hasItems) _sectionHeading(context, t.outsideTitles.inYourLibrary, big),
         ...buildStateSlivers(),
         if (hasItems)
           buildSparseFocusableGrid(
