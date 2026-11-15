@@ -32,7 +32,6 @@ import '../media/media_hub.dart';
 import '../models/plezyfin_titles.dart';
 import '../services/jellyfin_client.dart';
 import '../services/plezyfin_title_source.dart';
-import '../widgets/collapsible_text.dart';
 import '../widgets/hub_section.dart';
 import 'catalog_item_detail_screen.dart';
 
@@ -243,6 +242,8 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
           scale: big?.personHeaderZoom ?? 1,
           alignment: Alignment.topLeft,
           child: Row(
+            // With PlezyFin's details the tall photo and the bio line up at the top.
+            crossAxisAlignment: _personPage?.person == null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
             children: [
               if (widget.facetIcon case final icon?)
                 CircleAvatar(
@@ -252,16 +253,16 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
                 )
               else
                 ClipRRect(
-                  borderRadius: BorderRadius.circular(_photoSize / 2),
+                  borderRadius: BorderRadius.circular(_personPage?.person == null ? _photoSize / 2 : 12),
                   child: widget.actorThumb == null && _personPage?.person?.profileUrl != null
                       ? Image.network(
                           _personPage!.person!.profileUrl!,
                           width: _photoSize,
-                          height: _photoSize,
+                          height: _photoHeight,
                           fit: BoxFit.cover,
                           errorBuilder: (_, _, _) => SizedBox(
                             width: _photoSize,
-                            height: _photoSize,
+                            height: _photoHeight,
                             child: const Icon(Symbols.person_rounded),
                           ),
                         )
@@ -269,7 +270,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
                           client: _mediaClient,
                           imagePath: widget.actorThumb,
                           width: _photoSize,
-                          height: _photoSize,
+                          height: _photoHeight,
                           fit: BoxFit.cover,
                           imageType: ImageType.avatar,
                           fallbackIcon: Symbols.person_rounded,
@@ -313,11 +314,14 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
     );
   }
 
-  /// The photo grows when PlezyFin has details to sit beside it.
-  double get _photoSize => _personPage?.person == null ? 80 : 120;
+  /// With PlezyFin's details the photo becomes a large portrait headshot
+  /// (Adrian, 2026-11-15: "maybe the headshot could be bigger"); a round
+  /// 80 otherwise.
+  double get _photoSize => _personPage?.person == null ? 80 : 180;
+  double get _photoHeight => _personPage?.person == null ? 80 : 270;
 
-  /// Born / died with age, birthplace, known for, and the bio (a few lines,
-  /// "More" opens the rest).
+  /// Born / died with age, birthplace, known for, and the whole bio (Adrian,
+  /// 2026-11-15: "we don't need to collapse the bio information").
   List<Widget> _personFacts(ThemeData theme) {
     final person = _personPage?.person;
     if (person == null) return const [];
@@ -339,7 +343,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
         const SizedBox(height: 10),
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 900),
-          child: CollapsibleText(text: bio, maxLines: 4, style: theme.textTheme.bodyMedium, skipTraversal: false),
+          child: Text(bio, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
         ),
       ],
     ];
