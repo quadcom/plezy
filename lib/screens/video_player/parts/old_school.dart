@@ -622,6 +622,15 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     Duration position() => _os.filmFromStart || fromStart ? Duration.zero : tune.offsetInto(entry, DateTime.now());
     _oldSchoolSetPreRoll(false);
     if (_currentMetadata.id == entry.itemId) {
+      // The scheduled point is past this file's end (it got shorter after
+      // the guide was planned): seeking there would sit on the last frame
+      // with nothing more to come. Wait for the slot to end instead.
+      if (!fromStart &&
+          !_os.filmFromStart &&
+          OldSchoolPlayerState.pastFileEnd(position(), currentPlayer.state.duration)) {
+        _oldSchoolRetuneAtSlotEnd(tune, generation: generation, why: 'the scheduled point is past the file\'s end');
+        return;
+      }
       // Same file (Back to live, or the channel's next slot is the same
       // item): jump to the scheduled point. This is the one forward seek Old
       // School makes, so it goes past the lock.
@@ -635,6 +644,14 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     final item = await _osController.client.fetchItem(entry.itemId!);
     if (!mounted || generation != _os.tuneGeneration) return;
     if (item == null) throw StateError('Old School item ${entry.itemId} not found');
+    final runtime = item.durationMs;
+    if (!fromStart &&
+        !_os.filmFromStart &&
+        runtime != null &&
+        OldSchoolPlayerState.pastFileEnd(position(), Duration(milliseconds: runtime))) {
+      _oldSchoolRetuneAtSlotEnd(tune, generation: generation, why: 'the scheduled point is past the file\'s end');
+      return;
+    }
     final startCard = _oldSchoolStartsWithCard(tune, entry);
     final outcome = await _reloadMediaInPlace(
       metadata: item,
@@ -649,6 +666,23 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
     if (startCard && outcome == MediaReloadOutcome.opened && mounted && generation == _os.tuneGeneration) {
       _oldSchoolShowStartCard(entry);
     }
+    // 3. It would not open: never stay black, try again when the slot ends.
+    if (outcome == MediaReloadOutcome.failed && mounted && generation == _os.tuneGeneration) {
+      _oldSchoolRetuneAtSlotEnd(tune, generation: generation, why: 'the programme would not open');
+    }
+  }
+
+  /// Nothing to play for the rest of [tune]'s slot: hold, and tune again when
+  /// it ends (local/plans/old-school-past-end.md).
+  void _oldSchoolRetuneAtSlotEnd(OldSchoolTune tune, {required int generation, required String why}) {
+    final wait = OldSchoolPlayerState.shortFileRetuneWait(tune, DateTime.now());
+    appLogger.w('Old School: $why on ${tune.now.name}; tuning again in ${wait.inSeconds} s');
+    _os.standbyTimer?.cancel();
+    _os.standbyTimer = Timer(wait, () {
+      if (mounted && generation == _os.tuneGeneration) {
+        unawaited(_oldSchoolTune(tune.channelId, reason: 'after a short file', showControls: false));
+      }
+    });
   }
 
   /// The pre-roll trailer ended or would not play: the film follows in the
@@ -736,7 +770,10 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
         return;
       }
       final left = slot.now.end.difference(slot.serverNow(DateTime.now()));
-      if (slot.now.isProgramme && left > const Duration(seconds: 1)) {
+      // Any file, not only a programme: a trailer that ran out 21 s early
+      // re-tuned at once and got the same finished file back, then stayed
+      // black (local/plans/old-school-past-end.md).
+      if (left > const Duration(seconds: 1)) {
         final generation = _os.tuneGeneration;
         _os.standbyTimer?.cancel();
         _os.standbyTimer = Timer(left + const Duration(milliseconds: 500), () {

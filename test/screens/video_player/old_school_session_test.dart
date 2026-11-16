@@ -40,6 +40,40 @@ void main() {
     });
   });
 
+  // local/plans/old-school-past-end.md: Smooch TV went black on 2026-11-16 when a
+  // trailer ran out 21 s before its slot and the re-tune answered past its end.
+  group('a file shorter than its slot', () {
+    final received = DateTime.utc(2026, 11, 17, 4, 4, 7);
+    final tune = OldSchoolTune.fromJson('smooch', {
+      'serverTime': '2026-11-17T04:04:07Z',
+      'now': {
+        'kind': 'trailer',
+        'itemId': 'eternal-return',
+        'name': 'Eternal Return',
+        'start': '2026-11-17T04:02:00Z',
+        'end': '2026-11-17T04:04:28Z',
+      },
+    }, receivedAt: received)!;
+
+    test('a point at or past the end has nothing left to play', () {
+      const length = Duration(seconds: 127);
+      expect(OldSchoolPlayerState.pastFileEnd(const Duration(seconds: 148), length), isTrue);
+      expect(OldSchoolPlayerState.pastFileEnd(const Duration(milliseconds: 126500), length), isTrue);
+      expect(OldSchoolPlayerState.pastFileEnd(const Duration(seconds: 100), length), isFalse);
+      expect(OldSchoolPlayerState.pastFileEnd(const Duration(seconds: 148), null), isFalse);
+      expect(OldSchoolPlayerState.pastFileEnd(const Duration(seconds: 148), Duration.zero), isFalse);
+    });
+
+    test('it tunes again half a second after the slot ends', () {
+      expect(OldSchoolPlayerState.shortFileRetuneWait(tune, received), const Duration(milliseconds: 21500));
+    });
+
+    test('never sooner than the minimum, even with the slot already over', () {
+      final late = received.add(const Duration(minutes: 1));
+      expect(OldSchoolPlayerState.shortFileRetuneWait(tune, late), OldSchoolPlayerState.shortFileRetuneMin);
+    });
+  });
+
   // local/plans/old-school-standby-card.md: what covers a standby gap and
   // when the channel is asked again.
   group('standby gap', () {

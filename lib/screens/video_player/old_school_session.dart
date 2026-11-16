@@ -121,6 +121,26 @@ class OldSchoolPlayerState {
   /// waited out on the last picture, with no filler or card.
   static const standbyShortGap = Duration(seconds: 5);
 
+  /// The least wait before tuning again after a file ran out early, so a
+  /// server that keeps answering the same finished file isn't asked over and
+  /// over (local/plans/old-school-past-end.md).
+  static const shortFileRetuneMin = Duration(seconds: 3);
+
+  /// Whether [position] is at (within a second of) or past the end of a file
+  /// [duration] long: nothing left to play there.
+  static bool pastFileEnd(Duration position, Duration? duration) {
+    if (duration == null || duration <= Duration.zero) return false;
+    return position >= duration - const Duration(seconds: 1);
+  }
+
+  /// When to tune again after [tune]'s file ran out before its slot did: half
+  /// a second after the slot ends, never sooner than [shortFileRetuneMin]
+  /// (2026-11-16, Smooch TV went black when a trailer ended 21 s early).
+  static Duration shortFileRetuneWait(OldSchoolTune tune, DateTime deviceNow) {
+    final wait = tune.now.end.difference(tune.serverNow(deviceNow)) + const Duration(milliseconds: 500);
+    return wait < shortFileRetuneMin ? shortFileRetuneMin : wait;
+  }
+
   /// When to tune again during [tune]'s standby gap: a second after the next
   /// entry starts, or after [standbyRecheck], whichever comes first.
   static Duration standbyWait(OldSchoolTune tune, DateTime deviceNow) {
