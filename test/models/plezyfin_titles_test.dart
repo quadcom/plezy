@@ -191,6 +191,23 @@ void main() {
     expect(page.message, isNull);
   });
 
+  test("the bio loses TMDb's Wikipedia credit line", () {
+    // Live text (Rachel Brosnahan, SHIELD screenshot 2026-11-16), shortened.
+    final person = PlezyFinPerson.fromJson({
+      'Name': 'Rachel Brosnahan',
+      'Biography':
+          'Rachel Brosnahan is an American actress.\n\nOn stage, she made her Broadway debut in 2013.\n\n'
+          'Description above from the Wikipedia article Rachel Brosnahan, licensed under CC-BY-SA, full list of '
+          'contributors on Wikipedia.',
+    })!;
+    expect(
+      person.biography,
+      'Rachel Brosnahan is an American actress.\n\nOn stage, she made her Broadway debut in 2013.',
+    );
+    expect(PlezyFinPerson.cleanBiography('Description above from the Wikipedia article X.'), isNull);
+    expect(PlezyFinPerson.cleanBiography('Plain bio.'), 'Plain bio.');
+  });
+
   group('request result', () {
     test('success and refusals', () {
       final ok = PlezyFinRequestResult.fromJson({'Ok': true, 'RequestState': 'processing'}, statusCode: 200);

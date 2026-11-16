@@ -192,13 +192,23 @@ class PlezyFinPerson {
       name: name,
       imageTag: _text(json, 'ImageTag'),
       profileUrl: _text(json, 'ProfileUrl'),
-      biography: _text(json, 'Biography'),
+      biography: cleanBiography(_text(json, 'Biography')),
       birthday: _date(json, 'Birthday'),
       deathday: _date(json, 'Deathday'),
       placeOfBirth: _text(json, 'PlaceOfBirth'),
       knownForDepartment: _text(json, 'KnownForDepartment'),
       tmdbId: flexibleInt(_field(json, 'TmdbId')),
     );
+  }
+
+  static final _wikipediaCredit = RegExp(r'\s*Description above from the Wikipedia article[\s\S]*$');
+
+  /// TMDb's bio without its closing "Description above from the Wikipedia
+  /// article ..." credit line (local/plans/person-page-tv.md).
+  static String? cleanBiography(String? bio) {
+    if (bio == null) return null;
+    final cleaned = bio.replaceFirst(_wikipediaCredit, '').trim();
+    return cleaned.isEmpty ? null : cleaned;
   }
 
   /// Age in whole years today, or at death.

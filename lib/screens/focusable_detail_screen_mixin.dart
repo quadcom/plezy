@@ -212,6 +212,7 @@ mixin FocusableDetailScreenMixin<T extends StatefulWidget> on State<T>, GridFocu
     int indexOffset = 0,
     int? densityOverride,
     EdgeInsets? padding,
+    VoidCallback? onNavigateUpFromFirstRow,
   }) {
     return SettingsBuilder(
       prefs: const [SettingsService.viewMode, SettingsService.libraryDensity, SettingsService.tvFullCardLayout],
@@ -245,7 +246,9 @@ mixin FocusableDetailScreenMixin<T extends StatefulWidget> on State<T>, GridFocu
             // The first section's first row reaches the app bar; later
             // sections fall through to traversal, which enters the previous
             // section's grid.
-            onNavigateUp: position.isFirstRow && indexOffset == 0 ? navigateToAppBar : null,
+            onNavigateUp: position.isFirstRow && indexOffset == 0
+                ? (onNavigateUpFromFirstRow ?? navigateToAppBar)
+                : null,
             onBack: handleBackFromContent,
             onFocusChange: (hasFocus) => trackGridItemFocus(globalIndex, hasFocus),
           );

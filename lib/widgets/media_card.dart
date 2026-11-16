@@ -79,6 +79,10 @@ String _formatCatalogPercent(double value) {
   return _percentNumberFormatter!.format(value);
 }
 
+/// Fork: a card's `raw` entry holding the line to show under it instead of the
+/// usual one.
+const cardSubtitleRawKey = 'plezyCardSubtitle';
+
 /// Composes the "PG-13 • 2006 • 2h 10min • 7.7★" line under a card.
 ///
 /// [compact] is for the poster grid, where the line is one ellipsized row a
@@ -1213,6 +1217,10 @@ class _MediaCardHelpers {
     required String catalogMetadata,
     required bool showTitleImplied,
   }) {
+    // Fork: a line the page chose for this card (a cast member's Known for row:
+    // year, role, TV; local/plans/person-page-tv.md).
+    final chosen = mi.raw?[cardSubtitleRawKey];
+    if (chosen is String && chosen.isNotEmpty) return chosen;
     if (catalogMetadata.isNotEmpty) return catalogMetadata;
 
     if (mi.kind == MediaKind.collection) {

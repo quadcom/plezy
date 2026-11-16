@@ -33,6 +33,10 @@ import '../models/plezyfin_titles.dart';
 import '../services/jellyfin_client.dart';
 import '../services/plezyfin_title_source.dart';
 import '../widgets/hub_section.dart';
+import '../focus/input_mode_tracker.dart';
+import '../widgets/media_card.dart' show cardSubtitleRawKey;
+import '../widgets/app_icon.dart';
+import '../widgets/collapsible_text.dart';
 import 'catalog_item_detail_screen.dart';
 
 /// Screen to browse all media featuring a specific actor, or (through
@@ -117,6 +121,74 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
   PlezyFinPersonPage? _personPage;
   final _knownForFocusMemory = HubFocusMemory();
 
+  /// Remote order on TV (local/plans/person-page-tv.md): bio -> Known for ->
+  /// library grid, Up and Down one step at a time, each scrolled into view.
+  final _knownForKey = GlobalKey<HubSectionState>();
+  final _bioFocusNode = FocusNode(debugLabel: 'person_bio');
+  final _bioKey = GlobalKey();
+
+  bool get _hasKnownFor => _personPage?.knownFor.isNotEmpty ?? false;
+
+  void _focusKnownFor() {
+    setState(() => isAppBarFocused = false);
+    _knownForKey.currentState?.requestFocusFromMemory();
+  }
+
+  void _focusBio() {
+    _bioFocusNode.requestFocus();
+    final context = _bioKey.currentContext;
+    if (context != null) unawaited(Scrollable.ensureVisible(context, alignment: 0.2));
+  }
+
+  /// Up from the top section: the page scrolls back to the top, focus stays.
+  void _showTop() =>
+      unawaited(scrollController.animateTo(0, duration: const Duration(milliseconds: 200), curve: Curves.easeOut));
+
+  /// The first section the remote lands on: Known for, else the library grid.
+  void _focusFirstSection() {
+    if (!mounted || !InputModeTracker.isKeyboardMode(context, listen: false)) return;
+    if (_hasKnownFor) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusKnownFor();
+      });
+    } else {
+      autoFocusFirstItemAfterLoad();
+    }
+  }
+
+  void _upFromKnownFor() {
+    if (_personPage?.person?.biography != null && PlatformDetector.isTV()) {
+      _focusBio();
+    } else {
+      _showTop();
+    }
+  }
+
+  void _downFromKnownFor() {
+    if (hasItems) {
+      setState(() => isAppBarFocused = false);
+      firstItemFocusNode.requestFocus();
+    }
+  }
+
+  void _upFromGrid() {
+    if (_hasKnownFor) {
+      _focusKnownFor();
+    } else if (_personPage?.person?.biography != null && PlatformDetector.isTV()) {
+      _focusBio();
+    } else {
+      _showTop();
+    }
+  }
+
+  void _downFromBio() {
+    if (_hasKnownFor) {
+      _focusKnownFor();
+    } else {
+      _downFromKnownFor();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -131,7 +203,10 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
     try {
       final page = await client.plezyFinPerson(widget.personId);
       if (!mounted || page == null) return;
+      // The grid may have taken the remote's focus first; Known for comes first.
+      final gridHadFirstFocus = firstItemFocusNode.hasFocus;
       setState(() => _personPage = page);
+      if (gridHadFirstFocus || FocusManager.instance.primaryFocus == null || !hasItems) _focusFirstSection();
     } catch (e) {
       appLogger.d('PlezyFin person page failed for ${widget.personId}', error: e);
     }
@@ -149,16 +224,18 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
       type: 'mixed',
       items: [
         for (final title in titles)
-          title.toCatalogItem().toMediaItem().copyWith(
-            parentTitle: [
+          () {
+            final item = title.toCatalogItem().toMediaItem();
+            final line = [
               if (title.year case final year?) '$year',
               if (title.character case final character? when character.isNotEmpty)
                 character
               else if (title.job case final job? when job.isNotEmpty)
                 job,
               if (title.kind == MediaKind.show) t.outsideTitles.tvTag,
-            ].join(' · '),
-          ),
+            ].join(' · ');
+            return item.copyWith(raw: {...?item.raw, cardSubtitleRawKey: line});
+          }(),
       ],
       size: titles.length,
     );
@@ -188,6 +265,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
 
   @override
   void dispose() {
+    _bioFocusNode.dispose();
     disposePagination();
     disposeFocusResources();
     super.dispose();
@@ -212,7 +290,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
       },
       onLoaded: (loadedCount, totalCount) {
         appLogger.d('Loaded $loadedCount of $totalCount items for ${widget.facet ?? 'actor'}: ${widget.actorName}');
-        autoFocusFirstItemAfterLoad();
+        _focusFirstSection();
       },
     );
   }
@@ -342,19 +420,50 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
       if (person.biography case final bio?) ...[
         const SizedBox(height: 10),
         ConstrainedBox(
+          key: _bioKey,
           constraints: const BoxConstraints(maxWidth: 900),
-          child: Text(bio, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
+          // TV: five lines and "More" (OK opens the rest), so the rows stay on
+          // screen; PC and tablets show it all (Adrian, 2026-11-15).
+          child: PlatformDetector.isTV()
+              ? CollapsibleText(
+                  text: bio,
+                  maxLines: 5,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+                  focusNode: _bioFocusNode,
+                  skipTraversal: false,
+                  onNavigateUp: _showTop,
+                  onNavigateDown: _downFromBio,
+                  onNavigateLeft: () {},
+                  onNavigateRight: () {},
+                )
+              : Text(bio, style: theme.textTheme.bodyMedium?.copyWith(height: 1.45)),
         ),
       ],
     ];
   }
 
+  /// The page's left edge: the header's, which Known for and the library grid
+  /// share (local/plans/person-page-tv.md).
+  double _edge(DetailBigScreenLayout? big) => big?.titleLeft ?? 16;
+
+  /// "In your library", drawn like the Known for row's heading (icon + title).
   Widget _sectionHeading(BuildContext context, String text, DetailBigScreenLayout? big) {
-    final theme = Theme.of(context);
+    final isTv = PlatformDetector.isTV();
+    final style = Theme.of(
+      context,
+    ).textTheme.titleLarge?.copyWith(fontSize: isTv ? 26 : null, fontWeight: isTv ? FontWeight.w700 : null);
     return SliverToBoxAdapter(
       child: Padding(
-        padding: EdgeInsets.fromLTRB(big?.titleLeft ?? 16, 16, 16, 4),
-        child: Text(text, style: theme.textTheme.titleLarge?.copyWith(fontWeight: .bold)),
+        padding: EdgeInsets.fromLTRB(_edge(big), 16, 16, 4),
+        child: Row(
+          children: [
+            AppIcon(Symbols.video_library_rounded, fill: 1, size: isTv ? 28 : null),
+            SizedBox(width: isTv ? 12 : 8),
+            Flexible(
+              child: Text(text, style: style, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -373,13 +482,25 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
         if (knownFor != null)
           SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.only(left: big == null ? 0 : big.titleLeft - 16),
+              // Inset row: heading and first card start at the page's edge,
+              // like the header and the library grid.
+              padding: EdgeInsets.only(left: _edge(big), top: 8),
               child: HubSection(
+                key: _knownForKey,
                 hub: knownFor,
                 focusMemory: _knownForFocusMemory,
                 icon: Symbols.movie_rounded,
+                inset: true,
                 cardWidth: big?.posterRowCardWidth,
                 onItemTap: _openKnownFor,
+                onVerticalNavigation: (isUp) {
+                  if (isUp) {
+                    _upFromKnownFor();
+                  } else {
+                    _downFromKnownFor();
+                  }
+                  return true;
+                },
               ),
             ),
           ),
@@ -394,6 +515,7 @@ class _ActorMediaScreenState extends BaseMediaListDetailScreen<ActorMediaScreen>
             densityOverride: big?.personGridDensity(isTv: PlatformDetector.isTV()),
             // The grid keeps the header's edge (the header is 8 further in by default too).
             padding: big == null ? null : EdgeInsets.symmetric(horizontal: big.titleLeft - 8, vertical: 8),
+            onNavigateUpFromFirstRow: _upFromGrid,
           ),
       ],
     );
