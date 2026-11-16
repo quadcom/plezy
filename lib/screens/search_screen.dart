@@ -1006,7 +1006,9 @@ class _SearchScreenState extends State<SearchScreen>
                 else if (_isPeopleRow(kind))
                   CastMemberStrip(
                     key: _peopleStripKeys.putIfAbsent(kind, () => GlobalKey<CastMemberStripState>()),
-                    circular: true,
+                    // Rectangular photos like the item page's cast row, not
+                    // circles (Adrian, 2026-11-16: "build it all").
+                    circular: false,
                     debugLabel: 'SearchPeople_${kind.id}',
                     members: [
                       for (final match in matches)

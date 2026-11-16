@@ -746,7 +746,8 @@ void main() {
       expect(find.text(t.messages.noResultsFound), findsNothing);
       expect(find.text(t.search.rows.people), findsOneWidget);
       expect(find.text('Amanda Seyfried'), findsOneWidget);
-      expect(find.text('AS'), findsOneWidget, reason: 'initials stand in for a missing photo');
+      // Rectangular photos like the item page's cast row (2026-11-16): a missing photo shows the person icon.
+      expect(find.text('AS'), findsNothing);
       expect(find.text(t.search.rows.noMatch(kind: t.search.rows.noMatchKeywords, query: 'amanda')), findsOneWidget);
       expect(find.text(t.search.rows.genres), findsNothing, reason: 'genres are not ticked');
     });
