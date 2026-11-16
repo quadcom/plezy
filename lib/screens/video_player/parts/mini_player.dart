@@ -3,23 +3,18 @@ part of '../../video_player_screen.dart';
 /// Back during the credits: the video goes into the corner box and the Up Next
 /// page opens under it (local/plans/video-mini-player.md, stage 2).
 extension _VideoPlayerMiniPlayerMethods on VideoPlayerScreenState {
-  /// With no credits marker, this last stretch of the item counts as the
-  /// credits: 3 minutes, or a tenth of a short item.
-  static const _creditsFallback = Duration(minutes: 3);
-
-  /// Whether playback is in the credits: from the server's credits marker, or
-  /// the last stretch of the item when there is none.
+  /// Whether playback is in the credits: from the server's credits marker, the
+  /// last chapter near the end, or the last stretch of the item
+  /// ([VideoMiniPlayer.creditsStart], local/plans/credits-guess.md).
   bool _inCredits() {
     final p = player;
     if (p == null) return false;
-    final position = p.state.position;
-    final duration = p.state.duration;
-    if (duration <= Duration.zero) return false;
-    final marker = _creditsStart;
-    if (marker != null && marker > Duration.zero && marker < duration) return position >= marker;
-    final tenth = Duration(milliseconds: duration.inMilliseconds ~/ 10);
-    final stretch = tenth < _creditsFallback ? tenth : _creditsFallback;
-    return position >= duration - stretch;
+    final start = VideoMiniPlayer.creditsStart(
+      duration: p.state.duration,
+      marker: _creditsStart,
+      chapters: _currentMediaInfo?.chapters ?? const [],
+    );
+    return start != null && p.state.position >= start;
   }
 
   /// Back goes to the Up Next page instead of closing the video: PC, tablets

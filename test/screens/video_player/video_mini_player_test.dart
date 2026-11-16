@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/media_source_info.dart';
 import 'package:plezy/media/media_kind.dart';
 import 'package:plezy/media/media_item.dart';
 import 'package:plezy/screens/video_player/video_mini_player.dart';
@@ -13,6 +14,53 @@ void main() {
   tearDown(() {
     mini.release(screenA);
     mini.release(screenB);
+  });
+
+  // local/plans/credits-guess.md: Kingsman on the SHIELD, 2026-11-16.
+  group('where the credits start', () {
+    const film = Duration(milliseconds: 7724544); // 128.7 min
+    List<MediaChapter> chapters(List<double> minutes) => [
+      for (final (i, m) in minutes.indexed) MediaChapter(id: i, startTimeOffset: (m * 60000).round()),
+    ];
+
+    test('the server marker wins', () {
+      expect(
+        VideoMiniPlayer.creditsStart(
+          duration: film,
+          marker: const Duration(minutes: 121),
+          chapters: chapters([0, 50, 119.6]),
+        ),
+        const Duration(minutes: 121),
+      );
+    });
+
+    test('no marker: the last chapter when it starts in the final 12 minutes', () {
+      final start = VideoMiniPlayer.creditsStart(
+        duration: film,
+        chapters: chapters([0, 100, 104.1, 110.5, 118.4, 119.6]),
+      )!;
+      expect(start.inMilliseconds, (119.6 * 60000).round());
+    });
+
+    test('a last chapter further back, or too few chapters: the last 8 minutes', () {
+      expect(
+        VideoMiniPlayer.creditsStart(duration: film, chapters: chapters([0, 60, 100])),
+        film - const Duration(minutes: 8),
+      );
+      expect(
+        VideoMiniPlayer.creditsStart(duration: film, chapters: chapters([0, 125])),
+        film - const Duration(minutes: 8),
+      );
+      expect(VideoMiniPlayer.creditsStart(duration: film), film - const Duration(minutes: 8));
+    });
+
+    test('a short item: its last tenth; unknown length: none', () {
+      expect(
+        VideoMiniPlayer.creditsStart(duration: const Duration(minutes: 22)),
+        const Duration(minutes: 22) - const Duration(seconds: 132),
+      );
+      expect(VideoMiniPlayer.creditsStart(duration: Duration.zero), isNull);
+    });
   });
 
   // local/plans/trailer-back.md (Adrian, 2026-11-15).

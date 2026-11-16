@@ -7,6 +7,7 @@ import 'package:material_symbols_icons/symbols.dart';
 import '../../i18n/strings.g.dart';
 import '../../media/media_item.dart';
 import '../../media/media_kind.dart';
+import '../../media/media_source_info.dart';
 import '../../mpv/mpv.dart';
 import '../../utils/platform_detector.dart';
 import '../../widgets/app_icon.dart';
@@ -59,6 +60,37 @@ class VideoMiniPlayer extends ChangeNotifier {
   /// a trailer"; local/plans/trailer-back.md). A 2-minute trailer has no credits
   /// marker, so its last 12 s counted as "the credits".
   static bool upNextFollows(MediaItem item) => item.kind != MediaKind.clip && !item.isComingSoonStandIn;
+
+  /// A last chapter starting this close to the end counts as the credits.
+  static const creditsChapterWindow = Duration(minutes: 12);
+
+  /// With no marker and no such chapter, this last stretch counts: 8 minutes,
+  /// or a tenth of a short item.
+  static const creditsFallback = Duration(minutes: 8);
+
+  /// Where the credits start, for Back to open Up Next (local/plans/credits-guess.md):
+  /// the server's credits [marker]; else the last of 3+ [chapters] when it starts
+  /// within the final [creditsChapterWindow] (films usually give the end credits
+  /// their own chapter: Kingsman's last starts 9 min before the end); else the
+  /// last min(10%, [creditsFallback]). Null when [duration] is unknown.
+  static Duration? creditsStart({
+    required Duration duration,
+    Duration? marker,
+    List<MediaChapter> chapters = const [],
+  }) {
+    if (duration <= Duration.zero) return null;
+    if (marker != null && marker > Duration.zero && marker < duration) return marker;
+    if (chapters.length >= 3) {
+      var last = Duration.zero;
+      for (final chapter in chapters) {
+        final start = chapter.startTime;
+        if (start > last) last = start;
+      }
+      if (last > Duration.zero && last < duration && duration - last <= creditsChapterWindow) return last;
+    }
+    final tenth = Duration(milliseconds: duration.inMilliseconds ~/ 10);
+    return duration - (tenth < creditsFallback ? tenth : creditsFallback);
+  }
 
   static bool appliesOn(BuildContext context) {
     if (PlatformDetector.isTV()) return true;
