@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/services/server_messages.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/library_change_event.dart';
 import 'package:plezy/media/media_browser_dialect.dart';
@@ -492,6 +493,30 @@ void main() {
       expect(reminders.single, 'mb_1');
     });
 
+    // local/plans/new-copy-toast.md, Media Bridge PLAN_PMB_91.
+    test('passes a DisplayMessage command on as a server message', () async {
+      final server = await startServer();
+      final messages = <ServerMessage>[];
+      final subscription = ServerMessages.instance.stream.listen(messages.add);
+      addTearDown(subscription.cancel);
+      final channel = mediaBrowserSocket(server);
+      channel.start();
+      final socket = await server.nextConnection();
+
+      server.send(socket, {
+        'MessageType': 'GeneralCommand',
+        'Data': {
+          'Name': 'DisplayMessage',
+          'Arguments': {'Text': 'Upgrade Ready', 'TimeoutMs': '15000'},
+        },
+      });
+      await _waitFor(() => messages.isNotEmpty);
+      expect(messages.single.serverId, 'mb_1');
+      expect(messages.single.text, 'Upgrade Ready');
+      expect(messages.single.header, isNull);
+      expect(messages.single.timeout, const Duration(seconds: 15));
+    });
+
     test('connects to the dialect path and answers ForceKeepAlive', () async {
       final server = await startServer();
       final channel = mediaBrowserSocket(server);
@@ -654,7 +679,7 @@ void main() {
       expect(events, isEmpty);
     });
 
-    test('Emby registers capabilities before every connect; Jellyfin never does', () async {
+    test('Emby registers capabilities before every connect; Jellyfin too, for server messages', () async {
       final server = await startServer();
       var registrations = 0;
       final emby = mediaBrowserSocket(
@@ -679,7 +704,23 @@ void main() {
       final jellyfin = mediaBrowserSocket(jellyfinServer, registerCapabilities: () async => jellyfinRegistrations++);
       jellyfin.start();
       await jellyfinServer.nextConnection();
-      expect(jellyfinRegistrations, 0);
+      // Says the session shows DisplayMessage (local/plans/new-copy-toast.md).
+      expect(jellyfinRegistrations, 1);
+    });
+
+    test('a failing registration on Jellyfin still connects at once', () async {
+      final server = await startServer();
+      var registrations = 0;
+      final channel = mediaBrowserSocket(
+        server,
+        registerCapabilities: () async {
+          registrations++;
+          throw Exception('server busy');
+        },
+      );
+      channel.start();
+      await server.nextConnection();
+      expect(registrations, 1);
     });
 
     test('a failing capabilities registration retries and then connects', () async {

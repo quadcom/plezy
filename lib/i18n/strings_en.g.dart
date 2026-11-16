@@ -2283,6 +2283,12 @@ class Translations$videoControls$en {
 	/// en: 'Playback will pause at the end of this video'
 	String get playbackWillPauseAtEnd => 'Playback will pause at the end of this video';
 
+	/// en: 'Switch now'
+	String get upgradeSwitchNow => 'Switch now';
+
+	/// en: 'Not now'
+	String get upgradeNotNow => 'Not now';
+
 	/// en: 'Still watching?'
 	String get stillWatching => 'Still watching?';
 
@@ -8998,6 +9004,8 @@ extension on Translations {
 			'videoControls.sleepTimerStopAtHeader' => 'Stop at',
 			'videoControls.sleepTimerDurationHeader' => 'Timer',
 			'videoControls.playbackWillPauseAtEnd' => 'Playback will pause at the end of this video',
+			'videoControls.upgradeSwitchNow' => 'Switch now',
+			'videoControls.upgradeNotNow' => 'Not now',
 			'videoControls.stillWatching' => 'Still watching?',
 			'videoControls.pausingIn' => ({required Object seconds}) => 'Pausing in ${seconds}s',
 			'videoControls.continueWatching' => 'Continue',
@@ -9259,10 +9267,10 @@ extension on Translations {
 			'profiles.pinsDontMatch' => 'PINs don\'t match',
 			'profiles.tokenIdentityMismatch' => 'The Plex profile token resolved to an unexpected server',
 			'connections.sectionTitle' => 'Connections',
-			'connections.addConnection' => 'Add connection',
-			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a PlezyFin or Emby server',
 			_ => null,
 		} ?? switch (path) {
+			'connections.addConnection' => 'Add connection',
+			'connections.addConnectionSubtitleNoProfile' => 'Sign in with Plex or connect a PlezyFin or Emby server',
 			'connections.addConnectionSubtitleScoped' => ({required Object displayName}) => 'Add to ${displayName}: Plex, PlezyFin, Emby, or another profile connection',
 			'connections.sessionExpiredOne' => ({required Object name}) => 'Session expired for ${name}',
 			'connections.sessionExpiredMany' => ({required Object count}) => 'Session expired for ${count} servers',
@@ -9773,10 +9781,10 @@ extension on Translations {
 			'liveTv.recordNotAvailable' => 'Recording not available for this program',
 			'liveTv.recordingCancelled' => 'Recording canceled',
 			'liveTv.recordingRuleDeleted' => 'Recording rule deleted',
-			'liveTv.processRecordingRules' => 'Re-evaluate rules',
-			'liveTv.recordingInProgress' => 'Recording now',
 			_ => null,
 		} ?? switch (path) {
+			'liveTv.processRecordingRules' => 'Re-evaluate rules',
+			'liveTv.recordingInProgress' => 'Recording now',
 			'liveTv.recordingsCount' => ({required Object count}) => '${count} scheduled',
 			'liveTv.editRule' => 'Edit rule',
 			'liveTv.editRuleAction' => 'Edit',
@@ -10287,10 +10295,10 @@ extension on Translations {
 			'metadataEdit.newestFirst' => 'Newest first',
 			'metadataEdit.keep' => 'Keep',
 			'metadataEdit.allEpisodes' => 'All episodes',
-			'metadataEdit.latestEpisodes' => ({required Object count}) => '${count} latest episodes',
-			'metadataEdit.latestEpisode' => 'Latest episode',
 			_ => null,
 		} ?? switch (path) {
+			'metadataEdit.latestEpisodes' => ({required Object count}) => '${count} latest episodes',
+			'metadataEdit.latestEpisode' => 'Latest episode',
 			'metadataEdit.episodesAddedPastDays' => ({required Object count}) => 'Episodes added in the past ${count} days',
 			'metadataEdit.deleteAfterPlaying' => 'Delete Episodes After Playing',
 			'metadataEdit.never' => 'Never',

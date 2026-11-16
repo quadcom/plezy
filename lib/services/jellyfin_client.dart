@@ -505,20 +505,22 @@ class JellyfinClient
       baseUrl: () => _http.baseUrl,
       accessToken: connection.accessToken,
       deviceId: connection.deviceId,
-      registerCapabilities: dialect.requiresSessionCapabilitiesForLibraryEvents
-          ? _registerSessionCapabilitiesForEvents
-          : null,
+      // Emby needs it for library events; on every server it also says this
+      // session shows server messages (local/plans/new-copy-toast.md).
+      registerCapabilities: _registerSessionCapabilitiesForEvents,
     );
   }
 
   /// `POST /Sessions/Capabilities/Full` with a minimal payload (verified 204
   /// on Emby 4.9.5, after which the socket receives `LibraryChanged`).
+  /// `DisplayMessage`: the server may send on-screen messages, such as Media
+  /// Bridge's "Upgrade Ready" (PLAN_PMB_91, local/plans/new-copy-toast.md).
   Future<void> _registerSessionCapabilitiesForEvents() async {
     final response = await _http.post(
       '/Sessions/Capabilities/Full',
       body: {
         'PlayableMediaTypes': ['Video', 'Audio'],
-        'SupportedCommands': <String>[],
+        'SupportedCommands': <String>['DisplayMessage'],
         'SupportsMediaControl': false,
         'SupportsSync': false,
       },

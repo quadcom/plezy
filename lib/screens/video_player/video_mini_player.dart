@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../i18n/strings.g.dart';
+import '../../media/media_item.dart';
+import '../../media/media_kind.dart';
 import '../../mpv/mpv.dart';
 import '../../utils/platform_detector.dart';
 import '../../widgets/app_icon.dart';
@@ -51,6 +53,13 @@ class VideoMiniPlayer extends ChangeNotifier {
   bool get isExpanding => _expanding;
 
   /// PC, tablets and TVs (Adrian, 2026-11-10); not phones.
+  /// Whether Back in an item's last stretch may open Up Next: not after a
+  /// trailer or extra (clips, music videos), nor a Coming Soon item, whose file
+  /// is its trailer (Adrian, 2026-11-15: "that should not happen after watching
+  /// a trailer"; local/plans/trailer-back.md). A 2-minute trailer has no credits
+  /// marker, so its last 12 s counted as "the credits".
+  static bool upNextFollows(MediaItem item) => item.kind != MediaKind.clip && !item.isComingSoonStandIn;
+
   static bool appliesOn(BuildContext context) {
     if (PlatformDetector.isTV()) return true;
     if (PlatformDetector.isPhone(context)) return false;

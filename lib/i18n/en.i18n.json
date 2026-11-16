@@ -812,6 +812,8 @@
     "sleepTimerStopAtHeader": "Stop at",
     "sleepTimerDurationHeader": "Timer",
     "playbackWillPauseAtEnd": "Playback will pause at the end of this video",
+    "upgradeSwitchNow": "Switch now",
+    "upgradeNotNow": "Not now",
     "stillWatching": "Still watching?",
     "pausingIn": "Pausing in ${seconds}s",
     "continueWatching": "Continue",

@@ -32,6 +32,7 @@ extension _VideoPlayerMiniPlayerMethods on VideoPlayerScreenState {
     if (_watchTogetherProvider?.isInSession == true) return false;
     if (!SettingsService.instance.read(SettingsService.videoMiniPlayerOnBack)) return false;
     if (!VideoMiniPlayer.appliesOn(context)) return false;
+    if (!VideoMiniPlayer.upNextFollows(_currentMetadata)) return false;
     if (!_inCredits()) return false;
     final route = ModalRoute.of(context);
     return route != null && route.isCurrent && Navigator.of(context).canPop();

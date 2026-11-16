@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plezy/media/media_kind.dart';
+import 'package:plezy/media/media_item.dart';
 import 'package:plezy/screens/video_player/video_mini_player.dart';
 
 /// The corner box's bookkeeping (local/plans/video-mini-player.md).
@@ -11,6 +13,26 @@ void main() {
   tearDown(() {
     mini.release(screenA);
     mini.release(screenB);
+  });
+
+  // local/plans/trailer-back.md (Adrian, 2026-11-15).
+  test('Up Next never follows a trailer, extra or Coming Soon item', () {
+    const episode = JellyfinMediaItem(id: 'e', kind: MediaKind.episode);
+    const movie = JellyfinMediaItem(
+      id: 'm',
+      kind: MediaKind.movie,
+      raw: {'Path': '/knoxx/Flicks/Film (2015)/Film.mkv'},
+    );
+    const trailer = JellyfinMediaItem(id: 't', kind: MediaKind.clip);
+    const comingSoon = JellyfinMediaItem(
+      id: 'c',
+      kind: MediaKind.movie,
+      raw: {'Path': '/knoxx/agregarr/movies/Poltergeist/Poltergeist {tmdb-609} {edition-Trailer}.mp4'},
+    );
+    expect(VideoMiniPlayer.upNextFollows(episode), isTrue);
+    expect(VideoMiniPlayer.upNextFollows(movie), isTrue);
+    expect(VideoMiniPlayer.upNextFollows(trailer), isFalse);
+    expect(VideoMiniPlayer.upNextFollows(comingSoon), isFalse);
   });
 
   test('show puts the screen in the box; release takes it out', () {

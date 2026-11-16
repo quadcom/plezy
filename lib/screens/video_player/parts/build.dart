@@ -441,6 +441,15 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
                 onPause: _onStillWatchingPause,
                 onContinue: _onStillWatchingContinue,
               ),
+              // Fork: "Upgrade Ready" with Switch now (local/plans/new-copy-toast.md).
+              VideoPlayerUpgradeReadyOverlay(
+                message: _upgradeNotice,
+                notNowFocusNode: _upgradeNotNowFocusNode,
+                switchFocusNode: _upgradeSwitchFocusNode,
+                chromeController: _chromeController,
+                onNotNow: _hideUpgradeNotice,
+                onSwitch: () => unawaited(_switchToUpgradedCopy()),
+              ),
               // Buffering indicator (also shows during initial load, but not when exiting)
               // Hidden in PiP mode
               // IPTV in the corner shows its own, inside the window.

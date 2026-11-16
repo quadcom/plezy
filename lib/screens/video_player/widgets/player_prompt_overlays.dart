@@ -414,6 +414,53 @@ class VideoPlayerStillWatchingOverlay extends StatelessWidget {
   }
 }
 
+/// Fork: "Upgrade Ready" while watching (local/plans/new-copy-toast.md): the
+/// server's text and two buttons, in the same card as "Still watching?".
+/// Playback carries on underneath; it leaves on its own after the server's time.
+class VideoPlayerUpgradeReadyOverlay extends StatelessWidget {
+  final String? message;
+  final FocusNode notNowFocusNode;
+  final FocusNode switchFocusNode;
+  final PlayerChromeController chromeController;
+  final VoidCallback onNotNow;
+  final VoidCallback onSwitch;
+
+  const VideoPlayerUpgradeReadyOverlay({
+    super.key,
+    required this.message,
+    required this.notNowFocusNode,
+    required this.switchFocusNode,
+    required this.chromeController,
+    required this.onNotNow,
+    required this.onSwitch,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final text = message;
+    return _VideoPlayerPromptShell(
+      visible: text != null,
+      chromeController: chromeController,
+      focusNodes: [notNowFocusNode, switchFocusNode],
+      children: [
+        Text(
+          text ?? '',
+          style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: .w700),
+        ),
+        const SizedBox(height: 12),
+        _VideoPlayerPromptActions(
+          cancelLabel: t.videoControls.upgradeNotNow,
+          cancelFocusNode: notNowFocusNode,
+          onCancel: onNotNow,
+          confirmFocusNode: switchFocusNode,
+          onConfirm: onSwitch,
+          confirmChildren: [Text(t.videoControls.upgradeSwitchNow)],
+        ),
+      ],
+    );
+  }
+}
+
 class _VideoPlayerPromptShell extends StatelessWidget {
   final bool visible;
   final PlayerChromeController chromeController;

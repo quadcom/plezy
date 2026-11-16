@@ -96,6 +96,7 @@ import '../utils/orientation_helper.dart';
 import '../utils/platform_detector.dart';
 import '../utils/provider_extensions.dart';
 import '../utils/snackbar_helper.dart';
+import '../services/server_messages.dart';
 import '../utils/stream_buffer_sizing.dart';
 import '../utils/video_player_navigation.dart';
 import '../utils/android_exit_diagnostics.dart';
@@ -157,6 +158,7 @@ import '../utils/error_message_utils.dart';
 
 part 'video_player/parts/companion_remote.dart';
 part 'video_player/parts/mini_player.dart';
+part 'video_player/parts/upgrade_notice.dart';
 part 'video_player/parts/display_matching.dart';
 part 'video_player/parts/episode_navigation.dart';
 part 'video_player/parts/episode_queue.dart';
@@ -947,6 +949,14 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
   late final FocusNode _stillWatchingPauseFocusNode;
   late final FocusNode _stillWatchingContinueFocusNode;
 
+  /// Fork: the "Upgrade Ready" pop-up's text while it shows
+  /// (local/plans/new-copy-toast.md).
+  String? _upgradeNotice;
+  Timer? _upgradeNoticeTimer;
+  StreamSubscription<ServerMessage>? _serverMessageSubscription;
+  late final FocusNode _upgradeNotNowFocusNode;
+  late final FocusNode _upgradeSwitchFocusNode;
+
   // Screen-level focus node: persists across loading/initialized phases so
   // key events never escape the video player route.
   late final FocusNode _screenFocusNode;
@@ -1456,6 +1466,9 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
     _stillWatchingPauseFocusNode = FocusNode(debugLabel: 'StillWatchingPause');
     _stillWatchingContinueFocusNode = FocusNode(debugLabel: 'StillWatchingContinue');
+    _upgradeNotNowFocusNode = FocusNode(debugLabel: 'UpgradeNotNow');
+    _upgradeSwitchFocusNode = FocusNode(debugLabel: 'UpgradeSwitch');
+    _serverMessageSubscription = ServerMessages.instance.stream.listen(_onServerMessage);
 
     // Screen-level focus node that wraps the entire build output.
     // Ensures a single stable focus target across loading → initialized phases.
@@ -2548,6 +2561,10 @@ class VideoPlayerScreenState extends State<VideoPlayerScreen>
 
     _stillWatchingPauseFocusNode.dispose();
     _stillWatchingContinueFocusNode.dispose();
+    _upgradeNoticeTimer?.cancel();
+    unawaited(_serverMessageSubscription?.cancel());
+    _upgradeNotNowFocusNode.dispose();
+    _upgradeSwitchFocusNode.dispose();
     _initializationErrorFocusNode.dispose();
 
     _screenFocusNode.removeListener(_onScreenFocusChanged);
