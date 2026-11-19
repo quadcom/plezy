@@ -163,9 +163,19 @@ class _VideoState extends State<Video> with WidgetsBindingObserver {
     final renderBox = context.findRenderObject() as RenderBox?;
     if (renderBox == null || !renderBox.hasSize) return;
 
-    final position = renderBox.localToGlobal(Offset.zero);
-    final size = renderBox.size;
-    final dpr = MediaQuery.devicePixelRatioOf(context);
+    // The rect in the view's own logical pixels, through every transform on
+    // the way up, times the view's real pixel ratio. Car screens and Apple TV
+    // draw the whole app through a Transform.scale and hand it a MediaQuery
+    // whose ratio is multiplied by the same scale (_scaledSurface in
+    // main.dart). localToGlobal already undoes the transform, so multiplying
+    // it by that MediaQuery ratio counted the scale twice: at the car's
+    // default 1.35 the Old School corner window's video landed 1.35x too far
+    // right and ran off the screen (Tesla Screenmate, 2026-11-19). At scale 1
+    // the numbers are exactly what they were.
+    final globalRect = MatrixUtils.transformRect(renderBox.getTransformTo(null), Offset.zero & renderBox.size);
+    final position = globalRect.topLeft;
+    final size = globalRect.size;
+    final dpr = View.maybeOf(context)?.devicePixelRatio ?? MediaQuery.devicePixelRatioOf(context);
 
     // Rounded outward, the same way the native SetRect biases: it floors the
     // position and rounds the buffer size up so the plane always covers at
