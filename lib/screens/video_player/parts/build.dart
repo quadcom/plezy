@@ -185,7 +185,11 @@ extension _VideoPlayerBuildMethods on VideoPlayerScreenState {
       final id = _currentMetadata.id;
       final feature = _osController
           .entriesFor(channelId)
-          .any((e) => e.itemId == id && (e.kind == OldSchoolEntryKind.movie || e.kind == OldSchoolEntryKind.episode));
+          .any(
+            (e) =>
+                e.itemId == id &&
+                (e.kind == OldSchoolEntryKind.movie || e.kind == OldSchoolEntryKind.episode || e.special),
+          );
       if (!feature) return false;
     }
     return _cornerGate.shows(context, _currentMetadata);

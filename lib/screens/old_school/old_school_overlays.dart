@@ -706,7 +706,9 @@ class _OldSchoolPreRollCardState extends State<OldSchoolPreRollCard> with Single
     // The film starts when its trailer ends, and may play a little slowed.
     final wallRunTime = film.wallRunTime;
     final ends = wallRunTime == null ? null : DateTime.now().add(Duration(seconds: leftSeconds)).add(wallRunTime);
-    final episodeLine = film.kind == OldSchoolEntryKind.episode ? film.subtitle : '';
+    final episodeLine = film.special
+        ? t.oldSchool.specialPresentation
+        : (film.kind == OldSchoolEntryKind.episode ? film.subtitle : '');
     final details = [
       if (film.year != null) '${film.year}',
       if (film.rating?.isNotEmpty ?? false) film.rating!,

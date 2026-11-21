@@ -307,14 +307,17 @@ class _OldSchoolGuideViewState extends State<OldSchoolGuideView> {
 
   /// The small line: "Coming attraction" for a trailer, "Music video" for a
   /// music video, "Programmes resume shortly" for standby, else season and
-  /// episode or year and rating.
-  static String _entrySubtitle(OldSchoolEntry entry) => switch (entry.kind) {
-    OldSchoolEntryKind.trailer => t.oldSchool.comingAttraction,
-    OldSchoolEntryKind.music || OldSchoolEntryKind.musicVideo => t.oldSchool.musicVideo,
-    OldSchoolEntryKind.standby => t.oldSchool.resumeShortly,
-    OldSchoolEntryKind.intermission || OldSchoolEntryKind.musicVideos => '',
-    _ => entry.subtitle,
-  };
+  /// episode or year and rating. A special reads "Special presentation",
+  /// as the web guide words it (PLAN_PFN_119).
+  static String _entrySubtitle(OldSchoolEntry entry) => entry.special
+      ? t.oldSchool.specialPresentation
+      : switch (entry.kind) {
+          OldSchoolEntryKind.trailer => t.oldSchool.comingAttraction,
+          OldSchoolEntryKind.music || OldSchoolEntryKind.musicVideo => t.oldSchool.musicVideo,
+          OldSchoolEntryKind.standby => t.oldSchool.resumeShortly,
+          OldSchoolEntryKind.intermission || OldSchoolEntryKind.musicVideos => '',
+          _ => entry.subtitle,
+        };
 
   /// The longer text under a selected entry: an intermission lists what it
   /// plays, a music block the videos still to come, one per line; anything

@@ -394,10 +394,13 @@ extension _VideoPlayerOldSchoolMethods on VideoPlayerScreenState {
 
   /// Whether [entry] gets the "Now playing" card as it opens: a TV episode,
   /// or a film without a trailer of its own (one with a trailer had the
-  /// "Up next" card over it), starting at its beginning on the schedule.
+  /// "Up next" card over it), or a special presentation (PLAN_PFN_119),
+  /// starting at its beginning on the schedule.
   bool _oldSchoolStartsWithCard(OldSchoolTune tune, OldSchoolEntry entry) {
     final kind = entry.kind;
-    final counts = kind == OldSchoolEntryKind.episode || (kind == OldSchoolEntryKind.movie && !entry.hasPreRoll);
+    final counts =
+        kind == OldSchoolEntryKind.episode ||
+        ((kind == OldSchoolEntryKind.movie || entry.special) && !entry.hasPreRoll);
     if (!counts || _os.filmFromStart) return false;
     return tune.offsetInto(entry, DateTime.now()) < OldSchoolPlayerState.startCardWindow;
   }

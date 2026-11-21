@@ -251,6 +251,13 @@ class OldSchoolEntry {
   final String? fillerItemId;
   final OldSchoolFillerKind? fillerKind;
 
+  /// A special presentation (PlezyFin PLAN_PFN_119): a long concert or music
+  /// documentary on Rock the Box, item type Movie or MusicVideo. It stands
+  /// alone in the guide (never folded into a music block), reads "Special
+  /// presentation", and gets the film's Now playing card and poster corner.
+  /// The server sends `special: true` or nothing.
+  final bool special;
+
   const OldSchoolEntry({
     required this.kind,
     required this.itemId,
@@ -287,6 +294,7 @@ class OldSchoolEntry {
     this.rate = 1.0,
     this.fillerItemId,
     this.fillerKind,
+    this.special = false,
   });
 
   /// One block for a break (or, with [kind] musicVideos, a run of music
@@ -307,7 +315,8 @@ class OldSchoolEntry {
   /// [entries] (in start order) as the guide's blocks: each run of break
   /// entries (anything that is not a programme) joined into one intermission
   /// (PLAN_SHA_28), and each run of music videos, with the breaks between
-  /// them, into one musicVideos block.
+  /// them, into one musicVideos block. A special stands alone even when it
+  /// is a music video, splitting the run around it.
   static List<OldSchoolEntry> joinBreaks(Iterable<OldSchoolEntry> entries) {
     final joined = <OldSchoolEntry>[];
     final run = <OldSchoolEntry>[];
@@ -327,7 +336,7 @@ class OldSchoolEntry {
     }
 
     for (final entry in entries) {
-      if (entry.isProgramme && entry.kind != OldSchoolEntryKind.musicVideo) {
+      if (entry.isProgramme && (entry.kind != OldSchoolEntryKind.musicVideo || entry.special)) {
         flush();
         joined.add(entry);
       } else {
@@ -453,6 +462,7 @@ class OldSchoolEntry {
       rate: _rate(map),
       fillerItemId: _string(map, 'FillerItemId'),
       fillerKind: OldSchoolFillerKind.parse(_string(map, 'FillerKind')),
+      special: (map['Special'] ?? map['special']) == true,
     );
   }
 

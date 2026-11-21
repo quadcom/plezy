@@ -100,16 +100,25 @@ void main() {
     })!;
     const channel = OldSchoolChannel(id: 'c1', number: 1, name: 'Giggle Box');
 
-    Future<void> pump(WidgetTester tester, OldSchoolController controller, {Duration? Function()? trailerLeft}) =>
-        tester.pumpWidget(
-          MaterialApp(
-            home: Stack(
-              children: [
-                OldSchoolPreRollCard(controller: controller, channel: channel, film: episode, trailerLeft: trailerLeft),
-              ],
+    Future<void> pump(
+      WidgetTester tester,
+      OldSchoolController controller, {
+      Duration? Function()? trailerLeft,
+      OldSchoolEntry? film,
+    }) => tester.pumpWidget(
+      MaterialApp(
+        home: Stack(
+          children: [
+            OldSchoolPreRollCard(
+              controller: controller,
+              channel: channel,
+              film: film ?? episode,
+              trailerLeft: trailerLeft,
             ),
-          ),
-        );
+          ],
+        ),
+      ),
+    );
 
     testWidgets('says Now playing with the show and episode, and no countdown', (tester) async {
       final controller = OldSchoolController(testJellyfinClient());
@@ -120,6 +129,26 @@ void main() {
       expect(find.text('Giggle Show'), findsOneWidget);
       expect(find.text('S2 E5 · The Beginning'), findsOneWidget);
       expect(find.textContaining('Starts in'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+    });
+
+    testWidgets('a special says Special presentation under its name (PLAN_PFN_119)', (tester) async {
+      final controller = OldSchoolController(testJellyfinClient());
+      addTearDown(controller.dispose);
+      final special = OldSchoolEntry.fromJson({
+        'kind': 'show',
+        'itemType': 'MusicVideo',
+        'itemId': 'concert',
+        'start': '2026-11-21T02:00:00Z',
+        'end': '2026-11-21T04:00:00Z',
+        'name': 'Live at the Hall',
+        'special': true,
+      })!;
+      await pump(tester, controller, film: special);
+      await tester.pump(const Duration(seconds: 2));
+      expect(find.text('Now playing'), findsOneWidget);
+      expect(find.text('Live at the Hall'), findsOneWidget);
+      expect(find.text('Special presentation'), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
     });
 

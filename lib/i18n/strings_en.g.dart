@@ -6186,6 +6186,9 @@ class Translations$oldSchool$en {
 	/// en: 'Music video'
 	String get musicVideo => 'Music video';
 
+	/// en: 'Special presentation'
+	String get specialPresentation => 'Special presentation';
+
 	/// en: 'Back soon'
 	String get backSoon => 'Back soon';
 
@@ -10544,6 +10547,7 @@ extension on Translations {
 			'oldSchool.nothingOn' => 'Off the air',
 			'oldSchool.comingAttraction' => 'Coming attraction',
 			'oldSchool.musicVideo' => 'Music video',
+			'oldSchool.specialPresentation' => 'Special presentation',
 			'oldSchool.backSoon' => 'Back soon',
 			'oldSchool.resumeShortly' => 'Programmes resume shortly',
 			'oldSchool.intermission' => 'Intermission',

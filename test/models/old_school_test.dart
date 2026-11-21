@@ -109,6 +109,25 @@ void main() {
       expect(OldSchoolEntry.fromJson(show(null))!.isProgramme, isTrue);
     });
 
+    test('special is read only when the server sends true (PLAN_PFN_119)', () {
+      Map<String, dynamic> entry(Object? special) => {
+        'kind': 'show',
+        'itemType': 'MusicVideo',
+        'itemId': 'concert',
+        'start': '2026-11-21T02:00:00Z',
+        'end': '2026-11-21T04:00:00Z',
+        'name': 'Live at the Hall',
+        'special': ?special,
+      };
+      final special = OldSchoolEntry.fromJson(entry(true))!;
+      expect(special.special, isTrue);
+      expect(special.kind, OldSchoolEntryKind.musicVideo);
+      expect(special.isProgramme, isTrue);
+      expect(OldSchoolEntry.fromJson(entry(null))!.special, isFalse);
+      expect(OldSchoolEntry.fromJson(entry(false))!.special, isFalse);
+      expect(OldSchoolEntry.fromJson({...entry(null), 'Special': true})!.special, isTrue);
+    });
+
     test('standby has nothing to play and is not a programme', () {
       final entry = OldSchoolEntry.fromJson({
         'Kind': 'Standby',
@@ -504,15 +523,22 @@ void main() {
   });
 
   group('OldSchoolEntry.joinBreaks', () {
-    OldSchoolEntry at(OldSchoolEntryKind kind, int startMin, int endMin, String name, {String? series}) =>
-        OldSchoolEntry(
-          kind: kind,
-          itemId: kind == OldSchoolEntryKind.standby ? null : name,
-          start: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: startMin)),
-          end: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: endMin)),
-          name: name,
-          seriesName: series,
-        );
+    OldSchoolEntry at(
+      OldSchoolEntryKind kind,
+      int startMin,
+      int endMin,
+      String name, {
+      String? series,
+      bool special = false,
+    }) => OldSchoolEntry(
+      kind: kind,
+      itemId: kind == OldSchoolEntryKind.standby ? null : name,
+      start: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: startMin)),
+      end: DateTime.utc(2026, 10, 11, 22).add(Duration(minutes: endMin)),
+      name: name,
+      seriesName: series,
+      special: special,
+    );
 
     test('a run of trailers, music and standby becomes one intermission', () {
       final joined = OldSchoolEntry.joinBreaks([
@@ -570,6 +596,25 @@ void main() {
         OldSchoolEntryKind.intermission,
       ]);
       expect(joined.last.breakItemNames, isEmpty);
+    });
+
+    test('a music-video special stands alone and splits the music run (PLAN_PFN_119)', () {
+      final joined = OldSchoolEntry.joinBreaks([
+        at(OldSchoolEntryKind.musicVideo, 0, 4, 'Artist - One'),
+        at(OldSchoolEntryKind.trailer, 4, 6, 'Between'),
+        at(OldSchoolEntryKind.musicVideo, 6, 10, 'Artist - Two'),
+        at(OldSchoolEntryKind.musicVideo, 10, 130, 'Live at the Hall', special: true),
+        at(OldSchoolEntryKind.musicVideo, 130, 134, 'Artist - Three'),
+      ]);
+      expect(joined.map((e) => e.kind), [
+        OldSchoolEntryKind.musicVideos,
+        OldSchoolEntryKind.musicVideo,
+        OldSchoolEntryKind.musicVideos,
+      ]);
+      expect(joined[1].name, 'Live at the Hall');
+      expect(joined[1].special, isTrue);
+      expect(joined[0].breakItems.map((e) => e.name), ['Artist - One', 'Between', 'Artist - Two']);
+      expect(joined[2].breakItems.map((e) => e.name), ['Artist - Three']);
     });
   });
 }
