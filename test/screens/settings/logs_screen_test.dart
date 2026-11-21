@@ -493,13 +493,13 @@ void main() {
     });
   });
 
-  group('app-bar D-pad traversal', () {
-    // Android TV: `defaultTargetPlatform` is already Android under
-    // `flutter test`, which is what selects the Android text-editing shortcuts.
+  group('app-bar keyboard traversal', () {
+    // Android with a keyboard: `defaultTargetPlatform` is already Android
+    // under `flutter test`, which is what selects the Android text-editing
+    // shortcuts. Not a TV: TVs show no on-screen back button (2026-11-21).
     setUp(() async {
       TvDetectionService.debugSetAppleTVOverride(null);
-      await TvDetectionService.getInstance(forceTv: true);
-      TvDetectionService.setForceTVSync(true);
+      TvDetectionService.setForceTVSync(false);
       PackageInfo.setMockInitialValues(
         appName: 'Plezy',
         packageName: 'com.plezy.test',
@@ -514,7 +514,7 @@ void main() {
       TvDetectionService.setForceTVSync(false);
     });
 
-    testWidgets('ArrowRight from the app-bar back button reaches the action bar on TV', (tester) async {
+    testWidgets('ArrowRight from the app-bar back button reaches the action bar', (tester) async {
       // The back button only exists on a pushed route, which is how the
       // screen is always reached from Settings.
       await tester.pumpWidget(
@@ -548,6 +548,23 @@ void main() {
         isNotNull,
         reason: 'focus stayed on ${focused?.debugLabel}; Right should move it into the action bar',
       );
+    });
+
+    testWidgets('TV shows no app-bar back button', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: InputModeTracker(
+            child: MaterialApp(
+              initialRoute: '/logs',
+              routes: {'/': (_) => const Scaffold(), '/logs': (_) => const LogsScreen()},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppBarBackButton), findsNothing);
     });
 
     testWidgets('Shift+ArrowRight from the app-bar back button is still consumed by the selection region', (

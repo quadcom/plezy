@@ -74,8 +74,11 @@ class DesktopSliverAppBar extends StatelessWidget {
   /// [SliverAppBar]'s own implied back button bypasses the traffic-light padding,
   /// so imply it here and route it through [DesktopAppBarHelper] like any other leading.
   Widget? _impliedLeading(BuildContext context) {
+    if (leading case AppBarBackButton(showOnTv: false) when AppBarBackButton.hiddenOnThisDevice) return null;
     if (leading != null || !automaticallyImplyLeading) return leading;
     if (!(ModalRoute.of(context)?.canPop ?? false)) return null;
+    // TVs show no on-screen back button; leave no empty slot for one.
+    if (AppBarBackButton.hiddenOnThisDevice) return null;
     return AppBarBackButton(style: BackButtonStyle.plain, onPressed: () => Navigator.of(context).pop());
   }
 }

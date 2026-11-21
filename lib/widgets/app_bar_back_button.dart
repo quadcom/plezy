@@ -4,6 +4,7 @@ import 'package:material_symbols_icons/symbols.dart';
 
 import '../focus/focusable_wrapper.dart';
 import '../i18n/strings.g.dart';
+import '../utils/platform_detector.dart';
 import 'app_icon.dart';
 
 /// Defines the visual style of the back button
@@ -29,6 +30,10 @@ enum BackButtonStyle {
 /// ```dart
 /// AppBarBackButton(style: BackButtonStyle.circular)
 /// ```
+///
+/// On TVs it builds nothing: the remote has its own Back key, so an on-screen
+/// arrow is only clutter there (Adrian, 2026-11-21). Phones, tablets, car
+/// screens and desktops keep it. Pass [showOnTv] for a place that needs it.
 class AppBarBackButton extends StatefulWidget {
   /// Creates a back button with the specified style.
   ///
@@ -44,7 +49,11 @@ class AppBarBackButton extends StatefulWidget {
     this.color,
     this.semanticLabel,
     this.focusNode,
+    this.showOnTv = false,
   });
+
+  /// True where the on-screen back button is hidden (TVs).
+  static bool get hiddenOnThisDevice => PlatformDetector.isTV();
 
   final BackButtonStyle style;
 
@@ -56,6 +65,9 @@ class AppBarBackButton extends StatefulWidget {
 
   final String? semanticLabel;
   final FocusNode? focusNode;
+
+  /// Show the button on TVs too. Off by default.
+  final bool showOnTv;
 
   @override
   State<AppBarBackButton> createState() => _AppBarBackButtonState();
@@ -82,6 +94,7 @@ class _AppBarBackButtonState extends State<AppBarBackButton> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.showOnTv && AppBarBackButton.hiddenOnThisDevice) return const SizedBox.shrink();
     final isDarkTheme = Theme.of(context).brightness == Brightness.dark;
     final onTheme = isDarkTheme ? Colors.white : Colors.black;
 

@@ -32,6 +32,8 @@ import 'package:plezy/widgets/video_controls/widgets/sync_offset_control.dart';
 import 'package:plezy/widgets/video_controls/widgets/timeline_slider.dart';
 import 'package:plezy/widgets/video_controls/video_control_button.dart';
 import 'package:plezy/widgets/app_bar_back_button.dart';
+import 'package:plezy/utils/platform_detector.dart';
+import 'package:plezy/widgets/video_controls/widgets/video_controls_header.dart';
 import 'package:plezy/widgets/system_clock.dart';
 import 'package:plezy/widgets/video_controls/widgets/video_timeline_bar.dart';
 
@@ -2364,6 +2366,36 @@ void main() {
       expect(data.flagsCollection.isEnabled, ui.Tristate.isFalse);
       expect(data.hasAction(ui.SemanticsAction.tap), isFalse);
       semantics.dispose();
+    });
+  });
+  group('VideoControlsHeader back arrow', () {
+    Future<void> pumpHeader(WidgetTester tester) async {
+      final watchTogether = WatchTogetherProvider();
+      addTearDown(watchTogether.dispose);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<WatchTogetherProvider>.value(
+          value: watchTogether,
+          child: MaterialApp(
+            home: Scaffold(
+              body: VideoControlsHeader(metadata: testMediaItem(id: 'header'), showClock: false),
+            ),
+          ),
+        ),
+      );
+    }
+
+    tearDown(() => TvDetectionService.debugSetAppleTVOverride(null));
+
+    testWidgets('shows on phones and desktops', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(false);
+      await pumpHeader(tester);
+      expect(find.byType(AppBarBackButton), findsOneWidget);
+    });
+
+    testWidgets('is gone on TVs (the remote has Back)', (tester) async {
+      TvDetectionService.debugSetAppleTVOverride(true);
+      await pumpHeader(tester);
+      expect(find.byType(AppBarBackButton), findsNothing);
     });
   });
 }

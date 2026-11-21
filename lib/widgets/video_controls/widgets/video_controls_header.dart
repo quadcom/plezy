@@ -67,8 +67,14 @@ class VideoControlsHeader extends StatelessWidget {
     final itemTitle = metadata.title ?? t.common.unknown;
     return Row(
       children: [
-        AppBarBackButton(style: BackButtonStyle.video, onPressed: onBack ?? () => Navigator.of(context).pop(true)),
-        const SizedBox(width: 16),
+        // TVs hide the arrow (the remote's Back leaves the player); keep the
+        // button's own 8 margin so the title doesn't touch the edge.
+        if (AppBarBackButton.hiddenOnThisDevice)
+          const SizedBox(width: 8)
+        else ...[
+          AppBarBackButton(style: BackButtonStyle.video, onPressed: onBack ?? () => Navigator.of(context).pop(true)),
+          const SizedBox(width: 16),
+        ],
         Expanded(
           child: !showTitle
               ? const SizedBox()

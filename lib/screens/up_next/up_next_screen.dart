@@ -19,11 +19,13 @@ import '../../services/device_performance.dart';
 import '../../services/scrub_preview_source.dart';
 import '../../services/settings_service.dart' show EpisodePosterMode;
 import '../../utils/app_logger.dart';
+import '../../utils/desktop_window_padding.dart';
 import '../../utils/media_image_helper.dart';
 import '../../utils/media_navigation_helper.dart';
 import '../../utils/platform_detector.dart';
 import '../../utils/provider_extensions.dart';
 import '../../utils/video_player_navigation.dart';
+import '../../widgets/app_bar_back_button.dart';
 import '../../widgets/app_icon.dart';
 import '../../widgets/cycling_media_backdrop.dart';
 import '../../widgets/optimized_media_image.dart';
@@ -92,6 +94,9 @@ class UpNextScreen extends StatefulWidget {
 class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderStateMixin {
   // Design units: the mock-up is drawn on a 1920-wide screen.
   static const _design = 1920.0;
+
+  /// Size of the top-left back button with its margin.
+  static const _backButtonRoom = 56.0;
 
   // The hero logo slot, in design units.
   static const _logoWidth = 520.0;
@@ -542,7 +547,22 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
                 _k = k;
                 return Stack(
                   fit: StackFit.expand,
-                  children: [_background(context, size, bg), _content(context, size, k)],
+                  children: [
+                    _background(context, size, bg),
+                    _content(context, size, k),
+                    // Top-left back for touch and mouse; TVs use the remote's
+                    // Back (Adrian, 2026-11-21). maybePop runs the PopScope
+                    // above, so the video box stops as with the Back key.
+                    if (!AppBarBackButton.hiddenOnThisDevice)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        child: DesktopAppBarHelper.buildAdjustedLeading(
+                          AppBarBackButton(onPressed: () => unawaited(Navigator.maybePop(context))),
+                          context: context,
+                        )!,
+                      ),
+                  ],
                 );
               },
             ),
@@ -637,7 +657,11 @@ class _UpNextScreenState extends State<UpNextScreen> with SingleTickerProviderSt
   }
 
   Widget _content(BuildContext context, Size size, double k) {
-    final top = MediaQuery.paddingOf(context).top + 48 * k;
+    // On narrow windows the text's left edge (96 * k) runs under the back
+    // button (56 square), so start below it there; wide windows are unchanged.
+    final underBack = !AppBarBackButton.hiddenOnThisDevice && 96 * k < _backButtonRoom;
+    final gap = 48 * k;
+    final top = MediaQuery.paddingOf(context).top + (underBack && gap < _backButtonRoom ? _backButtonRoom : gap);
     final hero = _hero;
     return Padding(
       padding: EdgeInsets.only(top: top),

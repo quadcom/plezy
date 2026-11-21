@@ -4299,7 +4299,10 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
                             FocusableWrapper(
                               focusNode: _tvDetailInfoFocusNode,
                               onSelect: openDetails,
-                              onNavigateUp: _backButtonFocusNode.requestFocus,
+                              // TVs have no on-screen back button: Up stays put.
+                              onNavigateUp: () {
+                                if (!AppBarBackButton.hiddenOnThisDevice) _backButtonFocusNode.requestFocus();
+                              },
                               onNavigateDown: _focusTvDetailActionRow,
                               onBack: _popMediaDetailIfBackNotSuppressed,
                               useBackgroundFocus: true,
