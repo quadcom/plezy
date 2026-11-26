@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:material_symbols_icons/symbols.dart';
 
 import '../../focus/focusable_wrapper.dart';
+import '../../focus/input_mode_tracker.dart';
 import '../../i18n/strings.g.dart';
 import '../../media/media_item.dart';
 import '../../media/media_server_client.dart';
@@ -110,6 +111,20 @@ class RailItemCard extends StatefulWidget {
 }
 
 class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<RailItemCard> {
+  bool _focused = false;
+
+  void _onFocusChange(bool focused) {
+    if (focused != _focused) setState(() => _focused = focused);
+    if (focused) widget.onFocused();
+  }
+
+  /// The card's own "selected" ring, for touch and mouse. Left off while the
+  /// remote or keyboard focuses the card, whose focus ring already marks it:
+  /// the two together read as a double border on the TV (Adrian, 2026-11-25,
+  /// local/plans/season-page-show-link.md).
+  bool _showsSelectedRing(BuildContext context) =>
+      widget.selected && !(_focused && InputModeTracker.isKeyboardMode(context));
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -132,9 +147,7 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
             onLongPress: showContextMenu,
             onNavigateUp: widget.onNavigateUp,
             onNavigateDown: widget.onNavigateDown,
-            onFocusChange: (focused) {
-              if (focused) widget.onFocused();
-            },
+            onFocusChange: _onFocusChange,
             semanticLabel: widget.semanticLabel,
             child: MediaContextMenu(
               key: contextMenuKey,
@@ -161,8 +174,9 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
                           )
                         else
                           still,
-                        if (widget.selected)
+                        if (_showsSelectedRing(context))
                           DecoratedBox(
+                            key: const ValueKey('railSelectedRing'),
                             decoration: BoxDecoration(
                               border: Border.all(color: theme.colorScheme.onSurface, width: 2),
                               borderRadius: BorderRadius.circular(10),
@@ -243,9 +257,7 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
             onSelect: widget.onSelect,
             onNavigateUp: widget.onNavigateUp,
             onNavigateDown: widget.onNavigateDown,
-            onFocusChange: (focused) {
-              if (focused) widget.onFocused();
-            },
+            onFocusChange: _onFocusChange,
             semanticLabel: '${widget.semanticLabel}, ${t.seasonPage.upcoming}',
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -257,7 +269,7 @@ class _RailItemCardState extends State<RailItemCard> with ContextMenuTapMixin<Ra
                   still: still,
                   badge: widget.badge,
                   blur: widget.blurStill,
-                  selected: widget.selected,
+                  selected: _showsSelectedRing(context),
                 ),
               ),
             ),

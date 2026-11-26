@@ -2688,9 +2688,11 @@ class _MediaDetailScreenState extends State<MediaDetailScreen>
     if (index < 0 || index >= _seasons.length) return;
     final season = _seasons[index];
     setState(() => _selectedSeasonIndex = index);
-    await Navigator.of(
-      context,
-    ).push(detailPageRoute(SeasonDetailScreen(metadata: _fullMetadata ?? _metadata, initialSeasonId: season.id)));
+    await Navigator.of(context).push(
+      detailPageRoute(
+        SeasonDetailScreen(metadata: _fullMetadata ?? _metadata, initialSeasonId: season.id, openedFromShowPage: true),
+      ),
+    );
     if (_canUseDetail) unawaited(_refreshWatchState());
   }
 

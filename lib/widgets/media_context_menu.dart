@@ -47,6 +47,7 @@ import 'collection_picker_dialog.dart';
 import '../screens/plex_match_screen.dart';
 import '../screens/media_detail_screen.dart';
 import '../screens/metadata_edit_screen.dart';
+import '../screens/season/season_detail_screen.dart';
 import '../screens/music/album_detail_screen.dart';
 import '../screens/music/artist_detail_screen.dart';
 import '../utils/smart_deletion_handler.dart';
@@ -554,6 +555,9 @@ class MediaContextMenuState extends State<MediaContextMenu> {
         : ancestorMeta?.id;
     // For episodes, the show key is grandparentId; for seasons, it's parentId
     final itemSeriesKey = mediaKind == MediaKind.episode ? mediaItem.grandparentId : mediaItem.parentId;
+    // Fork: a season page has its own "Go to show" button
+    // (local/plans/season-page-show-link.md).
+    final onSeasonPage = context.findAncestorWidgetOfExactType<SeasonDetailScreen>() != null;
 
     return [
       if (mediaKind.isMusic) ..._musicMenuActions(context, menu, mediaItem),
@@ -604,6 +608,7 @@ class MediaContextMenuState extends State<MediaContextMenu> {
       if ((mediaKind == MediaKind.episode || mediaKind == MediaKind.season) &&
           itemSeriesKey != null &&
           !widget.isInContinueWatching &&
+          !onSeasonPage &&
           ancestorSeriesKey != itemSeriesKey)
         _MenuAction(value: 'series', icon: Symbols.tv_rounded, label: t.mediaMenu.goToSeries),
       if (mediaKind == MediaKind.show || mediaKind == MediaKind.season)
@@ -966,11 +971,16 @@ class MediaContextMenuState extends State<MediaContextMenu> {
   }
 
   /// Open the show an episode or season belongs to, landing on that season
-  /// and episode.
+  /// and episode. Fork: with season pages on, the show's own page instead, so
+  /// it doesn't reopen the season page (local/plans/season-page-show-link.md).
   Future<void> _navigateToSeries(BuildContext context, MediaItem item) => _navigateToRelated(
     context,
     item.kind == MediaKind.season ? item.parentId : item.grandparentId,
     (context, series) async {
+      if (seasonPagesEnabled()) {
+        await Navigator.push(context, mediaDetailRoute(metadata: series));
+        return;
+      }
       final target = mediaDetailNavigationTargetFor(item, metadataOverride: series);
       await Navigator.push(
         context,

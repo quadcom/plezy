@@ -2491,6 +2491,7 @@
     "watchTrailer": "Watch trailer",
     "seasonTrailers": "Season trailers",
     "showTrailer": "Show trailer",
+    "goToShow": "Go to show",
     "episodeHeading": "Episode ${number}: ${title}",
     "spoilerHidden": "The description shows once you've watched it.",
     "loadFailed": "Could not load this season.",

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:plezy/focus/input_mode_tracker.dart';
 import 'package:plezy/i18n/strings.g.dart';
 import 'package:plezy/media/ids.dart';
 import 'package:plezy/media/library_query.dart';
@@ -423,6 +424,83 @@ void main() {
       await pump(tester, const SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'));
       expect(find.text('Trailers & Extras'), findsNothing);
     });
+  });
+
+  group('Go to show (local/plans/season-page-show-link.md)', () {
+    testWidgets('a season of a show with several seasons offers it', (tester) async {
+      await pump(tester, const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1', initialEpisodeId: 'e1-2'));
+      expect(find.text('Go to show'), findsOneWidget);
+    });
+
+    testWidgets('not for a show with one season', (tester) async {
+      await pump(tester, const SeasonDetailScreen(metadata: _show), seasonList: [_season(1)]);
+      expect(find.text('Season 1'), findsOneWidget);
+      expect(find.text('Go to show'), findsNothing);
+    });
+
+    testWidgets('not for a show laid out in one row', (tester) async {
+      await pump(tester, const SeasonDetailScreen(metadata: _show, wholeShow: true));
+      expect(find.text('S1 · E1'), findsOneWidget);
+      expect(find.text('Go to show'), findsNothing);
+    });
+
+    testWidgets('goes back to the show page when it opened the season', (tester) async {
+      await pump(
+        tester,
+        Builder(
+          builder: (context) => TextButton(
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    const SeasonDetailScreen(metadata: _show, initialSeasonId: 's1', openedFromShowPage: true),
+              ),
+            ),
+            child: const Text('show page'),
+          ),
+        ),
+      );
+      await tester.tap(find.text('show page'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SeasonDetailScreen), findsOneWidget);
+
+      await tester.tap(find.text('Go to show'));
+      for (var i = 0; i < 10; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(SeasonDetailScreen), findsNothing);
+      expect(find.text('show page'), findsOneWidget);
+    });
+  });
+
+  testWidgets('a remote-focused episode has one ring, not two (Adrian, 2026-11-25)', (tester) async {
+    await pump(
+      tester,
+      const InputModeTracker(
+        child: SeasonDetailScreen(metadata: _show, initialSeasonId: 's2'),
+      ),
+      onDeck: _episode(2, 2),
+    );
+    final ring = find.byKey(const ValueKey('railSelectedRing'));
+    // Touch and mouse: the picked episode wears its own ring.
+    expect(ring, findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Season:Episode2');
+    // Focused by the remote: only the focus ring.
+    expect(ring, findsNothing);
+
+    // Back up to the buttons: the picked episode gets its ring back.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'Season:Primary');
+    expect(ring, findsOneWidget);
   });
 
   testWidgets('season posters are labelled with the season, not the show', (tester) async {

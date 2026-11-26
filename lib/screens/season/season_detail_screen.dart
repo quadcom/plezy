@@ -30,6 +30,7 @@ import '../../widgets/media_context_menu.dart';
 import '../../widgets/media_rail/rail_parts.dart';
 import '../../widgets/optimized_media_image.dart';
 import '../media_detail/big_screen_layout.dart';
+import '../media_detail_screen.dart';
 
 /// Whether seasons open on [SeasonDetailScreen] (the fork's default) rather
 /// than as tabs on the show screen.
@@ -61,6 +62,7 @@ class SeasonDetailScreen extends StatefulWidget {
     this.initialSeasonIndex,
     this.initialEpisodeId,
     this.wholeShow = false,
+    this.openedFromShowPage = false,
   });
 
   /// The season, or its show (possibly a stand-in built from an episode).
@@ -77,6 +79,10 @@ class SeasonDetailScreen extends StatefulWidget {
   /// Every episode of the show in one rail: shows the server says to flatten
   /// (a single season, or Plex's "hide seasons").
   final bool wholeShow;
+
+  /// The show's own page is the route below, so "Go to show" goes back to it
+  /// instead of opening a second copy.
+  final bool openedFromShowPage;
 
   @override
   State<SeasonDetailScreen> createState() => _SeasonDetailScreenState();
@@ -96,6 +102,9 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
   int _total = 0;
   MediaItem? _onDeck;
   MediaItem? _trailer;
+
+  /// How many seasons the show has, when known.
+  int? _seasonCount;
 
   /// [_trailer] is the show's, played because the season has none of its own.
   bool _trailerIsShows = false;
@@ -226,8 +235,10 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         extras = fetchedExtras;
       }
 
+      int? seasonCount;
       if (season == null && !widget.wholeShow && show != null) {
         final seasons = [for (final s in await fetchShowSeasons(client, show.id)) _stamp(s)];
+        seasonCount = seasons.length;
         if (seasons.isNotEmpty) {
           season =
               seasons[preferredSeasonIndex(
@@ -293,6 +304,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
         _onDeck = onDeck;
         _trailer = trailer;
         _trailerIsShows = picked?.isShowTrailer ?? false;
+        _seasonCount = seasonCount ?? show?.childCount;
         _extras = rowExtras;
         _selected = _firstLoad
             ? _initialSelection(episodes, onDeck)
@@ -739,6 +751,14 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             icon: Symbols.theaters_rounded,
             label: _trailerIsShows ? t.seasonPage.showTrailer : t.seasonPage.watchTrailer,
           ),
+        if (_showsGoToShow)
+          _HeaderButton(
+            focusNode: target == null && trailer == null ? _primaryFocus : null,
+            onPressed: _goToShow,
+            onNavigateDown: _focusSelectedEpisode,
+            icon: Symbols.tv_rounded,
+            label: t.seasonPage.goToShow,
+          ),
         if (menuItem != null)
           MediaContextMenu(
             key: _moreMenuKey,
@@ -746,7 +766,7 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
             onRefresh: (_) => unawaited(_load()),
             onListRefresh: () => unawaited(_load()),
             child: FocusableButton(
-              focusNode: target == null && trailer == null ? _primaryFocus : null,
+              focusNode: target == null && trailer == null && !_showsGoToShow ? _primaryFocus : null,
               useBackgroundFocus: true,
               onPressed: _openMoreMenu,
               onNavigateDown: _focusSelectedEpisode,
@@ -755,6 +775,23 @@ class _SeasonDetailScreenState extends State<SeasonDetailScreen> {
           ),
       ],
     );
+  }
+
+  /// "Go to show" needs a show page above this one: not for a show laid out
+  /// as one rail, nor a show with a single season, whose show page opens
+  /// straight on this season page (local/plans/season-page-show-link.md).
+  bool get _showsGoToShow => _show != null && !widget.wholeShow && (_seasonCount ?? 2) > 1;
+
+  /// The show's own page, with its seasons row: back to it when it is the
+  /// page below, else opened fresh.
+  void _goToShow() {
+    final show = _show;
+    if (show == null) return;
+    if (widget.openedFromShowPage) {
+      Navigator.of(context).pop();
+      return;
+    }
+    unawaited(Navigator.of(context).push(mediaDetailRoute(metadata: show)));
   }
 
   Widget _buildRail(BuildContext context, MediaServerClient? client, Size size, bool wide, bool hideSpoilers) {
